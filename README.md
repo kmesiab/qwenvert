@@ -94,6 +94,24 @@ claude
 
 **That's it!** Claude Code now uses your local model. Your code stays on your machine.
 
+### What Just Happened?
+
+**Without qwenvert (default):**
+```
+Claude Code → api.anthropic.com → Claude Sonnet/Opus
+              (internet)           (cloud)
+              💰 Costs money      ☁️ Code leaves machine
+```
+
+**With qwenvert (configured):**
+```
+Claude Code → localhost:8088 → Ollama → Qwen Model
+              (no internet)     (local)  (your Mac)
+              💰 Free            🔒 Code stays local
+```
+
+Claude Code doesn't know the difference - it just uses whatever `ANTHROPIC_BASE_URL` points to!
+
 ---
 
 ## 📖 How to Use
@@ -128,6 +146,42 @@ export ANTHROPIC_MODEL=qwenvert-default
 Then reload: `source ~/.zshrc`
 
 Now `claude` will automatically use qwenvert!
+
+### Verify Claude Code is Using Qwenvert
+
+After setting environment variables, verify the setup:
+
+```bash
+# Check environment variables are set
+echo $ANTHROPIC_BASE_URL
+# Should show: http://localhost:8088
+
+echo $ANTHROPIC_API_KEY
+# Should show: local-qwen
+
+echo $ANTHROPIC_MODEL
+# Should show: qwenvert-default
+
+# Make sure qwenvert is running
+curl http://localhost:8088/health
+# Should return: {"status":"healthy","backend":"connected"}
+
+# Test with Claude Code
+claude
+# In Claude Code, ask: "What model are you?"
+# It should respond as Qwen2.5-Coder (though it might say Claude)
+```
+
+**How to tell it's working:**
+- ✅ Claude Code starts without asking for an API key
+- ✅ Responses come quickly (no network delay)
+- ✅ `qwenvert monitor` shows requests appearing
+- ✅ Works offline (disconnect wifi and try)
+
+**If it's NOT working:**
+- ❌ "Invalid API key" error → Check `ANTHROPIC_API_KEY=local-qwen`
+- ❌ "Connection refused" → Check `ANTHROPIC_BASE_URL` and qwenvert is running
+- ❌ "Model not found" → Check `ANTHROPIC_MODEL=qwenvert-default`
 
 ---
 
