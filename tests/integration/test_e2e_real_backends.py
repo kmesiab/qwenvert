@@ -21,6 +21,7 @@ from typing import Optional
 
 import httpx
 import pytest
+import pytest_asyncio
 
 from qwenvert.adapter import create_app
 from qwenvert.config import ConfigGenerator
@@ -44,7 +45,7 @@ def llamacpp_backend_url():
     return os.getenv("LLAMACPP_URL", "http://localhost:8080")
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def check_ollama_available(ollama_backend_url):
     """Check if Ollama is running and has qwen model."""
     try:
@@ -61,7 +62,7 @@ async def check_ollama_available(ollama_backend_url):
     return False
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def check_llamacpp_available(llamacpp_backend_url):
     """Check if llama.cpp server is running."""
     try:
