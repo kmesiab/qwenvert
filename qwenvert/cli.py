@@ -111,30 +111,42 @@ def init(model, backend, adapter_port, context_length):
     if model_path:
         console.print(f"✓ Model already downloaded: [green]{model_path}[/green]")
     else:
-        console.print(
-            f"\n[cyan]Downloading {selected_model.display_name} from HuggingFace...[/cyan]"
-        )
-        console.print(f"Repository: {selected_model.huggingface_repo}")
-
-        try:
-            with console.status(
-                f"[cyan]Downloading {selected_model.display_name}...",
-                spinner="dots"
-            ):
-                model_path = downloader.download(selected_model)
-
-            console.print(f"✓ Model downloaded: [green]{model_path}[/green]")
-            size_gb = model_path.stat().st_size / (1024**3)
-            console.print(f"  Size: {size_gb:.2f} GB")
-
-        except Exception as e:
-            console.print(f"\n[red]Error downloading model:[/red] {e}")
+        # Verify model has HuggingFace repo before attempting download
+        if not selected_model.huggingface_repo:
+            console.print(
+                f"\n[red]Error:[/red] Model {selected_model.id} has no HuggingFace repository specified"
+            )
             console.print(
                 "\n[yellow]You can manually download the model and place it in:[/yellow]"
             )
             console.print(f"  {downloader.models_dir}")
             if not click.confirm("\nContinue with configuration anyway?"):
                 sys.exit(1)
+        else:
+            console.print(
+                f"\n[cyan]Downloading {selected_model.display_name} from HuggingFace...[/cyan]"
+            )
+            console.print(f"Repository: {selected_model.huggingface_repo}")
+
+            try:
+                with console.status(
+                    f"[cyan]Downloading {selected_model.display_name}...",
+                    spinner="dots"
+                ):
+                    model_path = downloader.download(selected_model)
+
+                console.print(f"✓ Model downloaded: [green]{model_path}[/green]")
+                size_gb = model_path.stat().st_size / (1024**3)
+                console.print(f"  Size: {size_gb:.2f} GB")
+
+            except Exception as e:
+                console.print(f"\n[red]Error downloading model:[/red] {e}")
+                console.print(
+                    "\n[yellow]You can manually download the model and place it in:[/yellow]"
+                )
+                console.print(f"  {downloader.models_dir}")
+                if not click.confirm("\nContinue with configuration anyway?"):
+                    sys.exit(1)
 
     # Step 4: Generate configuration
     config_gen = ConfigGenerator(selected_model, hardware)
@@ -391,6 +403,53 @@ def hardware():
         console.print("  • [green]Good configuration[/green] - can handle larger models")
 
     console.print()
+
+
+@cli.command()
+@click.option(
+    "--adapter-url",
+    default="http://localhost:8088",
+    help="Adapter URL to monitor (default: http://localhost:8088)",
+)
+@click.option(
+    "--refresh-rate",
+    type=float,
+    default=1.0,
+    help="Dashboard refresh rate in seconds (default: 1.0)",
+)
+def monitor(adapter_url, refresh_rate):
+    """
+    Real-time monitoring dashboard.
+
+    Displays live performance metrics, system resources, and request history
+    in a beautiful terminal interface.
+    """
+    import asyncio
+    from .config import ConfigManager
+    from .dashboard import run_dashboard
+
+    console.print("\n[bold blue]Starting Qwenvert Monitor[/bold blue]\n")
+
+    # Load config if available to get adapter URL
+    if ConfigManager.exists():
+        config = ConfigManager.load()
+        adapter_url = f"http://{config.adapter_host}:{config.adapter_port}"
+        console.print(f"Monitoring: [cyan]{adapter_url}[/cyan]")
+    else:
+        console.print(f"Monitoring: [cyan]{adapter_url}[/cyan]")
+        console.print("[yellow]Tip:[/yellow] Run [bold]qwenvert init[/bold] to configure\n")
+
+    console.print("Press [bold cyan]Ctrl+C[/bold cyan] to exit\n")
+
+    try:
+        asyncio.run(run_dashboard(adapter_url=adapter_url, refresh_rate=refresh_rate))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Monitor stopped[/yellow]\n")
+    except Exception as e:
+        console.print(f"\n[red]Error:[/red] {e}\n")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

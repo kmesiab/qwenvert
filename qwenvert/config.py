@@ -42,6 +42,7 @@ class QwenvertConfig:
     context_length: int = 16384
     thermal_monitoring: bool = True
     thermal_pacing: bool = False
+    model_path: Optional[str] = None
 
     @classmethod
     def default_config_path(cls) -> Path:

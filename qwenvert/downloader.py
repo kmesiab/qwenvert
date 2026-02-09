@@ -7,6 +7,7 @@ integrity verification, and resume support.
 
 import hashlib
 import logging
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -87,14 +88,26 @@ class ModelDownloader:
                 filename=filename,
                 cache_dir=str(self.models_dir / ".cache"),
                 local_dir=str(self.models_dir),
-                local_dir_use_symlinks=False,  # Copy, don't symlink
-                resume_download=True,  # Resume if interrupted
             )
 
-            # Move to expected location if needed
+            # Move to expected location if needed (cross-filesystem safe)
             downloaded_path_obj = Path(downloaded_path)
             if downloaded_path_obj != local_path:
-                downloaded_path_obj.rename(local_path)
+                shutil.move(str(downloaded_path_obj), str(local_path))
+
+            # Verify checksum if available
+            if hasattr(model, 'checksum') and model.checksum:
+                if not self.verify_checksum(local_path, model.checksum):
+                    logger.error("Checksum verification failed, removing corrupted file")
+                    local_path.unlink()
+                    raise RuntimeError(f"Checksum verification failed for {model.display_name}")
+                logger.info("✅ Checksum verified")
+            elif hasattr(model, 'sha256') and model.sha256:
+                if not self.verify_checksum(local_path, model.sha256):
+                    logger.error("Checksum verification failed, removing corrupted file")
+                    local_path.unlink()
+                    raise RuntimeError(f"Checksum verification failed for {model.display_name}")
+                logger.info("✅ Checksum verified")
 
             logger.info(f"✅ Download complete: {local_path}")
             logger.info(f"   Size: {local_path.stat().st_size / (1024**3):.2f} GB")
@@ -118,22 +131,26 @@ class ModelDownloader:
         Raises:
             ValueError: If filename can't be determined
         """
-        # For GGUF models, backend_model_id might be:
-        # - Full path: "/path/to/model.gguf"
-        # - Just filename: "model.gguf"
-        # - Ollama tag: "qwen2.5-coder:7b" (need to construct filename)
+        # Check if model has explicit gguf_filename attribute
+        if hasattr(model, 'gguf_filename') and model.gguf_filename:
+            return model.gguf_filename
 
         backend_id = model.backend_model_id
 
-        # If it's already a .gguf filename
+        # If backend_model_id is already a .gguf filename
         if backend_id.endswith(".gguf"):
             return Path(backend_id).name
 
-        # Construct from model metadata
+        # Construct from model metadata with more careful formatting
         # Format: {family}-{size}b-instruct-{quantization}.gguf
-        family = model.family.replace(".", "").replace("-", "")
-        size = str(model.size_b).replace(".", "")
-        quant = model.quantization.lower().replace("_", "")
+        # Keep original formatting to match HuggingFace filenames
+        family = model.family.lower()
+
+        # Format size as integer if whole number, else keep decimal
+        size = int(model.size_b) if model.size_b == int(model.size_b) else model.size_b
+
+        # Keep quantization format as-is (e.g., Q4_K_M)
+        quant = model.quantization
 
         filename = f"{family}-{size}b-instruct-{quant}.gguf"
         logger.debug(f"Constructed filename: {filename}")
