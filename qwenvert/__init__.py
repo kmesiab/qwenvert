@@ -6,7 +6,7 @@ Mac hardware running Qwen models with Claude Code integration.
 """
 
 __version__ = "0.1.0"
-__author__ = "Kyle Mesiab"
+__author__ = "Kevin Mesiab"
 
 from .hardware import HardwareDetector, HardwareProfile
 from .models import Backend, Model, ModelRegistry, ModelSelector
