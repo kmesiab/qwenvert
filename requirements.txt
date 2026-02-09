@@ -1,0 +1,35 @@
+# Core dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+httpx>=0.25.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# CLI and UI
+click>=8.1.0
+rich>=13.7.0
+
+# Model management
+huggingface-hub>=0.19.0
+
+# MLX support (Apple Silicon only)
+mlx>=0.0.8; platform_machine == "arm64" and sys_platform == "darwin"
+mlx-lm>=0.0.6; platform_machine == "arm64" and sys_platform == "darwin"
+
+# Monitoring and telemetry
+psutil>=5.9.0
+py-cpuinfo>=9.0.0
+prometheus-client>=0.19.0  # Metrics export
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
+aiofiles>=23.2.1
+
+# Optional: Development dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+black>=23.11.0
+ruff>=0.1.6
+mypy>=1.7.0
