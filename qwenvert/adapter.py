@@ -6,6 +6,7 @@ Translates Anthropic Messages API requests to backend format.
 """
 
 import asyncio
+import json
 import logging
 from typing import Any, AsyncIterator, Dict, List, Literal, Optional, Union
 
@@ -222,37 +223,20 @@ async def _generate_response(
 
     Returns:
         Complete message response
+
+    Raises:
+        httpx.HTTPError: If backend request fails
+        Exception: For other backend errors
     """
-    # TODO: Implement actual backend routing (Task #7)
-    # For now, return a placeholder response
+    try:
+        # Call backend router to generate response
+        response = await backend_router.generate(request)
+        logger.debug(f"Backend returned response with {response.usage.output_tokens} output tokens")
+        return response
 
-    # This will be replaced with:
-    # backend_response = await backend_router.generate(request)
-    # return _transform_response(backend_response, request)
-
-    placeholder_response = MessagesResponse(
-        id="msg_placeholder",
-        type="message",
-        role="assistant",
-        content=[
-            ContentBlock(
-                type="text",
-                text=(
-                    "This is a placeholder response from qwenvert adapter. "
-                    "Backend router not yet implemented. "
-                    f"You requested model: {request.model}"
-                ),
-            )
-        ],
-        model=request.model,
-        stop_reason="end_turn",
-        usage=Usage(
-            input_tokens=_estimate_tokens(request.messages),
-            output_tokens=20,  # Placeholder
-        ),
-    )
-
-    return placeholder_response
+    except Exception as e:
+        logger.error(f"Backend generation failed: {e}", exc_info=True)
+        raise
 
 
 async def _stream_response(
@@ -267,51 +251,33 @@ async def _stream_response(
 
     Yields:
         SSE-formatted event strings
+
+    Raises:
+        httpx.HTTPError: If backend request fails
+        Exception: For other backend errors
     """
-    # TODO: Implement actual streaming (Task #7)
-    # For now, yield placeholder events
+    try:
+        # Stream events from backend router
+        async for event in backend_router.generate_stream(request):
+            # Convert event dict to SSE format
+            # Backend router already provides Anthropic-format events
+            event_type = event.get("type", "message_delta")
 
-    # message_start event
-    start_event = MessageStreamEvent(
-        type="message_start",
-        message=MessagesResponse(
-            id="msg_placeholder_stream",
-            type="message",
-            role="assistant",
-            content=[],
-            model=request.model,
-            usage=Usage(
-                input_tokens=_estimate_tokens(request.messages), output_tokens=0
-            ),
-        ),
-    )
-    yield f"event: message_start\ndata: {start_event.model_dump_json()}\n\n"
+            # Format as Server-Sent Event
+            yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
 
-    # content_block_start event
-    block_start = MessageStreamEvent(
-        type="content_block_start", index=0, delta={"type": "text", "text": ""}
-    )
-    yield f"event: content_block_start\ndata: {block_start.model_dump_json()}\n\n"
-
-    # Simulate streaming tokens
-    placeholder_text = "Streaming placeholder from qwenvert adapter. Backend not yet implemented."
-    for word in placeholder_text.split():
-        delta_event = MessageStreamEvent(
-            type="content_block_delta", index=0, delta={"type": "text", "text": word + " "}
-        )
-        yield f"event: content_block_delta\ndata: {delta_event.model_dump_json()}\n\n"
-        await asyncio.sleep(0.1)  # Simulate delay
-
-    # content_block_stop event
-    block_stop = MessageStreamEvent(type="content_block_stop", index=0)
-    yield f"event: content_block_stop\ndata: {block_stop.model_dump_json()}\n\n"
-
-    # message_stop event
-    stop_event = MessageStreamEvent(
-        type="message_stop",
-        delta={"stop_reason": "end_turn", "output_tokens": 10},
-    )
-    yield f"event: message_stop\ndata: {stop_event.model_dump_json()}\n\n"
+    except Exception as e:
+        logger.error(f"Streaming generation failed: {e}", exc_info=True)
+        # Send error event
+        error_event = {
+            "type": "error",
+            "error": {
+                "type": "api_error",
+                "message": str(e)
+            }
+        }
+        yield f"event: error\ndata: {json.dumps(error_event)}\n\n"
+        raise
 
 
 def _estimate_tokens(messages: List[Message]) -> int:
