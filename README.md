@@ -446,7 +446,7 @@ source ~/.zshrc
 
 1. **Localhost-only binding** - Adapter listens on `127.0.0.1` only (not accessible from network)
 2. **No external calls** - Code explicitly blocks external connections
-3. **Test-proven** - 31+ security tests verify isolation
+3. **Test-proven** - 3 dedicated security tests verify isolation
 4. **Transparent code** - Full source available for audit
 
 **Perfect for:**
@@ -625,7 +625,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System design and component details
 - **[SIMPLIFIED_ARCHITECTURE.md](./docs/SIMPLIFIED_ARCHITECTURE.md)** - Beginner-friendly architecture overview
 - **[TASKS.md](./TASKS.md)** - Development roadmap and task tracking
-- **[tests/](./tests/)** - Test suite (31+ tests proving security guarantees)
+- **[tests/](./tests/)** - Test suite with 3 dedicated security tests
 
 ---
 
