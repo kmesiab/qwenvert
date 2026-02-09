@@ -1,0 +1,237 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qwenvert"
+version = "0.1.0"
+description = "One-click local LLM inference for Claude Code on Mac M1"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Kyle Mesiab", email = "kmesiab@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: MacOS :: MacOS X",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # defaults
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+extend-exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".git",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# Enable strict rule sets
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "YTT",   # flake8-2020
+    "ANN",   # flake8-annotations
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit (security)
+    "BLE",   # flake8-blind-except
+    "FBT",   # flake8-boolean-trap
+    "B",     # flake8-bugbear
+    "A",     # flake8-builtins
+    "COM",   # flake8-commas
+    "C4",    # flake8-comprehensions
+    "DTZ",   # flake8-datetimez
+    "T10",   # flake8-debugger
+    "EM",    # flake8-errmsg
+    "EXE",   # flake8-executable
+    "FA",    # flake8-future-annotations
+    "ISC",   # flake8-implicit-str-concat
+    "ICN",   # flake8-import-conventions
+    "G",     # flake8-logging-format
+    "INP",   # flake8-no-pep420
+    "PIE",   # flake8-pie
+    "T20",   # flake8-print
+    "PYI",   # flake8-pyi
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+    "RET",   # flake8-return
+    "SLF",   # flake8-self
+    "SLOT",  # flake8-slots
+    "SIM",   # flake8-simplify
+    "TID",   # flake8-tidy-imports
+    "TCH",   # flake8-type-checking
+    "INT",   # flake8-gettext
+    "ARG",   # flake8-unused-arguments
+    "PTH",   # flake8-use-pathlib
+    "TD",    # flake8-todos
+    "FIX",   # flake8-fixme
+    "ERA",   # eradicate
+    "PD",    # pandas-vet
+    "PGH",   # pygrep-hooks
+    "PL",    # pylint
+    "TRY",   # tryceratops
+    "FLY",   # flynt
+    "NPY",   # numpy-specific rules
+    "PERF",  # perflint
+    "FURB",  # refurb
+    "LOG",   # flake8-logging
+    "RUF",   # ruff-specific rules
+]
+
+ignore = [
+    "ANN101",  # Missing type annotation for self
+    "ANN102",  # Missing type annotation for cls
+    "D203",    # 1 blank line required before class docstring
+    "D213",    # Multi-line docstring summary should start at the second line
+    "COM812",  # Trailing comma missing (conflicts with formatter)
+    "ISC001",  # Implicit string concatenation (conflicts with formatter)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",    # Allow assert in tests
+    "ANN",     # Don't require annotations in tests
+    "PLR2004", # Allow magic values in tests
+    "S105",    # Allow hardcoded passwords in tests
+    "S106",    # Allow hardcoded passwords in tests
+]
+"**/__init__.py" = [
+    "F401",    # Allow unused imports in __init__.py
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["qwenvert"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-branches = 12
+max-returns = 6
+max-statements = 50
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "mlx.*",
+    "mlx_lm.*",
+    "psutil.*",
+    "cpuinfo.*",
+    "prometheus_client.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=qwenvert",
+    "--cov-branch",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["qwenvert"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
