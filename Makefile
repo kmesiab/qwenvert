@@ -1,5 +1,7 @@
 .PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all
 
+PYTHON ?= python3
+
 # Default target
 help:
 	@echo "qwenvert - Development Commands"
@@ -25,58 +27,58 @@ help:
 
 # Installation
 install:
-	pip install -e .
+	$(PYTHON) -m pip install -e .
 
 install-dev:
-	pip install -e ".[dev]"
-	pip install pytest pytest-asyncio pytest-cov black ruff mypy
+	$(PYTHON) -m pip install -e ".[dev]"
+	$(PYTHON) -m pip install pytest pytest-asyncio pytest-cov black ruff mypy
 
 # Code formatting
 format:
 	@echo "Running black..."
-	black qwenvert tests
+	$(PYTHON) -m black qwenvert tests
 	@echo "Running ruff fix..."
-	ruff check --fix qwenvert tests
+	$(PYTHON) -m ruff check --fix qwenvert tests
 	@echo "✓ Formatting complete"
 
 format-check:
 	@echo "Checking black formatting..."
-	black --check qwenvert tests
+	$(PYTHON) -m black --check qwenvert tests
 	@echo "Checking ruff formatting..."
-	ruff format --check qwenvert tests
+	$(PYTHON) -m ruff format --check qwenvert tests
 	@echo "✓ Format check passed"
 
 # Linting
 lint:
 	@echo "Running ruff linter..."
-	ruff check qwenvert tests
+	$(PYTHON) -m ruff check qwenvert tests
 	@echo "✓ Lint check passed"
 
 # Type checking
 typecheck:
 	@echo "Running mypy..."
-	mypy qwenvert
+	$(PYTHON) -m mypy qwenvert
 	@echo "✓ Type check passed"
 
 # Testing
 test:
 	@echo "Running tests with coverage..."
-	pytest
+	$(PYTHON) -m pytest
 	@echo "✓ Tests passed"
 
 test-unit:
 	@echo "Running unit tests..."
-	pytest -m unit
+	$(PYTHON) -m pytest -m unit
 	@echo "✓ Unit tests passed"
 
 test-integration:
 	@echo "Running integration tests..."
-	pytest -m integration
+	$(PYTHON) -m pytest -m integration
 	@echo "✓ Integration tests passed"
 
 coverage:
 	@echo "Generating coverage report..."
-	pytest --cov=qwenvert --cov-report=html --cov-report=term
+	$(PYTHON) -m pytest --cov=qwenvert --cov-report=html --cov-report=term
 	@echo "✓ Coverage report generated in htmlcov/"
 
 # Run all checks (CI equivalent)

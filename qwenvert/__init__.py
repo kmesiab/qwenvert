@@ -11,6 +11,7 @@ __author__ = "Kevin Mesiab"
 from .hardware import HardwareDetector, HardwareProfile
 from .models import Backend, Model, ModelRegistry, ModelSelector
 
+
 __all__ = [
     "Backend",
     "HardwareDetector",
