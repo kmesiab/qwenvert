@@ -20,6 +20,8 @@ from qwenvert.router import BackendRouter
 @pytest.fixture
 async def adapter_client(sample_model_7b_q4):
     """Create test client for adapter."""
+    from qwenvert.adapter import MessagesResponse, ContentBlock, Usage
+
     app = create_app()
 
     # Mock the backend router to avoid actual backend calls
@@ -28,15 +30,15 @@ async def adapter_client(sample_model_7b_q4):
         mock_router_class.return_value = mock_router
 
         # Configure mock to return realistic response
-        mock_router.generate.return_value = {
-            "id": "msg_test123",
-            "type": "message",
-            "role": "assistant",
-            "content": [{"type": "text", "text": "Hello! How can I help you?"}],
-            "model": "qwenvert-default",
-            "stop_reason": "end_turn",
-            "usage": {"input_tokens": 10, "output_tokens": 8},
-        }
+        mock_router.generate.return_value = MessagesResponse(
+            id="msg_test123",
+            type="message",
+            role="assistant",
+            content=[ContentBlock(type="text", text="Hello! How can I help you?")],
+            model="qwenvert-default",
+            stop_reason="end_turn",
+            usage=Usage(input_tokens=10, output_tokens=8),
+        )
 
         async with AsyncClient(app=app, base_url="http://localhost:8088") as client:
             yield client, mock_router
@@ -252,23 +254,24 @@ class TestBackendIntegration:
         - qwen2.5-coder:7b model downloaded
         """
         from qwenvert.router import BackendRouter
+        from qwenvert.adapter import MessagesRequest, Message
 
         router = BackendRouter(
             model=sample_model_7b_q4,
             backend_url="http://localhost:11434",
         )
 
-        response = await router.generate(
-            {
-                "model": "qwenvert-default",
-                "messages": [{"role": "user", "content": "Say 'Hello'"}],
-                "max_tokens": 10,
-            }
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Say 'Hello'")],
+            max_tokens=10,
         )
 
-        assert response["type"] == "message"
-        assert response["role"] == "assistant"
-        assert len(response["content"]) > 0
+        response = await router.generate(request)
+
+        assert response.type == "message"
+        assert response.role == "assistant"
+        assert len(response.content) > 0
 
     @pytest.mark.integration
     @pytest.mark.skipif(
@@ -284,22 +287,23 @@ class TestBackendIntegration:
         - Qwen model loaded
         """
         from qwenvert.router import BackendRouter
+        from qwenvert.adapter import MessagesRequest, Message
 
         router = BackendRouter(
             model=sample_model_14b_q5,
             backend_url="http://localhost:8080",
         )
 
-        response = await router.generate(
-            {
-                "model": "qwenvert-default",
-                "messages": [{"role": "user", "content": "Say 'Hello'"}],
-                "max_tokens": 10,
-            }
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Say 'Hello'")],
+            max_tokens=10,
         )
 
-        assert response["type"] == "message"
-        assert response["role"] == "assistant"
+        response = await router.generate(request)
+
+        assert response.type == "message"
+        assert response.role == "assistant"
 
 
 class TestErrorHandling:
@@ -309,6 +313,7 @@ class TestErrorHandling:
     async def test_backend_connection_error(self, sample_model_7b_q4):
         """Test handling of backend connection failure."""
         from qwenvert.router import BackendRouter
+        from qwenvert.adapter import MessagesRequest, Message
 
         # Point to non-existent backend
         router = BackendRouter(
@@ -316,14 +321,14 @@ class TestErrorHandling:
             backend_url="http://localhost:9999",  # Not running
         )
 
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Hello")],
+            max_tokens=10,
+        )
+
         with pytest.raises(Exception):  # Should raise connection error
-            await router.generate(
-                {
-                    "model": "qwenvert-default",
-                    "messages": [{"role": "user", "content": "Hello"}],
-                    "max_tokens": 10,
-                }
-            )
+            await router.generate(request)
 
     @pytest.mark.asyncio
     async def test_malformed_request(self, adapter_client):
@@ -406,13 +411,24 @@ class TestAnthropicCompatibility:
     @pytest.mark.asyncio
     async def test_stop_reason_values(self, adapter_client):
         """Test that stop_reason uses valid Anthropic values."""
+        from qwenvert.adapter import MessagesResponse, ContentBlock, Usage
+
         client, mock_router = adapter_client
 
         # Test different stop reasons
         valid_stop_reasons = ["end_turn", "max_tokens", "stop_sequence"]
 
         for stop_reason in valid_stop_reasons:
-            mock_router.generate.return_value["stop_reason"] = stop_reason
+            # Update mock to return new response with different stop_reason
+            mock_router.generate.return_value = MessagesResponse(
+                id="msg_test123",
+                type="message",
+                role="assistant",
+                content=[ContentBlock(type="text", text="Test response")],
+                model="qwenvert-default",
+                stop_reason=stop_reason,
+                usage=Usage(input_tokens=10, output_tokens=5),
+            )
 
             response = await client.post(
                 "/v1/messages",
