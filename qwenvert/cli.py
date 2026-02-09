@@ -100,26 +100,64 @@ def init(model, backend, adapter_port, context_length):
             )
             sys.exit(1)
 
-    console.print(f"✓ Selected: [green]{selected_model}[/green]")
+    console.print(f"✓ Selected: [green]{selected_model.display_name}[/green]")
 
-    # Step 3: Generate configuration
+    # Step 3: Download model if needed
+    from .downloader import ModelDownloader
+
+    downloader = ModelDownloader()
+    model_path = downloader.get_model_path(selected_model)
+
+    if model_path:
+        console.print(f"✓ Model already downloaded: [green]{model_path}[/green]")
+    else:
+        console.print(
+            f"\n[cyan]Downloading {selected_model.display_name} from HuggingFace...[/cyan]"
+        )
+        console.print(f"Repository: {selected_model.huggingface_repo}")
+
+        try:
+            with console.status(
+                f"[cyan]Downloading {selected_model.display_name}...",
+                spinner="dots"
+            ):
+                model_path = downloader.download(selected_model)
+
+            console.print(f"✓ Model downloaded: [green]{model_path}[/green]")
+            size_gb = model_path.stat().st_size / (1024**3)
+            console.print(f"  Size: {size_gb:.2f} GB")
+
+        except Exception as e:
+            console.print(f"\n[red]Error downloading model:[/red] {e}")
+            console.print(
+                "\n[yellow]You can manually download the model and place it in:[/yellow]"
+            )
+            console.print(f"  {downloader.models_dir}")
+            if not click.confirm("\nContinue with configuration anyway?"):
+                sys.exit(1)
+
+    # Step 4: Generate configuration
     config_gen = ConfigGenerator(selected_model, hardware)
     config = config_gen.generate_qwenvert_config(adapter_port=adapter_port)
 
     if context_length:
         config.context_length = context_length
 
-    # Step 4: Save configuration
+    # Update config with actual model path if downloaded
+    if model_path:
+        config.model_path = str(model_path)
+
+    # Step 5: Save configuration
     config_path = ConfigManager.save(config)
     console.print(f"✓ Configuration saved: [green]{config_path}[/green]")
 
-    # Step 5: Generate backend-specific configs
+    # Step 6: Generate backend-specific configs
     if selected_model.backend == Backend.OLLAMA:
         modelfile = config_gen.generate_ollama_modelfile()
         modelfile_path = ConfigManager.save_ollama_modelfile(modelfile)
         console.print(f"✓ Ollama Modelfile: [green]{modelfile_path}[/green]")
 
-    # Step 6: Print setup instructions
+    # Step 7: Print setup instructions
     instructions = config_gen.print_setup_instructions()
     console.print(instructions)
 
