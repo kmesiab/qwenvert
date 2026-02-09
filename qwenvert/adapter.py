@@ -261,7 +261,6 @@ async def _generate_response(
     )
 
 
-
 async def _stream_response(
     request: MessagesRequest, _backend_router: Any
 ) -> AsyncIterator[str]:

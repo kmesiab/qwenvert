@@ -183,7 +183,7 @@ class ServerLauncher:
 
         # Start llama-server
         cmd = [str(llamacpp_path), *flags]
-        logger.info("Running: %s", ' '.join(cmd))
+        logger.info("Running: %s", " ".join(cmd))
 
         process = subprocess.Popen(
             cmd,
@@ -287,7 +287,6 @@ class ServerLauncher:
     def _print_startup_success(self) -> None:
         """Print startup success message with instructions."""
 
-
     async def stop_all(self) -> None:
         """Stop all managed processes."""
         logger.info("Stopping qwenvert...")
@@ -318,7 +317,9 @@ class ServerLauncher:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, timeout=2.0)
                 return response.status_code == 200
-        except Exception:  # noqa: BLE001 - Broad health check, any failure means unhealthy
+        except (
+            Exception
+        ):
             return False
 
     async def _wait_for_health(self, url: str, timeout: int = 30) -> bool:

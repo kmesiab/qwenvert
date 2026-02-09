@@ -143,7 +143,9 @@ def start() -> None:
         start_qwenvert_sync()
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
-    except Exception as e:  # noqa: BLE001 - Top-level error handler, catch all for user-friendly errors
+    except (
+        Exception
+    ) as e:
         console.print(f"\n[red]Error:[/red] {e}")
         traceback.print_exc()
         sys.exit(1)
@@ -230,21 +232,27 @@ def stop() -> None:
     try:
         subprocess.run(["pkill", "-f", "ollama serve"], check=False)
         killed = True
-    except Exception:  # noqa: BLE001 - Process cleanup, silently continue on any failure
+    except (
+        Exception
+    ):
         pass
 
     # Try to kill llama-server
     try:
         subprocess.run(["pkill", "-f", "llama-server"], check=False)
         killed = True
-    except Exception:  # noqa: BLE001 - Process cleanup, silently continue on any failure
+    except (
+        Exception
+    ):
         pass
 
     # Try to kill uvicorn (adapter)
     try:
         subprocess.run(["pkill", "-f", "uvicorn.*qwenvert"], check=False)
         killed = True
-    except Exception:  # noqa: BLE001 - Process cleanup, silently continue on any failure
+    except (
+        Exception
+    ):
         pass
 
     if killed:
