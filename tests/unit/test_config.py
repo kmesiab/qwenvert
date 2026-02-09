@@ -82,7 +82,8 @@ class TestConfigGenerator:
         assert "ANTHROPIC_BASE_URL" in env_vars
         assert "ANTHROPIC_API_KEY" in env_vars
         assert "ANTHROPIC_MODEL" in env_vars
-        assert "localhost" in env_vars["ANTHROPIC_BASE_URL"]
+        # Accept either localhost or 127.0.0.1
+        assert "localhost" in env_vars["ANTHROPIC_BASE_URL"] or "127.0.0.1" in env_vars["ANTHROPIC_BASE_URL"]
         assert env_vars["ANTHROPIC_API_KEY"] == "local-qwen"
 
 
@@ -121,7 +122,8 @@ class TestConfigManager:
         """Test ConfigManager save/load operations."""
 
         # Monkey patch default config path to use temp directory
-        def mock_default_path():
+        @classmethod
+        def mock_default_path(cls):
             return temp_config_dir / "config.yaml"
 
         monkeypatch.setattr(QwenvertConfig, "default_config_path", mock_default_path)

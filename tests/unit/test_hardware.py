@@ -40,7 +40,8 @@ class TestHardwareDetector:
     @patch("subprocess.check_output")
     def test_detect_m1_chip(self, mock_check_output):
         """Test M1 chip detection."""
-        mock_check_output.return_value = b"Apple M1\n"
+        # Mock returns string because real code uses text=True
+        mock_check_output.return_value = "Apple M1\n"
 
         detector = HardwareDetector()
         chip_name = detector._detect_chip()
