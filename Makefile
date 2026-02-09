@@ -31,7 +31,6 @@ install:
 
 install-dev:
 	$(PYTHON) -m pip install -e ".[dev]"
-	$(PYTHON) -m pip install pytest pytest-asyncio pytest-cov black ruff mypy
 
 # Code formatting
 format:
