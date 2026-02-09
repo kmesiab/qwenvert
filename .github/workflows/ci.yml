@@ -27,18 +27,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -e ".[dev]"
-          python3 -m pip install -e .
+          python -m pip install --upgrade pip
+          make install-dev
 
       - name: Check formatting (black)
-        run: python3 -m black --check qwenvert tests
+        run: make format-check
 
       - name: Lint (ruff)
-        run: python3 -m ruff check qwenvert tests
+        run: make lint
 
       - name: Type check (mypy)
-        run: python3 -m mypy qwenvert
+        run: make typecheck
         if: matrix.python-version == '3.11'  # Only run mypy on one version
 
   test:
@@ -60,12 +59,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -e ".[dev]"
-          python3 -m pip install -e .
+          python -m pip install --upgrade pip
+          make install-dev
 
       - name: Run tests with coverage
-        run: python3 -m pytest --cov=qwenvert --cov-branch --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=80
+        run: make test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
