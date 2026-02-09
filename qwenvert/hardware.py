@@ -8,7 +8,7 @@ optimal model selection and performance tuning.
 import re
 import subprocess
 from dataclasses import dataclass
-from typing import Optional
+from typing import ClassVar
 
 
 @dataclass
@@ -63,10 +63,9 @@ class HardwareProfile:
         """
         if self.total_memory_gb >= 32:
             return 32768
-        elif self.total_memory_gb >= 16:
+        if self.total_memory_gb >= 16:
             return 16384
-        else:
-            return 8192
+        return 8192
 
 
 class HardwareDetector:
@@ -79,28 +78,28 @@ class HardwareDetector:
     """
 
     # Known Mac model identifiers and their cooling configurations
-    FANLESS_MODELS = {
+    FANLESS_MODELS: ClassVar[set[str]] = {
         "MacBookAir10,1",  # M1 MacBook Air
-        "Mac14,2",          # M2 MacBook Air 13"
-        "Mac14,15",         # M2 MacBook Air 15"
-        "Mac15,12",         # M3 MacBook Air 13"
-        "Mac15,13",         # M3 MacBook Air 15"
+        "Mac14,2",  # M2 MacBook Air 13"
+        "Mac14,15",  # M2 MacBook Air 15"
+        "Mac15,12",  # M3 MacBook Air 13"
+        "Mac15,13",  # M3 MacBook Air 15"
     }
 
     # GPU core counts by chip variant
-    GPU_CORES_MAP = {
-        "M1": 7,      # Base M1 (some have 8)
+    GPU_CORES_MAP: ClassVar[dict[str, int]] = {
+        "M1": 7,  # Base M1 (some have 8)
         "M1 Pro": 14,  # Base M1 Pro (16 for higher config)
         "M1 Max": 24,  # Base M1 Max (32 for higher config)
-        "M1 Ultra": 48, # Base M1 Ultra (64 for higher config)
-        "M2": 8,       # Base M2 (10 for higher config)
+        "M1 Ultra": 48,  # Base M1 Ultra (64 for higher config)
+        "M2": 8,  # Base M2 (10 for higher config)
         "M2 Pro": 16,  # Base M2 Pro (19 for higher config)
         "M2 Max": 30,  # Base M2 Max (38 for higher config)
-        "M2 Ultra": 60, # Base M2 Ultra (76 for higher config)
-        "M3": 8,       # Base M3 (10 for higher config)
+        "M2 Ultra": 60,  # Base M2 Ultra (76 for higher config)
+        "M3": 8,  # Base M3 (10 for higher config)
         "M3 Pro": 14,  # Base M3 Pro (18 for higher config)
         "M3 Max": 30,  # Base M3 Max (40 for higher config)
-        "M4": 10,      # Base M4
+        "M4": 10,  # Base M4
     }
 
     @staticmethod
@@ -162,27 +161,24 @@ class HardwareDetector:
             output = subprocess.check_output(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
                 text=True,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             ).strip()
 
             # Parse chip from brand string
             # Example: "Apple M1 Pro"
             if "Apple" in output:
-                chip = output.replace("Apple ", "").strip()
-                return chip
+                return output.replace("Apple ", "").strip()
 
             # Fallback: try hw.model
             output = subprocess.check_output(
-                ["sysctl", "-n", "hw.model"],
-                text=True,
-                stderr=subprocess.DEVNULL
+                ["sysctl", "-n", "hw.model"], text=True, stderr=subprocess.DEVNULL
             ).strip()
 
             # Parse from model identifier (e.g., "MacBookPro18,3" → M1 Pro)
             return self._infer_chip_from_model(output)
 
         except subprocess.SubprocessError as e:
-            raise RuntimeError(f"Failed to detect chip: {e}")
+            raise RuntimeError(f"Failed to detect chip: {e}") from e
 
     def _extract_chip_family(self, chip_name: str) -> str:
         """
@@ -209,20 +205,18 @@ class HardwareDetector:
         """
         try:
             output = subprocess.check_output(
-                ["sysctl", "-n", "hw.memsize"],
-                text=True,
-                stderr=subprocess.DEVNULL
+                ["sysctl", "-n", "hw.memsize"], text=True, stderr=subprocess.DEVNULL
             ).strip()
 
             bytes_total = int(output)
-            gb_total = bytes_total / (1024 ** 3)
+            gb_total = bytes_total / (1024**3)
 
             # Round to nearest common size (8, 16, 24, 32, 48, 64, 96, 128)
             common_sizes = [8, 16, 24, 32, 48, 64, 96, 128]
             return min(common_sizes, key=lambda x: abs(x - gb_total))
 
         except (subprocess.SubprocessError, ValueError) as e:
-            raise RuntimeError(f"Failed to detect memory: {e}")
+            raise RuntimeError(f"Failed to detect memory: {e}") from e
 
     def _detect_cpu_cores(self) -> tuple[int, int]:
         """
@@ -236,7 +230,7 @@ class HardwareDetector:
             perf_output = subprocess.check_output(
                 ["sysctl", "-n", "hw.perflevel0.physicalcpu"],
                 text=True,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             ).strip()
             perf_cores = int(perf_output)
 
@@ -245,7 +239,7 @@ class HardwareDetector:
                 eff_output = subprocess.check_output(
                     ["sysctl", "-n", "hw.perflevel1.physicalcpu"],
                     text=True,
-                    stderr=subprocess.DEVNULL
+                    stderr=subprocess.DEVNULL,
                 ).strip()
                 eff_cores = int(eff_output)
             except subprocess.SubprocessError:
@@ -274,7 +268,7 @@ class HardwareDetector:
                 ["system_profiler", "SPDisplaysDataType"],
                 text=True,
                 stderr=subprocess.DEVNULL,
-                timeout=5
+                timeout=5,
             )
 
             # Look for "Total Number of Cores: XX"
@@ -300,12 +294,9 @@ class HardwareDetector:
             Model identifier (e.g., "MacBookAir10,1")
         """
         try:
-            output = subprocess.check_output(
-                ["sysctl", "-n", "hw.model"],
-                text=True,
-                stderr=subprocess.DEVNULL
+            return subprocess.check_output(
+                ["sysctl", "-n", "hw.model"], text=True, stderr=subprocess.DEVNULL
             ).strip()
-            return output
         except subprocess.SubprocessError:
             return "Unknown"
 
@@ -322,9 +313,9 @@ class HardwareDetector:
         # This is a fallback heuristic
         if "MacBookAir10,1" in model_id:
             return "M1"
-        elif "Mac14" in model_id:
+        if "Mac14" in model_id:
             return "M2"
-        elif "Mac15" in model_id:
+        if "Mac15" in model_id:
             return "M3"
 
         return "Unknown"
