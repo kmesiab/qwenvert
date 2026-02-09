@@ -1,18 +1,24 @@
 # qwenvert Implementation Tasks
 
-**Status**: 5/7 core components complete, 2 need integration work
+**Status**: ✅ 7/7 core components complete, testing in progress
 
-**Last Updated**: 2024-02-09
+**Last Updated**: 2024-02-09 (Task 4 in progress)
+
+**Progress**:
+- ✅ Task 1: Adapter → Router connection (COMPLETE)
+- ✅ Task 2: Streaming implementation (COMPLETE)
+- 🔄 Task 4: End-to-end testing (IN PROGRESS)
+- ⏳ Task 3: Model downloading (NEXT)
 
 ---
 
 ## 🔴 CRITICAL - Blocking Basic Functionality
 
-### Task 1: Connect Adapter to Backend Router
+### Task 1: Connect Adapter to Backend Router ✅ COMPLETE
 **File**: `qwenvert/adapter.py`
-**Status**: ❌ Not Started
+**Status**: ✅ Complete (PR #9 merged)
 **Priority**: P0 (Blocking)
-**Estimate**: 30 minutes
+**Actual Time**: 30 minutes
 
 **Problem**: Adapter returns placeholder responses, doesn't call backend router
 
@@ -53,11 +59,11 @@ curl -X POST http://localhost:8088/v1/messages \
 
 ---
 
-### Task 2: Implement Streaming Support
+### Task 2: Implement Streaming Support ✅ COMPLETE
 **File**: `qwenvert/adapter.py`
-**Status**: ❌ Not Started
+**Status**: ✅ Complete (included in PR #9)
 **Priority**: P0 (Blocking)
-**Estimate**: 30 minutes
+**Actual Time**: Included in Task 1
 
 **Problem**: Streaming endpoint returns placeholder events, doesn't stream from backend
 
@@ -136,9 +142,9 @@ qwenvert init
 
 ---
 
-### Task 4: End-to-End Integration Testing
-**File**: New tests in `tests/integration/`
-**Status**: ❌ Not Started
+### Task 4: End-to-End Integration Testing 🔄 IN PROGRESS
+**File**: `tests/integration/test_e2e_real_backends.py`
+**Status**: 🔄 In Progress
 **Priority**: P1 (Important)
 **Estimate**: 1 hour
 
