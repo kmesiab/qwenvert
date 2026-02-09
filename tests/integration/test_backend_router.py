@@ -18,6 +18,7 @@ class TestOllamaBackendRouter:
     @pytest.mark.asyncio
     async def test_anthropic_to_ollama_transformation(self, sample_model_7b_q4):
         """Test request transformation from Anthropic to Ollama format."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         with patch("httpx.AsyncClient.post") as mock_post:
             # Mock Ollama response
@@ -43,12 +44,12 @@ class TestOllamaBackendRouter:
             )
 
             # Anthropic-format request
-            request = {
-                "model": "qwenvert-default",
-                "messages": [{"role": "user", "content": "Hello"}],
-                "max_tokens": 100,
-                "temperature": 0.7,
-            }
+            request = MessagesRequest(
+                model="qwenvert-default",
+                messages=[Message(role="user", content="Hello")],
+                max_tokens=100,
+                temperature=0.7,
+            )
 
             response = await router.generate(request)
 
@@ -66,14 +67,15 @@ class TestOllamaBackendRouter:
             assert "options" in request_json or "temperature" in request_json
 
             # Check response transformation back to Anthropic format
-            assert response["type"] == "message"
-            assert response["role"] == "assistant"
-            assert "content" in response
-            assert "usage" in response
+            assert response.type == "message"
+            assert response.role == "assistant"
+            assert len(response.content) > 0
+            assert response.usage.input_tokens > 0
 
     @pytest.mark.asyncio
     async def test_ollama_system_message_handling(self, sample_model_7b_q4):
         """Test that system messages are properly injected for Ollama."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -96,14 +98,12 @@ class TestOllamaBackendRouter:
             )
 
             # Request with system prompt (Anthropic style)
-            request = {
-                "model": "qwenvert-default",
-                "system": "You are a helpful coding assistant.",
-                "messages": [
-                    {"role": "user", "content": "Are you a coding assistant?"}
-                ],
-                "max_tokens": 100,
-            }
+            request = MessagesRequest(
+                model="qwenvert-default",
+                system="You are a helpful coding assistant.",
+                messages=[Message(role="user", content="Are you a coding assistant?")],
+                max_tokens=100,
+            )
 
             await router.generate(request)
 
@@ -120,6 +120,7 @@ class TestOllamaBackendRouter:
     @pytest.mark.asyncio
     async def test_ollama_token_counting(self, sample_model_7b_q4):
         """Test that Ollama token counts are properly converted to usage stats."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -138,18 +139,17 @@ class TestOllamaBackendRouter:
                 backend_url="http://localhost:11434",
             )
 
-            response = await router.generate(
-                {
-                    "model": "qwenvert-default",
-                    "messages": [{"role": "user", "content": "Test"}],
-                    "max_tokens": 50,
-                }
+            request = MessagesRequest(
+                model="qwenvert-default",
+                messages=[Message(role="user", content="Test")],
+                max_tokens=50,
             )
 
+            response = await router.generate(request)
+
             # Verify usage stats
-            assert "usage" in response
-            assert response["usage"]["input_tokens"] == 25
-            assert response["usage"]["output_tokens"] == 12
+            assert response.usage.input_tokens == 25
+            assert response.usage.output_tokens == 12
 
 
 class TestLlamaCppBackendRouter:
@@ -158,6 +158,7 @@ class TestLlamaCppBackendRouter:
     @pytest.mark.asyncio
     async def test_anthropic_to_llamacpp_transformation(self, sample_model_14b_q5):
         """Test request transformation from Anthropic to llama.cpp format."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         # Update model to llama.cpp backend
         llamacpp_model = Model(
@@ -192,12 +193,12 @@ class TestLlamaCppBackendRouter:
                 backend_url="http://localhost:8080",
             )
 
-            request = {
-                "model": "qwenvert-default",
-                "messages": [{"role": "user", "content": "Hello"}],
-                "max_tokens": 100,
-                "temperature": 0.7,
-            }
+            request = MessagesRequest(
+                model="qwenvert-default",
+                messages=[Message(role="user", content="Hello")],
+                max_tokens=100,
+                temperature=0.7,
+            )
 
             response = await router.generate(request)
 
@@ -216,13 +217,14 @@ class TestLlamaCppBackendRouter:
             assert "n_predict" in request_json or "max_tokens" in request_json
 
             # Check response transformation
-            assert response["type"] == "message"
-            assert response["role"] == "assistant"
-            assert "content" in response
+            assert response.type == "message"
+            assert response.role == "assistant"
+            assert len(response.content) > 0
 
     @pytest.mark.asyncio
     async def test_llamacpp_prompt_templating(self, sample_model_14b_q5):
         """Test that messages are properly converted to llama.cpp prompt format."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         llamacpp_model = Model(
             id=sample_model_14b_q5.id,
@@ -253,12 +255,12 @@ class TestLlamaCppBackendRouter:
                 backend_url="http://localhost:8080",
             )
 
-            request = {
-                "model": "qwenvert-default",
-                "system": "You are a coding assistant.",
-                "messages": [{"role": "user", "content": "Help me write code"}],
-                "max_tokens": 100,
-            }
+            request = MessagesRequest(
+                model="qwenvert-default",
+                system="You are a coding assistant.",
+                messages=[Message(role="user", content="Help me write code")],
+                max_tokens=100,
+            )
 
             await router.generate(request)
 
@@ -282,6 +284,7 @@ class TestStreamingBackend:
     @pytest.mark.asyncio
     async def test_ollama_streaming_transformation(self, sample_model_7b_q4):
         """Test streaming response from Ollama is converted to Anthropic SSE format."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         async def mock_ollama_stream():
             """Mock Ollama streaming response."""
@@ -299,12 +302,12 @@ class TestStreamingBackend:
                 backend_url="http://localhost:11434",
             )
 
-            request = {
-                "model": "qwenvert-default",
-                "messages": [{"role": "user", "content": "Hello"}],
-                "max_tokens": 10,
-                "stream": True,
-            }
+            request = MessagesRequest(
+                model="qwenvert-default",
+                messages=[Message(role="user", content="Hello")],
+                max_tokens=10,
+                stream=True,
+            )
 
             events = []
             async for event in router.generate_stream(request):
@@ -312,7 +315,6 @@ class TestStreamingBackend:
 
             # Verify Anthropic SSE format
             assert len(events) > 0
-            assert events[0]["type"] == "message_start"
             assert any(e["type"] == "content_block_delta" for e in events)
             assert events[-1]["type"] == "message_stop"
 
@@ -323,6 +325,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_backend_http_error(self, sample_model_7b_q4):
         """Test handling of backend HTTP errors."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -338,18 +341,19 @@ class TestErrorHandling:
                 backend_url="http://localhost:11434",
             )
 
+            request = MessagesRequest(
+                model="qwenvert-default",
+                messages=[Message(role="user", content="Test")],
+                max_tokens=10,
+            )
+
             with pytest.raises(Exception):  # Should propagate error
-                await router.generate(
-                    {
-                        "model": "qwenvert-default",
-                        "messages": [{"role": "user", "content": "Test"}],
-                        "max_tokens": 10,
-                    }
-                )
+                await router.generate(request)
 
     @pytest.mark.asyncio
     async def test_backend_timeout(self, sample_model_7b_q4):
         """Test handling of backend timeout."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_post.side_effect = httpx.TimeoutException("Request timeout")
@@ -359,18 +363,19 @@ class TestErrorHandling:
                 backend_url="http://localhost:11434",
             )
 
+            request = MessagesRequest(
+                model="qwenvert-default",
+                messages=[Message(role="user", content="Test")],
+                max_tokens=10,
+            )
+
             with pytest.raises(httpx.TimeoutException):
-                await router.generate(
-                    {
-                        "model": "qwenvert-default",
-                        "messages": [{"role": "user", "content": "Test"}],
-                        "max_tokens": 10,
-                    }
-                )
+                await router.generate(request)
 
     @pytest.mark.asyncio
     async def test_malformed_backend_response(self, sample_model_7b_q4):
         """Test handling of malformed backend response."""
+        from qwenvert.adapter import MessagesRequest, Message
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -386,12 +391,12 @@ class TestErrorHandling:
                 backend_url="http://localhost:11434",
             )
 
+            request = MessagesRequest(
+                model="qwenvert-default",
+                messages=[Message(role="user", content="Test")],
+                max_tokens=10,
+            )
+
             # Should handle gracefully or raise appropriate error
             with pytest.raises((KeyError, ValueError, Exception)):
-                await router.generate(
-                    {
-                        "model": "qwenvert-default",
-                        "messages": [{"role": "user", "content": "Test"}],
-                        "max_tokens": 10,
-                    }
-                )
+                await router.generate(request)

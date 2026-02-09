@@ -19,6 +19,16 @@ class TestServerLauncher:
     @pytest.mark.asyncio
     async def test_ollama_backend_launch(self, sample_model_7b_q4, temp_config_dir):
         """Test launching Ollama backend."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            adapter_host="127.0.0.1",
+            adapter_port=8088,
+        )
 
         with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             # Mock process
@@ -27,12 +37,7 @@ class TestServerLauncher:
             mock_process.returncode = None
             mock_subprocess.return_value = mock_process
 
-            launcher = ServerLauncher(
-                model=sample_model_7b_q4,
-                backend_url="http://localhost:11434",
-                adapter_host="127.0.0.1",
-                adapter_port=8088,
-            )
+            launcher = ServerLauncher(config=config)
 
             # Mock health check to succeed immediately
             with patch("httpx.AsyncClient.get") as mock_get:
@@ -49,6 +54,7 @@ class TestServerLauncher:
     @pytest.mark.asyncio
     async def test_llamacpp_backend_launch(self, sample_model_14b_q5, temp_config_dir):
         """Test launching llama.cpp backend."""
+        from qwenvert.config import QwenvertConfig
 
         # Update model to llama.cpp
         from qwenvert.models import Model
@@ -66,18 +72,22 @@ class TestServerLauncher:
             recommended_ram_gb=sample_model_14b_q5.recommended_ram_gb,
         )
 
+        config = QwenvertConfig(
+            model_id=llamacpp_model.id,
+            backend=llamacpp_model.backend.value,
+            backend_url="http://localhost:8080",
+            backend_model_id=llamacpp_model.backend_model_id,
+            adapter_host="127.0.0.1",
+            adapter_port=8088,
+        )
+
         with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
             mock_process.pid = 12346
             mock_process.returncode = None
             mock_subprocess.return_value = mock_process
 
-            launcher = ServerLauncher(
-                model=llamacpp_model,
-                backend_url="http://localhost:8080",
-                adapter_host="127.0.0.1",
-                adapter_port=8088,
-            )
+            launcher = ServerLauncher(config=config)
 
             with patch("httpx.AsyncClient.get") as mock_get:
                 mock_response = MagicMock()
@@ -97,6 +107,16 @@ class TestServerLauncher:
     @pytest.mark.asyncio
     async def test_backend_health_check_retry(self, sample_model_7b_q4):
         """Test that launcher retries health checks on startup."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            adapter_host="127.0.0.1",
+            adapter_port=8088,
+        )
 
         with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
@@ -104,12 +124,7 @@ class TestServerLauncher:
             mock_process.returncode = None
             mock_subprocess.return_value = mock_process
 
-            launcher = ServerLauncher(
-                model=sample_model_7b_q4,
-                backend_url="http://localhost:11434",
-                adapter_host="127.0.0.1",
-                adapter_port=8088,
-            )
+            launcher = ServerLauncher(config=config)
 
             # Mock health check failing twice, then succeeding
             call_count = 0
@@ -132,6 +147,16 @@ class TestServerLauncher:
     @pytest.mark.asyncio
     async def test_backend_health_check_timeout(self, sample_model_7b_q4):
         """Test that launcher times out if backend never becomes healthy."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            adapter_host="127.0.0.1",
+            adapter_port=8088,
+        )
 
         with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
@@ -139,12 +164,7 @@ class TestServerLauncher:
             mock_process.returncode = None
             mock_subprocess.return_value = mock_process
 
-            launcher = ServerLauncher(
-                model=sample_model_7b_q4,
-                backend_url="http://localhost:11434",
-                adapter_host="127.0.0.1",
-                adapter_port=8088,
-            )
+            launcher = ServerLauncher(config=config)
 
             # Mock health check always failing
             with patch(
@@ -158,6 +178,16 @@ class TestServerLauncher:
     @pytest.mark.asyncio
     async def test_graceful_shutdown(self, sample_model_7b_q4):
         """Test graceful shutdown of backend process."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            adapter_host="127.0.0.1",
+            adapter_port=8088,
+        )
 
         with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
@@ -167,12 +197,7 @@ class TestServerLauncher:
             mock_process.wait = AsyncMock()
             mock_subprocess.return_value = mock_process
 
-            launcher = ServerLauncher(
-                model=sample_model_7b_q4,
-                backend_url="http://localhost:11434",
-                adapter_host="127.0.0.1",
-                adapter_port=8088,
-            )
+            launcher = ServerLauncher(config=config)
 
             with patch("httpx.AsyncClient.get") as mock_get:
                 mock_response = MagicMock()
@@ -195,38 +220,54 @@ class TestAdapterLauncher:
     @pytest.mark.asyncio
     async def test_adapter_start(self, sample_model_7b_q4):
         """Test starting the adapter server."""
+        from qwenvert.config import QwenvertConfig
 
         # Mock backend handle
+        mock_process = MagicMock()
+        mock_process.pid = 12350
         backend_handle = ProcessHandle(
-            pid=12350,
-            process=MagicMock(),
-            url="http://localhost:11434",
+            process=mock_process,
+            name="ollama",
         )
 
-        launcher = ServerLauncher(
-            model=sample_model_7b_q4,
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
             backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
             adapter_host="127.0.0.1",
             adapter_port=8088,
         )
+
+        launcher = ServerLauncher(config=config)
 
         with patch("uvicorn.Server.serve") as mock_serve:
             mock_serve.return_value = None
 
             # Start adapter (this would normally block)
             # We'll just verify it's set up correctly
-            config = launcher._create_adapter_config(backend_handle)
+            uvicorn_config = launcher._create_adapter_config(backend_handle)
 
-            assert config.host == "127.0.0.1"
-            assert config.port == 8088
+            assert uvicorn_config.host == "127.0.0.1"
+            assert uvicorn_config.port == 8088
 
 
 class TestHealthChecks:
     """Test health check functionality."""
 
     @pytest.mark.asyncio
-    async def test_backend_health_check_success(self):
+    async def test_backend_health_check_success(self, sample_model_7b_q4):
         """Test successful backend health check."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+        )
+
+        launcher = ServerLauncher(config=config)
 
         with patch("httpx.AsyncClient.get") as mock_get:
             mock_response = MagicMock()
@@ -234,27 +275,43 @@ class TestHealthChecks:
             mock_response.json.return_value = {"status": "ok"}
             mock_get.return_value = mock_response
 
-            from qwenvert.launcher import _check_backend_health
-
-            is_healthy = await _check_backend_health("http://localhost:11434")
+            is_healthy = await launcher._check_health("http://localhost:11434")
             assert is_healthy is True
 
     @pytest.mark.asyncio
-    async def test_backend_health_check_failure(self):
+    async def test_backend_health_check_failure(self, sample_model_7b_q4):
         """Test failed backend health check."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+        )
+
+        launcher = ServerLauncher(config=config)
 
         with patch(
             "httpx.AsyncClient.get",
             side_effect=httpx.ConnectError("Connection refused"),
         ):
-            from qwenvert.launcher import _check_backend_health
-
-            is_healthy = await _check_backend_health("http://localhost:11434")
+            is_healthy = await launcher._check_health("http://localhost:11434")
             assert is_healthy is False
 
     @pytest.mark.asyncio
-    async def test_backend_health_check_http_error(self):
+    async def test_backend_health_check_http_error(self, sample_model_7b_q4):
         """Test backend health check with HTTP error."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+        )
+
+        launcher = ServerLauncher(config=config)
 
         with patch("httpx.AsyncClient.get") as mock_get:
             mock_response = MagicMock()
@@ -264,9 +321,7 @@ class TestHealthChecks:
             )
             mock_get.return_value = mock_response
 
-            from qwenvert.launcher import _check_backend_health
-
-            is_healthy = await _check_backend_health("http://localhost:11434")
+            is_healthy = await launcher._check_health("http://localhost:11434")
             assert is_healthy is False
 
 
@@ -278,13 +333,13 @@ class TestProcessManagement:
         """Test checking if process is running."""
 
         mock_process = MagicMock()
+        mock_process.pid = 12351
         mock_process.returncode = None  # Still running
         mock_process.poll.return_value = None
 
         handle = ProcessHandle(
-            pid=12351,
             process=mock_process,
-            url="http://localhost:11434",
+            name="test_process",
         )
 
         assert handle.is_running() is True
@@ -294,13 +349,13 @@ class TestProcessManagement:
         """Test detecting process exit."""
 
         mock_process = MagicMock()
+        mock_process.pid = 12352
         mock_process.returncode = 0  # Exited
         mock_process.poll.return_value = 0
 
         handle = ProcessHandle(
-            pid=12352,
             process=mock_process,
-            url="http://localhost:11434",
+            name="test_process",
         )
 
         assert handle.is_running() is False
@@ -308,6 +363,7 @@ class TestProcessManagement:
     @pytest.mark.asyncio
     async def test_force_kill_on_timeout(self, sample_model_7b_q4):
         """Test force killing process if graceful shutdown times out."""
+        from qwenvert.config import QwenvertConfig
 
         mock_process = MagicMock()
         mock_process.pid = 12353
@@ -322,17 +378,20 @@ class TestProcessManagement:
 
         mock_process.wait = mock_wait_timeout
 
-        launcher = ServerLauncher(
-            model=sample_model_7b_q4,
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
             backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
             adapter_host="127.0.0.1",
             adapter_port=8088,
         )
 
+        launcher = ServerLauncher(config=config)
+
         handle = ProcessHandle(
-            pid=12353,
             process=mock_process,
-            url="http://localhost:11434",
+            name="ollama",
         )
 
         with pytest.raises(asyncio.TimeoutError):
@@ -355,12 +414,18 @@ class TestRealServerIntegration:
         - Ollama installed
         - qwen2.5-coder:7b model downloaded
         """
-        launcher = ServerLauncher(
-            model=sample_model_7b_q4,
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=sample_model_7b_q4.backend.value,
             backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
             adapter_host="127.0.0.1",
             adapter_port=8088,
         )
+
+        launcher = ServerLauncher(config=config)
 
         # Start backend
         backend_handle = await launcher.start_backend()
@@ -385,6 +450,7 @@ class TestRealServerIntegration:
         - llama.cpp built
         - Model file downloaded
         """
+        from qwenvert.config import QwenvertConfig
         from qwenvert.models import Model
 
         llamacpp_model = Model(
@@ -400,12 +466,16 @@ class TestRealServerIntegration:
             recommended_ram_gb=sample_model_14b_q5.recommended_ram_gb,
         )
 
-        launcher = ServerLauncher(
-            model=llamacpp_model,
+        config = QwenvertConfig(
+            model_id=llamacpp_model.id,
+            backend=llamacpp_model.backend.value,
             backend_url="http://localhost:8080",
+            backend_model_id=llamacpp_model.backend_model_id,
             adapter_host="127.0.0.1",
             adapter_port=8088,
         )
+
+        launcher = ServerLauncher(config=config)
 
         # Start backend
         backend_handle = await launcher.start_backend()
