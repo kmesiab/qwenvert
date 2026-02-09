@@ -9,11 +9,19 @@ Commands:
 - models: List available models
 """
 
+import subprocess
 import sys
+import traceback
 
 import click
+import httpx
 from rich.console import Console
 from rich.table import Table
+
+from .config import ConfigGenerator, ConfigManager
+from .hardware import HardwareDetector
+from .launcher import start_qwenvert_sync
+from .models import Backend, ModelRegistry, ModelSelector
 
 
 console = Console()
@@ -50,16 +58,12 @@ def cli() -> None:
     type=int,
     help="Maximum context length (default: hardware-dependent)",
 )
-def init(model, backend, adapter_port, context_length) -> None:
+def init(model, _backend, adapter_port, context_length) -> None:
     """
     Initialize qwenvert configuration.
 
     Detects hardware, selects optimal model, and generates configuration.
     """
-    from .config import ConfigGenerator, ConfigManager
-    from .hardware import HardwareDetector
-    from .models import Backend, ModelRegistry, ModelSelector
-
     console.print("\n[bold blue]Qwenvert Initialization[/bold blue]\n")
 
     # Step 1: Detect hardware
@@ -133,18 +137,14 @@ def start() -> None:
     Starts the backend server (Ollama or llama.cpp) and the qwenvert
     HTTP adapter, then displays connection instructions for Claude Code.
     """
-    from .launcher import start_qwenvert_sync
-
     console.print("\n[bold blue]Starting Qwenvert[/bold blue]\n")
 
     try:
         start_qwenvert_sync()
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Top-level error handler, catch all for user-friendly errors
         console.print(f"\n[red]Error:[/red] {e}")
-        import traceback
-
         traceback.print_exc()
         sys.exit(1)
 
@@ -156,10 +156,6 @@ def status() -> None:
 
     Displays current configuration and server health.
     """
-    import httpx
-
-    from .config import ConfigManager
-
     console.print("\n[bold blue]Qwenvert Status[/bold blue]\n")
 
     # Check if configured
@@ -197,7 +193,7 @@ def status() -> None:
             console.print("  Backend:  [green]✓ Running[/green]")
         else:
             console.print("  Backend:  [red]✗ Unhealthy[/red]")
-    except Exception:
+    except Exception:  # noqa: BLE001 - Health check, any failure means not running
         console.print("  Backend:  [red]✗ Not running[/red]")
 
     # Check adapter
@@ -208,7 +204,7 @@ def status() -> None:
             console.print("  Adapter:  [green]✓ Running[/green]")
         else:
             console.print("  Adapter:  [red]✗ Unhealthy[/red]")
-    except Exception:
+    except Exception:  # noqa: BLE001 - Health check, any failure means not running
         console.print("  Adapter:  [red]✗ Not running[/red]")
 
     console.print()
@@ -221,10 +217,6 @@ def stop() -> None:
 
     Gracefully stops the backend and adapter servers.
     """
-    import subprocess
-
-    from .config import ConfigManager
-
     console.print("\n[bold blue]Stopping Qwenvert[/bold blue]\n")
 
     if not ConfigManager.exists():
@@ -238,21 +230,21 @@ def stop() -> None:
     try:
         subprocess.run(["pkill", "-f", "ollama serve"], check=False)
         killed = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - Process cleanup, silently continue on any failure
         pass
 
     # Try to kill llama-server
     try:
         subprocess.run(["pkill", "-f", "llama-server"], check=False)
         killed = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - Process cleanup, silently continue on any failure
         pass
 
     # Try to kill uvicorn (adapter)
     try:
         subprocess.run(["pkill", "-f", "uvicorn.*qwenvert"], check=False)
         killed = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - Process cleanup, silently continue on any failure
         pass
 
     if killed:
@@ -276,8 +268,6 @@ def list_models(backend) -> None:
 
     Shows all models in the registry with their specifications.
     """
-    from .models import Backend, ModelRegistry
-
     console.print("\n[bold blue]Available Models[/bold blue]\n")
 
     registry = ModelRegistry()
@@ -323,8 +313,6 @@ def hardware() -> None:
 
     Displays Mac hardware specs detected by qwenvert.
     """
-    from .hardware import HardwareDetector
-
     console.print("\n[bold blue]Hardware Information[/bold blue]\n")
 
     detector = HardwareDetector()

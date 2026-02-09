@@ -16,9 +16,13 @@ import time
 from pathlib import Path
 
 import httpx
+import uvicorn
 
-from .config import ConfigManager, QwenvertConfig
-from .models import Backend
+from .adapter import create_app
+from .config import ConfigGenerator, ConfigManager, QwenvertConfig
+from .hardware import HardwareProfile
+from .models import Backend, ModelRegistry
+from .router import BackendRouter
 
 
 logger = logging.getLogger(__name__)
@@ -49,21 +53,21 @@ class ProcessHandle:
         if not self.is_running():
             return True
 
-        logger.info(f"Terminating {self.name} (PID {self.pid})...")
+        logger.info("Terminating %s (PID %s)...", self.name, self.pid)
 
         # Try graceful shutdown
         self.process.terminate()
 
         try:
             self.process.wait(timeout=timeout)
-            logger.info(f"{self.name} terminated gracefully")
+            logger.info("%s terminated gracefully", self.name)
             return True
         except subprocess.TimeoutExpired:
             # Force kill
-            logger.warning(f"{self.name} did not terminate, force killing...")
+            logger.warning("%s did not terminate, force killing...", self.name)
             self.process.kill()
             self.process.wait()
-            logger.info(f"{self.name} killed")
+            logger.info("%s killed", self.name)
             return True
 
 
@@ -125,7 +129,7 @@ class ServerLauncher:
         )
 
         handle = ProcessHandle(process, "ollama")
-        logger.info(f"Ollama server started (PID {handle.pid})")
+        logger.info("Ollama server started (PID %s)", handle.pid)
 
         # Wait for server to be ready
         if not await self._wait_for_health("http://localhost:11434", timeout=30):
@@ -156,17 +160,12 @@ class ServerLauncher:
                 raise RuntimeError(msg)
 
         # Generate flags from config
-        from .config import ConfigGenerator
-        from .models import ModelRegistry
-
         registry = ModelRegistry()
         model = registry.get_model(self.config.model_id)
         if not model:
             raise RuntimeError(f"Model {self.config.model_id} not found")
 
         # Placeholder hardware (we don't have it here, but flags are mostly static)
-        from .hardware import HardwareProfile
-
         hardware = HardwareProfile(
             chip="M1",
             chip_family="M1",
@@ -184,7 +183,7 @@ class ServerLauncher:
 
         # Start llama-server
         cmd = [str(llamacpp_path), *flags]
-        logger.info(f"Running: {' '.join(cmd)}")
+        logger.info("Running: %s", ' '.join(cmd))
 
         process = subprocess.Popen(
             cmd,
@@ -194,7 +193,7 @@ class ServerLauncher:
         )
 
         handle = ProcessHandle(process, "llama-cpp")
-        logger.info(f"llama.cpp server started (PID {handle.pid})")
+        logger.info("llama.cpp server started (PID %s)", handle.pid)
 
         # Wait for server to be ready
         if not await self._wait_for_health("http://localhost:8080/health", timeout=60):
@@ -207,7 +206,7 @@ class ServerLauncher:
 
     async def _ensure_ollama_model(self) -> None:
         """Ensure Ollama model is pulled and ready."""
-        logger.info(f"Checking model: {self.config.backend_model_id}...")
+        logger.info("Checking model: %s...", self.config.backend_model_id)
 
         # Check if model exists
         result = subprocess.run(
@@ -217,7 +216,7 @@ class ServerLauncher:
         )
 
         if self.config.backend_model_id not in result.stdout:
-            logger.info(f"Pulling model {self.config.backend_model_id}...")
+            logger.info("Pulling model %s...", self.config.backend_model_id)
             subprocess.run(
                 ["ollama", "pull", self.config.backend_model_id],
                 check=True,
@@ -226,19 +225,14 @@ class ServerLauncher:
         else:
             logger.info("✓ Model already available")
 
-    async def start_adapter(self, backend_handle: ProcessHandle) -> None:
+    async def start_adapter(self, _backend_handle: ProcessHandle) -> None:
         """
         Start qwenvert adapter server.
 
         Args:
-            backend_handle: Handle to backend server process
+            _backend_handle: Handle to backend server process (unused, for future health checks)
         """
         logger.info("Starting qwenvert adapter...")
-
-        # Import adapter and router
-        from .adapter import create_app
-        from .models import ModelRegistry
-        from .router import BackendRouter
 
         # Get model
         registry = ModelRegistry()
@@ -254,8 +248,6 @@ class ServerLauncher:
         app.state.backend_router = router
 
         # Start server in background
-        import uvicorn
-
         config = uvicorn.Config(
             app,
             host=self.config.adapter_host,
@@ -274,7 +266,7 @@ class ServerLauncher:
             msg = "Qwenvert adapter failed to start"
             raise RuntimeError(msg)
 
-        logger.info(f"✓ Qwenvert adapter ready on {adapter_url}")
+        logger.info("✓ Qwenvert adapter ready on %s", adapter_url)
 
     async def start_all(self) -> None:
         """
@@ -326,7 +318,7 @@ class ServerLauncher:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, timeout=2.0)
                 return response.status_code == 200
-        except Exception:
+        except Exception:  # noqa: BLE001 - Broad health check, any failure means unhealthy
             return False
 
     async def _wait_for_health(self, url: str, timeout: int = 30) -> bool:
@@ -368,7 +360,7 @@ async def start_qwenvert() -> None:
     # Setup signal handlers for graceful shutdown
     loop = asyncio.get_event_loop()
 
-    def handle_shutdown(signum, frame) -> None:
+    def handle_shutdown(_signum, _frame) -> None:
         asyncio.create_task(launcher.stop_all())
         loop.stop()
 
@@ -386,7 +378,7 @@ async def start_qwenvert() -> None:
     except KeyboardInterrupt:
         pass
     except Exception as e:
-        logger.error(f"Error: {e}", exc_info=True)
+        logger.exception("Error: %s", e)
         await launcher.stop_all()
         raise
 

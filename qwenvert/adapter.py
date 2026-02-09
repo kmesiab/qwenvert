@@ -10,6 +10,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Literal
 
+import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -166,7 +167,7 @@ def create_app() -> FastAPI:
 
     @app.post("/v1/messages", response_model=MessagesResponse)
     async def create_message(
-        request: MessagesRequest, http_request: Request
+        request: MessagesRequest, _http_request: Request
     ) -> MessagesResponse | StreamingResponse:
         """
         Create a message (Anthropic Messages API endpoint).
@@ -175,7 +176,7 @@ def create_app() -> FastAPI:
 
         Args:
             request: Anthropic Messages API request
-            http_request: FastAPI HTTP request object
+            _http_request: FastAPI HTTP request object (unused, required by FastAPI)
 
         Returns:
             Message response (non-streaming) or StreamingResponse (streaming)
@@ -190,10 +191,11 @@ def create_app() -> FastAPI:
             )
 
         logger.info(
-            f"Received request for model={request.model}, "
-            f"messages={len(request.messages)}, "
-            f"max_tokens={request.max_tokens}, "
-            f"stream={request.stream}"
+            "Received request for model=%s, messages=%s, max_tokens=%s, stream=%s",
+            request.model,
+            len(request.messages),
+            request.max_tokens,
+            request.stream,
         )
 
         try:
@@ -207,24 +209,24 @@ def create_app() -> FastAPI:
             return await _generate_response(request, app.state.backend_router)
 
         except Exception as e:
-            logger.error(f"Error processing request: {e}", exc_info=True)
+            logger.exception("Error processing request: %s", e)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error processing request: {e!s}",
-            )
+            ) from e
 
     return app
 
 
 async def _generate_response(
-    request: MessagesRequest, backend_router: Any
+    request: MessagesRequest, _backend_router: Any
 ) -> MessagesResponse:
     """
     Generate non-streaming response.
 
     Args:
         request: Anthropic Messages API request
-        backend_router: Backend router instance
+        _backend_router: Backend router instance (not yet implemented)
 
     Returns:
         Complete message response
@@ -233,7 +235,7 @@ async def _generate_response(
     # For now, return a placeholder response
 
     # This will be replaced with:
-    # backend_response = await backend_router.generate(request)
+    # backend_response = await _backend_router.generate(request)
     # return _transform_response(backend_response, request)
 
     return MessagesResponse(
@@ -261,14 +263,14 @@ async def _generate_response(
 
 
 async def _stream_response(
-    request: MessagesRequest, backend_router: Any
+    request: MessagesRequest, _backend_router: Any
 ) -> AsyncIterator[str]:
     """
     Generate streaming response (Server-Sent Events).
 
     Args:
         request: Anthropic Messages API request
-        backend_router: Backend router instance
+        _backend_router: Backend router instance (not yet implemented)
 
     Yields:
         SSE-formatted event strings
@@ -367,13 +369,11 @@ async def run_server(
         >>> app.state.backend_router = my_router
         >>> await run_server(backend_router=my_router)
     """
-    import uvicorn
-
     app = create_app()
     if backend_router:
         app.state.backend_router = backend_router
 
-    logger.info(f"Starting qwenvert adapter on {host}:{port}")
+    logger.info("Starting qwenvert adapter on %s:%s", host, port)
 
     config = uvicorn.Config(
         app,

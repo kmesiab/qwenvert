@@ -6,6 +6,7 @@ Translates Anthropic Messages API requests to backend-specific formats
 """
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -124,7 +125,7 @@ class BackendRouter:
         if request.stop_sequences:
             ollama_request["options"]["stop"] = request.stop_sequences
 
-        logger.debug(f"Ollama request: {ollama_request}")
+        logger.debug("Ollama request: %s", ollama_request)
 
         # Call Ollama API
         response = await self.client.post(
@@ -134,7 +135,7 @@ class BackendRouter:
         response.raise_for_status()
 
         ollama_response = response.json()
-        logger.debug(f"Ollama response: {ollama_response}")
+        logger.debug("Ollama response: %s", ollama_response)
 
         # Transform to Anthropic format
         return self._ollama_to_anthropic_response(ollama_response, request)
@@ -172,8 +173,6 @@ class BackendRouter:
 
             async for line in response.aiter_lines():
                 if line:
-                    import json
-
                     chunk = json.loads(line)
 
                     # Ollama streams message chunks
@@ -289,7 +288,7 @@ class BackendRouter:
         if request.stop_sequences:
             llamacpp_request["stop"] = request.stop_sequences
 
-        logger.debug(f"llama.cpp request: {llamacpp_request}")
+        logger.debug("llama.cpp request: %s", llamacpp_request)
 
         # Call llama.cpp API
         response = await self.client.post(
@@ -299,7 +298,7 @@ class BackendRouter:
         response.raise_for_status()
 
         llamacpp_response = response.json()
-        logger.debug(f"llama.cpp response: {llamacpp_response}")
+        logger.debug("llama.cpp response: %s", llamacpp_response)
 
         # Transform to Anthropic format
         return self._llamacpp_to_anthropic_response(llamacpp_response, request)
@@ -332,8 +331,6 @@ class BackendRouter:
 
             async for line in response.aiter_lines():
                 if line.startswith("data: "):
-                    import json
-
                     data = line[6:]  # Remove "data: " prefix
                     if data == "[DONE]":
                         yield {"type": "message_stop", "stop_reason": "end_turn"}

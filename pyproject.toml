@@ -128,6 +128,9 @@ ignore = [
     "TRY003",  # Avoid specifying long messages outside exception class (too restrictive)
     "TRY300",  # Consider moving statement to else block (too pedantic)
     "EM102",   # Exception must not use f-string literal (too restrictive)
+    "TD002",   # TODO author (allow TODOs without author)
+    "TD003",   # TODO link (allow TODOs without issue links)
+    "FIX002",  # TODO exists (allow TODOs in code)
 ]
 
 [tool.ruff.lint.per-file-ignores]
