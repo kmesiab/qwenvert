@@ -4,9 +4,10 @@ Integration tests for backend routing and transformation.
 Tests the critical translation layer between Anthropic format and backend formats.
 """
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import httpx
+import pytest
 
 from qwenvert.models import Backend, Model
 from qwenvert.router import BackendRouter
@@ -18,7 +19,7 @@ class TestOllamaBackendRouter:
     @pytest.mark.asyncio
     async def test_anthropic_to_ollama_transformation(self, sample_model_7b_q4):
         """Test request transformation from Anthropic to Ollama format."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         with patch("httpx.AsyncClient.post") as mock_post:
             # Mock Ollama response
@@ -75,7 +76,7 @@ class TestOllamaBackendRouter:
     @pytest.mark.asyncio
     async def test_ollama_system_message_handling(self, sample_model_7b_q4):
         """Test that system messages are properly injected for Ollama."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -120,7 +121,7 @@ class TestOllamaBackendRouter:
     @pytest.mark.asyncio
     async def test_ollama_token_counting(self, sample_model_7b_q4):
         """Test that Ollama token counts are properly converted to usage stats."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -158,7 +159,7 @@ class TestLlamaCppBackendRouter:
     @pytest.mark.asyncio
     async def test_anthropic_to_llamacpp_transformation(self, sample_model_14b_q5):
         """Test request transformation from Anthropic to llama.cpp format."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         # Update model to llama.cpp backend
         llamacpp_model = Model(
@@ -224,7 +225,7 @@ class TestLlamaCppBackendRouter:
     @pytest.mark.asyncio
     async def test_llamacpp_prompt_templating(self, sample_model_14b_q5):
         """Test that messages are properly converted to llama.cpp prompt format."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         llamacpp_model = Model(
             id=sample_model_14b_q5.id,
@@ -284,7 +285,7 @@ class TestStreamingBackend:
     @pytest.mark.asyncio
     async def test_ollama_streaming_transformation(self, sample_model_7b_q4):
         """Test streaming response from Ollama is converted to Anthropic SSE format."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         async def mock_ollama_stream():
             """Mock Ollama streaming response."""
@@ -325,7 +326,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_backend_http_error(self, sample_model_7b_q4):
         """Test handling of backend HTTP errors."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_response = MagicMock()
@@ -353,7 +354,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_backend_timeout(self, sample_model_7b_q4):
         """Test handling of backend timeout."""
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         with patch("httpx.AsyncClient.post") as mock_post:
             mock_post.side_effect = httpx.TimeoutException("Request timeout")
@@ -376,4 +377,3 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_malformed_backend_response(self, sample_model_7b_q4):
         """Test handling of malformed backend response."""
-        pass

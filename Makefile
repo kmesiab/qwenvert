@@ -44,8 +44,6 @@ format:
 format-check:
 	@echo "Checking black formatting..."
 	$(PYTHON) -m black --check qwenvert tests
-	@echo "Checking ruff formatting..."
-	$(PYTHON) -m ruff format --check qwenvert tests
 	@echo "✓ Format check passed"
 
 # Linting

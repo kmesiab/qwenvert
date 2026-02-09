@@ -4,12 +4,13 @@ Integration tests for server lifecycle and process management.
 Tests the ServerLauncher, health checks, and graceful shutdown.
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
-import httpx
+from unittest.mock import MagicMock, patch
 
-from qwenvert.launcher import ServerLauncher, ProcessHandle
+import httpx
+import pytest
+
+from qwenvert.launcher import ProcessHandle, ServerLauncher
 from qwenvert.models import Backend
 
 
@@ -185,13 +186,15 @@ class TestServerLauncher:
             launcher = ServerLauncher(config=config)
 
             # Mock health check always failing
-            with patch(
-                "httpx.AsyncClient.get",
-                side_effect=httpx.ConnectError("Connection refused"),
+            with (
+                patch(
+                    "httpx.AsyncClient.get",
+                    side_effect=httpx.ConnectError("Connection refused"),
+                ),
+                pytest.raises((TimeoutError, RuntimeError, Exception)),
             ):
-                with pytest.raises((TimeoutError, RuntimeError, Exception)):
-                    # Should timeout after max retries
-                    await launcher.start_backend()
+                # Should timeout after max retries
+                await launcher.start_backend()
 
     @pytest.mark.asyncio
     async def test_graceful_shutdown(self, sample_model_7b_q4):
@@ -247,7 +250,6 @@ class TestAdapterLauncher:
     @pytest.mark.asyncio
     async def test_adapter_start(self, sample_model_7b_q4):
         """Test starting the adapter server."""
-        pass
 
 
 class TestHealthChecks:
@@ -362,7 +364,6 @@ class TestProcessManagement:
     @pytest.mark.asyncio
     async def test_force_kill_on_timeout(self, sample_model_7b_q4):
         """Test force killing process if graceful shutdown times out."""
-        pass
 
 
 class TestRealServerIntegration:

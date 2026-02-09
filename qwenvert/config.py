@@ -5,7 +5,6 @@ Generates optimal configurations for Ollama, llama.cpp, and qwenvert
 based on hardware profile and model selection.
 """
 
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -295,9 +294,9 @@ Selected Configuration:
 
 To use with Claude Code, run these commands:
 
-  export ANTHROPIC_BASE_URL="{env_vars['ANTHROPIC_BASE_URL']}"
-  export ANTHROPIC_API_KEY="{env_vars['ANTHROPIC_API_KEY']}"
-  export ANTHROPIC_MODEL="{env_vars['ANTHROPIC_MODEL']}"
+  export ANTHROPIC_BASE_URL="{env_vars["ANTHROPIC_BASE_URL"]}"
+  export ANTHROPIC_API_KEY="{env_vars["ANTHROPIC_API_KEY"]}"
+  export ANTHROPIC_MODEL="{env_vars["ANTHROPIC_MODEL"]}"
 
 Then start Claude Code:
 

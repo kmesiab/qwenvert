@@ -12,22 +12,18 @@ Prerequisites:
 Run with: pytest -m e2e tests/integration/test_e2e_real_backends.py -v
 """
 
-import asyncio
 import json
 import os
-import subprocess
 import time
-from typing import Optional
 
 import httpx
 import pytest
 import pytest_asyncio
 
 from qwenvert.adapter import create_app
-from qwenvert.config import ConfigGenerator
-from qwenvert.hardware import HardwareDetector
-from qwenvert.models import Backend, Model, ModelRegistry, ModelSelector
+from qwenvert.models import Backend, Model
 from qwenvert.router import BackendRouter
+
 
 # Mark all tests in this file as e2e
 pytestmark = pytest.mark.e2e
@@ -124,7 +120,7 @@ class TestOllamaE2E:
             backend_url=ollama_backend_url,
         )
 
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         request = MessagesRequest(
             model="qwenvert-default",
@@ -171,7 +167,7 @@ class TestOllamaE2E:
             backend_url=ollama_backend_url,
         )
 
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         request = MessagesRequest(
             model="qwenvert-default",
@@ -221,7 +217,7 @@ class TestOllamaE2E:
         )
 
         # Test with httpx client
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
@@ -279,7 +275,7 @@ class TestOllamaE2E:
             backend_url=ollama_backend_url,
         )
 
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
@@ -326,7 +322,7 @@ class TestErrorHandling:
             backend_url="http://localhost:9999",  # Non-existent backend
         )
 
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         request = MessagesRequest(
             model="qwenvert-default",
@@ -346,7 +342,7 @@ class TestErrorHandling:
         app = create_app()
         # Don't set app.state.backend_router
 
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
@@ -404,7 +400,7 @@ class TestPerformance:
             backend_url=ollama_backend_url,
         )
 
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         request = MessagesRequest(
             model="qwenvert-default",

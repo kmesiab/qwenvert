@@ -19,6 +19,7 @@ import httpx
 from .config import ConfigManager, QwenvertConfig
 from .models import Backend
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -93,10 +94,9 @@ class ServerLauncher:
         """
         if self.config.backend == Backend.OLLAMA.value:
             return await self._start_ollama()
-        elif self.config.backend == Backend.LLAMACPP.value:
+        if self.config.backend == Backend.LLAMACPP.value:
             return await self._start_llamacpp()
-        else:
-            raise ValueError(f"Unknown backend: {self.config.backend}")
+        raise ValueError(f"Unknown backend: {self.config.backend}")
 
     async def _start_ollama(self) -> ProcessHandle:
         """Start Ollama server."""
@@ -232,8 +232,8 @@ class ServerLauncher:
 
         # Import adapter and router
         from .adapter import create_app
-        from .router import BackendRouter
         from .models import ModelRegistry
+        from .router import BackendRouter
 
         # Get model
         registry = ModelRegistry()
@@ -296,11 +296,11 @@ class ServerLauncher:
         print(f"\nBackend:  {self.config.backend} on {self.config.backend_url}")
         print(f"Adapter:  {adapter_url}")
         print(f"Model:    {self.config.backend_model_id}")
-        print(f"\nConfigure Claude Code:\n")
+        print("\nConfigure Claude Code:\n")
         print(f'  export ANTHROPIC_BASE_URL="{adapter_url}"')
-        print(f'  export ANTHROPIC_API_KEY="local-qwen"')
-        print(f'  export ANTHROPIC_MODEL="qwenvert-default"')
-        print(f"\nThen run: claude\n")
+        print('  export ANTHROPIC_API_KEY="local-qwen"')
+        print('  export ANTHROPIC_MODEL="qwenvert-default"')
+        print("\nThen run: claude\n")
         print("=" * 70 + "\n")
 
     async def stop_all(self) -> None:

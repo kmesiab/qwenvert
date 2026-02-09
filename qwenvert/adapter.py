@@ -8,11 +8,13 @@ Translates Anthropic Messages API requests to backend format.
 import asyncio
 import json
 import logging
-from typing import Any, AsyncIterator, Dict, List, Literal, Optional, Union
+from collections.abc import AsyncIterator
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
+
 
 logger = logging.getLogger(__name__)
 
@@ -196,16 +198,15 @@ def create_app() -> FastAPI:
                     _stream_response(request, app.state.backend_router),
                     media_type="text/event-stream",
                 )
-            else:
-                # Non-streaming response
-                response = await _generate_response(request, app.state.backend_router)
-                return response
+            # Non-streaming response
+            response = await _generate_response(request, app.state.backend_router)
+            return response
 
         except Exception as e:
             logger.error(f"Error processing request: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
-                detail=f"Error processing request: {str(e)}",
+                detail=f"Error processing request: {e!s}",
             )
 
     return app

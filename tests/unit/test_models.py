@@ -2,9 +2,7 @@
 Unit tests for model registry and selection.
 """
 
-import pytest
-
-from qwenvert.models import Backend, ModelRegistry, ModelSelector
+from qwenvert.models import Backend, ModelSelector
 
 
 class TestModelRegistry:

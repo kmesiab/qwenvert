@@ -2,9 +2,6 @@
 Unit tests for configuration generation.
 """
 
-import pytest
-from pathlib import Path
-
 from qwenvert.config import ConfigGenerator, ConfigManager, QwenvertConfig
 from qwenvert.models import Backend
 

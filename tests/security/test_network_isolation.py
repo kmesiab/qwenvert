@@ -5,10 +5,6 @@ CRITICAL: These tests verify that qwenvert makes NO external network calls
 during runtime, ensuring code and data never leave the local machine.
 """
 
-import socket
-from unittest.mock import patch
-
-import httpx
 import pytest
 
 from qwenvert.models import Backend, Model
@@ -28,8 +24,9 @@ class TestNetworkIsolation:
 
         This prevents the adapter from being accessible from the network.
         """
-        from qwenvert.adapter import create_app
         import uvicorn
+
+        from qwenvert.adapter import create_app
 
         app = create_app()
 

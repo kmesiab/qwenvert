@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Optional
 
 from huggingface_hub import hf_hub_download
-from tqdm import tqdm
 
 from .models import Model
 
@@ -197,11 +196,10 @@ class ModelDownloader:
         if actual_checksum == expected_checksum:
             logger.info("✅ Checksum verified")
             return True
-        else:
-            logger.error(f"❌ Checksum mismatch!")
-            logger.error(f"   Expected: {expected_checksum}")
-            logger.error(f"   Actual:   {actual_checksum}")
-            return False
+        logger.error("❌ Checksum mismatch!")
+        logger.error(f"   Expected: {expected_checksum}")
+        logger.error(f"   Actual:   {actual_checksum}")
+        return False
 
     def list_downloaded_models(self) -> list[Path]:
         """

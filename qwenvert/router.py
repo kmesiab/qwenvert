@@ -7,7 +7,8 @@ Translates Anthropic Messages API requests to backend-specific formats
 
 import logging
 import uuid
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -19,6 +20,7 @@ from .adapter import (
     Usage,
 )
 from .models import Backend, Model
+
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +63,9 @@ class BackendRouter:
         """
         if self.model.backend == Backend.OLLAMA:
             return await self._generate_ollama(request)
-        elif self.model.backend == Backend.LLAMACPP:
+        if self.model.backend == Backend.LLAMACPP:
             return await self._generate_llamacpp(request)
-        else:
-            raise NotImplementedError(f"Backend {self.model.backend} not implemented")
+        raise NotImplementedError(f"Backend {self.model.backend} not implemented")
 
     async def generate_stream(
         self, request: MessagesRequest

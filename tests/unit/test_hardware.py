@@ -2,10 +2,9 @@
 Unit tests for hardware detection.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from qwenvert.hardware import HardwareDetector, HardwareProfile
+from qwenvert.hardware import HardwareDetector
 
 
 class TestHardwareProfile:

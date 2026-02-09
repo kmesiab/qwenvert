@@ -8,21 +8,22 @@ These tests validate the complete end-to-end flow:
 4. Streaming and non-streaming modes
 """
 
+from unittest.mock import AsyncMock
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from qwenvert.adapter import create_app
-from qwenvert.models import Backend, Model, ModelRegistry
 from qwenvert.router import BackendRouter
 
 
 @pytest_asyncio.fixture
 async def adapter_client(sample_model_7b_q4):
     """Create test client for adapter."""
-    from qwenvert.adapter import MessagesResponse, ContentBlock, Usage
     from httpx import ASGITransport
+
+    from qwenvert.adapter import ContentBlock, MessagesResponse, Usage
 
     app = create_app()
 
@@ -193,7 +194,6 @@ class TestMessagesEndpoint:
     @pytest.mark.asyncio
     async def test_invalid_model(self, adapter_client):
         """Test request with invalid model."""
-        pass
 
     @pytest.mark.asyncio
     async def test_temperature_parameter(self, adapter_client):
@@ -252,8 +252,7 @@ class TestBackendIntegration:
         - Ollama running on localhost:11434
         - qwen2.5-coder:7b model downloaded
         """
-        from qwenvert.router import BackendRouter
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         router = BackendRouter(
             model=sample_model_7b_q4,
@@ -285,8 +284,7 @@ class TestBackendIntegration:
         - llama.cpp server running on localhost:8080
         - Qwen model loaded
         """
-        from qwenvert.router import BackendRouter
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         router = BackendRouter(
             model=sample_model_14b_q5,
@@ -311,8 +309,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_backend_connection_error(self, sample_model_7b_q4):
         """Test handling of backend connection failure."""
-        from qwenvert.router import BackendRouter
-        from qwenvert.adapter import MessagesRequest, Message
+        from qwenvert.adapter import Message, MessagesRequest
 
         # Point to non-existent backend
         router = BackendRouter(
@@ -411,7 +408,7 @@ class TestAnthropicCompatibility:
     @pytest.mark.asyncio
     async def test_stop_reason_values(self, adapter_client):
         """Test that stop_reason uses valid Anthropic values."""
-        from qwenvert.adapter import MessagesResponse, ContentBlock, Usage
+        from qwenvert.adapter import ContentBlock, MessagesResponse, Usage
 
         client, mock_router = adapter_client
 
