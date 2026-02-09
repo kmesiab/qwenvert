@@ -24,6 +24,29 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Operating System :: MacOS :: MacOS X",
 ]
+dependencies = [
+    "click>=8.1.7",
+    "httpx>=0.27.0",
+    "rich>=13.7.0",
+    "pyyaml>=6.0.1",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "psutil>=6.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.11.0",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "types-PyYAML>=6.0.12",
+]
+
+[project.scripts]
+qwenvert = "qwenvert.cli:cli"
 
 [tool.black]
 line-length = 88

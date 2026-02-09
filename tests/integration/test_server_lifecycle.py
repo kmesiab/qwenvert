@@ -148,10 +148,13 @@ class TestServerLauncher:
             )
 
             # Mock health check always failing
-            with patch(
-                "httpx.AsyncClient.get",
-                side_effect=httpx.ConnectError("Connection refused"),
-            ), pytest.raises((TimeoutError, RuntimeError, Exception)):
+            with (
+                patch(
+                    "httpx.AsyncClient.get",
+                    side_effect=httpx.ConnectError("Connection refused"),
+                ),
+                pytest.raises((TimeoutError, RuntimeError, Exception)),
+            ):
                 # Should timeout after max retries
                 await launcher.start_backend()
 
