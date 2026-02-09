@@ -2,7 +2,6 @@
 Unit tests for configuration generation.
 """
 
-
 from qwenvert.config import ConfigGenerator, ConfigManager, QwenvertConfig
 from qwenvert.models import Backend
 

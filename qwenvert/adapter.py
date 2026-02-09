@@ -4,6 +4,7 @@ Anthropic Messages API HTTP adapter.
 FastAPI server implementing /v1/messages endpoint compatible with Claude Code.
 Translates Anthropic Messages API requests to backend format.
 """
+
 from __future__ import annotations
 
 import asyncio

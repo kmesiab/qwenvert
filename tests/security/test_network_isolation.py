@@ -5,7 +5,6 @@ CRITICAL: These tests verify that qwenvert makes NO external network calls
 during runtime, ensuring code and data never leave the local machine.
 """
 
-
 import pytest
 
 from qwenvert.models import Backend, Model

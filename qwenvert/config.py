@@ -4,6 +4,7 @@ Configuration generation and management.
 Generates optimal configurations for Ollama, llama.cpp, and qwenvert
 based on hardware profile and model selection.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass

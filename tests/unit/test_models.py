@@ -2,7 +2,6 @@
 Unit tests for model registry and selection.
 """
 
-
 from qwenvert.models import Backend, ModelSelector
 
 

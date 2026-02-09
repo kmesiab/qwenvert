@@ -4,6 +4,7 @@ Server launcher and process management.
 Manages lifecycle of backend servers (Ollama, llama.cpp) and
 qwenvert adapter, including health checks and graceful shutdown.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -317,9 +318,7 @@ class ServerLauncher:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, timeout=2.0)
                 return response.status_code == 200
-        except (
-            Exception
-        ):
+        except Exception:
             return False
 
     async def _wait_for_health(self, url: str, timeout: int = 30) -> bool:
