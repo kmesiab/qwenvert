@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="qwenvert",
     version="0.1.0",
-    author="Kyle Mesiab",
+    author="Kevin Mesiab",
     author_email="kmesiab@gmail.com",
     description="One-click local LLM inference for Claude Code on Mac M1",
     long_description=long_description,
