@@ -46,7 +46,9 @@ class TestServerLauncher:
                 # Mock health checks: first check (is already running) = False, then wait succeeds
                 with patch.object(launcher, "_check_health", return_value=False):
                     with patch.object(launcher, "_wait_for_health", return_value=True):
-                        with patch.object(launcher, "_ensure_ollama_model", return_value=None):
+                        with patch.object(
+                            launcher, "_ensure_ollama_model", return_value=None
+                        ):
                             handle = await launcher.start_backend()
 
                             assert handle is not None
@@ -98,7 +100,9 @@ class TestServerLauncher:
                     mock_popen.return_value = mock_process
 
                     with patch.object(launcher, "_check_health", return_value=False):
-                        with patch.object(launcher, "_wait_for_health", return_value=True):
+                        with patch.object(
+                            launcher, "_wait_for_health", return_value=True
+                        ):
                             handle = await launcher.start_backend()
 
                             assert handle is not None
@@ -150,7 +154,9 @@ class TestServerLauncher:
                 # Mock the checks
                 with patch.object(launcher, "_check_health", return_value=False):
                     with patch.object(launcher, "_wait_for_health", return_value=True):
-                        with patch.object(launcher, "_ensure_ollama_model", return_value=None):
+                        with patch.object(
+                            launcher, "_ensure_ollama_model", return_value=None
+                        ):
                             handle = await launcher.start_backend()
 
                             assert handle is not None
@@ -216,7 +222,9 @@ class TestServerLauncher:
                 # Mock health checks: not already running, then wait succeeds
                 with patch.object(launcher, "_check_health", return_value=False):
                     with patch.object(launcher, "_wait_for_health", return_value=True):
-                        with patch.object(launcher, "_ensure_ollama_model", return_value=None):
+                        with patch.object(
+                            launcher, "_ensure_ollama_model", return_value=None
+                        ):
                             handle = await launcher.start_backend()
 
                             # Verify we got the mocked process
@@ -233,7 +241,9 @@ class TestServerLauncher:
 class TestAdapterLauncher:
     """Test adapter server launching."""
 
-    @pytest.mark.skip(reason="ServerLauncher no longer has _create_adapter_config method")
+    @pytest.mark.skip(
+        reason="ServerLauncher no longer has _create_adapter_config method"
+    )
     @pytest.mark.asyncio
     async def test_adapter_start(self, sample_model_7b_q4):
         """Test starting the adapter server."""

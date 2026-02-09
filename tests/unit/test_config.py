@@ -83,7 +83,10 @@ class TestConfigGenerator:
         assert "ANTHROPIC_API_KEY" in env_vars
         assert "ANTHROPIC_MODEL" in env_vars
         # Accept either localhost or 127.0.0.1
-        assert "localhost" in env_vars["ANTHROPIC_BASE_URL"] or "127.0.0.1" in env_vars["ANTHROPIC_BASE_URL"]
+        assert (
+            "localhost" in env_vars["ANTHROPIC_BASE_URL"]
+            or "127.0.0.1" in env_vars["ANTHROPIC_BASE_URL"]
+        )
         assert env_vars["ANTHROPIC_API_KEY"] == "local-qwen"
 
 

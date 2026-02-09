@@ -187,7 +187,9 @@ class TestMessagesEndpoint:
         # Should succeed (local mode doesn't require strict auth)
         assert response.status_code in [200, 401]  # Depends on implementation
 
-    @pytest.mark.skip(reason="Adapter doesn't validate model names - passes through to backend")
+    @pytest.mark.skip(
+        reason="Adapter doesn't validate model names - passes through to backend"
+    )
     @pytest.mark.asyncio
     async def test_invalid_model(self, adapter_client):
         """Test request with invalid model."""
