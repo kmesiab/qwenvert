@@ -103,7 +103,7 @@ class TestMessagesEndpoint:
         """Test streaming message request with SSE."""
         client, mock_router = adapter_client
 
-        # Mock streaming response
+        # Mock streaming response - must return async generator directly
         async def mock_stream(request):
             yield {
                 "type": "message_start",
@@ -124,8 +124,8 @@ class TestMessagesEndpoint:
             }
             yield {"type": "message_stop"}
 
-        # Make it a mock that returns the async generator when called
-        mock_router.generate_stream = AsyncMock(side_effect=mock_stream)
+        # Assign the async generator function directly
+        mock_router.generate_stream = mock_stream
 
         response = await client.post(
             "/v1/messages",
@@ -139,7 +139,8 @@ class TestMessagesEndpoint:
         )
 
         assert response.status_code == 200
-        assert response.headers["content-type"] == "text/event-stream"
+        # Content-type may include charset
+        assert "text/event-stream" in response.headers["content-type"]
 
     @pytest.mark.asyncio
     async def test_multimodal_message(self, adapter_client):
