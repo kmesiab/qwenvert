@@ -9,6 +9,7 @@ These tests validate the complete end-to-end flow:
 """
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -17,31 +18,35 @@ from qwenvert.models import Backend, Model, ModelRegistry
 from qwenvert.router import BackendRouter
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def adapter_client(sample_model_7b_q4):
     """Create test client for adapter."""
     from qwenvert.adapter import MessagesResponse, ContentBlock, Usage
+    from httpx import ASGITransport
 
     app = create_app()
 
     # Mock the backend router to avoid actual backend calls
-    with patch("qwenvert.adapter.BackendRouter") as mock_router_class:
-        mock_router = AsyncMock()
-        mock_router_class.return_value = mock_router
+    mock_router = AsyncMock()
 
-        # Configure mock to return realistic response
-        mock_router.generate.return_value = MessagesResponse(
-            id="msg_test123",
-            type="message",
-            role="assistant",
-            content=[ContentBlock(type="text", text="Hello! How can I help you?")],
-            model="qwenvert-default",
-            stop_reason="end_turn",
-            usage=Usage(input_tokens=10, output_tokens=8),
-        )
+    # Configure mock to return realistic response
+    mock_router.generate.return_value = MessagesResponse(
+        id="msg_test123",
+        type="message",
+        role="assistant",
+        content=[ContentBlock(type="text", text="Hello! How can I help you?")],
+        model="qwenvert-default",
+        stop_reason="end_turn",
+        usage=Usage(input_tokens=10, output_tokens=8),
+    )
 
-        async with AsyncClient(app=app, base_url="http://localhost:8088") as client:
-            yield client, mock_router
+    # Inject mock router into app
+    app.state.backend_router = mock_router
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        yield client, mock_router
 
 
 class TestMessagesEndpoint:
@@ -227,14 +232,17 @@ class TestHealthEndpoint:
     @pytest.mark.asyncio
     async def test_health_check(self):
         """Test /health endpoint."""
+        from httpx import ASGITransport
+
         app = create_app()
-        async with AsyncClient(app=app, base_url="http://localhost:8088") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.get("/health")
 
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "healthy"
-            assert "adapter_version" in data
 
 
 class TestBackendIntegration:

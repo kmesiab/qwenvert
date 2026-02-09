@@ -30,26 +30,29 @@ class TestServerLauncher:
             adapter_port=8088,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
-            # Mock process
-            mock_process = MagicMock()
-            mock_process.pid = 12345
-            mock_process.returncode = None
-            mock_subprocess.return_value = mock_process
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = "/usr/local/bin/ollama"
 
-            launcher = ServerLauncher(config=config)
+            with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+                # Mock process
+                mock_process = MagicMock()
+                mock_process.pid = 12345
+                mock_process.returncode = None
+                mock_subprocess.return_value = mock_process
 
-            # Mock health check to succeed immediately
-            with patch("httpx.AsyncClient.get") as mock_get:
-                mock_response = MagicMock()
-                mock_response.status_code = 200
-                mock_get.return_value = mock_response
+                launcher = ServerLauncher(config=config)
 
-                handle = await launcher.start_backend()
+                # Mock health check to succeed immediately
+                with patch("httpx.AsyncClient.get") as mock_get:
+                    mock_response = MagicMock()
+                    mock_response.status_code = 200
+                    mock_get.return_value = mock_response
 
-                assert handle is not None
-                assert handle.pid == 12345
-                assert handle.process == mock_process
+                    handle = await launcher.start_backend()
+
+                    assert handle is not None
+                    assert handle.pid == 12345
+                    assert handle.process == mock_process
 
     @pytest.mark.asyncio
     async def test_llamacpp_backend_launch(self, sample_model_14b_q5, temp_config_dir):
@@ -81,28 +84,31 @@ class TestServerLauncher:
             adapter_port=8088,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
-            mock_process = MagicMock()
-            mock_process.pid = 12346
-            mock_process.returncode = None
-            mock_subprocess.return_value = mock_process
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = "/usr/local/bin/llama-server"
 
-            launcher = ServerLauncher(config=config)
+            with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+                mock_process = MagicMock()
+                mock_process.pid = 12346
+                mock_process.returncode = None
+                mock_subprocess.return_value = mock_process
 
-            with patch("httpx.AsyncClient.get") as mock_get:
-                mock_response = MagicMock()
-                mock_response.status_code = 200
-                mock_get.return_value = mock_response
+                launcher = ServerLauncher(config=config)
 
-                handle = await launcher.start_backend()
+                with patch("httpx.AsyncClient.get") as mock_get:
+                    mock_response = MagicMock()
+                    mock_response.status_code = 200
+                    mock_get.return_value = mock_response
 
-                assert handle is not None
-                assert handle.pid == 12346
+                    handle = await launcher.start_backend()
 
-                # Verify llama.cpp command line
-                call_args = mock_subprocess.call_args
-                cmd = call_args[0] if call_args else []
-                assert any("llama" in str(arg).lower() for arg in cmd)
+                    assert handle is not None
+                    assert handle.pid == 12346
+
+                    # Verify llama.cpp command line
+                    call_args = mock_subprocess.call_args
+                    cmd = call_args[0] if call_args else []
+                    assert any("llama" in str(arg).lower() for arg in cmd)
 
     @pytest.mark.asyncio
     async def test_backend_health_check_retry(self, sample_model_7b_q4):
@@ -118,31 +124,34 @@ class TestServerLauncher:
             adapter_port=8088,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
-            mock_process = MagicMock()
-            mock_process.pid = 12347
-            mock_process.returncode = None
-            mock_subprocess.return_value = mock_process
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = "/usr/local/bin/ollama"
 
-            launcher = ServerLauncher(config=config)
+            with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+                mock_process = MagicMock()
+                mock_process.pid = 12347
+                mock_process.returncode = None
+                mock_subprocess.return_value = mock_process
 
-            # Mock health check failing twice, then succeeding
-            call_count = 0
+                launcher = ServerLauncher(config=config)
 
-            async def mock_health_check(*args, **kwargs):
-                nonlocal call_count
-                call_count += 1
-                if call_count < 3:
-                    raise httpx.ConnectError("Connection refused")
-                mock_response = MagicMock()
-                mock_response.status_code = 200
-                return mock_response
+                # Mock health check failing twice, then succeeding
+                call_count = 0
 
-            with patch("httpx.AsyncClient.get", side_effect=mock_health_check):
-                handle = await launcher.start_backend()
+                async def mock_health_check(*args, **kwargs):
+                    nonlocal call_count
+                    call_count += 1
+                    if call_count < 3:
+                        raise httpx.ConnectError("Connection refused")
+                    mock_response = MagicMock()
+                    mock_response.status_code = 200
+                    return mock_response
 
-                assert handle is not None
-                assert call_count >= 3  # Retried at least twice
+                with patch("httpx.AsyncClient.get", side_effect=mock_health_check):
+                    handle = await launcher.start_backend()
+
+                    assert handle is not None
+                    assert call_count >= 3  # Retried at least twice
 
     @pytest.mark.asyncio
     async def test_backend_health_check_timeout(self, sample_model_7b_q4):
@@ -189,29 +198,32 @@ class TestServerLauncher:
             adapter_port=8088,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
-            mock_process = MagicMock()
-            mock_process.pid = 12349
-            mock_process.returncode = None
-            mock_process.terminate = MagicMock()
-            mock_process.wait = AsyncMock()
-            mock_subprocess.return_value = mock_process
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = "/usr/local/bin/ollama"
 
-            launcher = ServerLauncher(config=config)
+            with patch("asyncio.create_subprocess_exec") as mock_subprocess:
+                mock_process = MagicMock()
+                mock_process.pid = 12349
+                mock_process.returncode = None
+                mock_process.terminate = MagicMock()
+                mock_process.wait = AsyncMock()
+                mock_subprocess.return_value = mock_process
 
-            with patch("httpx.AsyncClient.get") as mock_get:
-                mock_response = MagicMock()
-                mock_response.status_code = 200
-                mock_get.return_value = mock_response
+                launcher = ServerLauncher(config=config)
 
-                handle = await launcher.start_backend()
+                with patch("httpx.AsyncClient.get") as mock_get:
+                    mock_response = MagicMock()
+                    mock_response.status_code = 200
+                    mock_get.return_value = mock_response
 
-                # Stop the backend
-                await launcher.stop_backend(handle)
+                    handle = await launcher.start_backend()
 
-                # Verify terminate was called
-                mock_process.terminate.assert_called_once()
-                mock_process.wait.assert_called_once()
+                    # Stop the backend
+                    await launcher.stop_backend(handle)
+
+                    # Verify terminate was called
+                    mock_process.terminate.assert_called_once()
+                    mock_process.wait.assert_called_once()
 
 
 class TestAdapterLauncher:
