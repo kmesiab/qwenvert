@@ -9,8 +9,13 @@ __version__ = "0.1.0"
 __author__ = "Kyle Mesiab"
 
 from .hardware import HardwareDetector, HardwareProfile
+from .models import Backend, Model, ModelRegistry, ModelSelector
 
 __all__ = [
+    "Backend",
     "HardwareDetector",
     "HardwareProfile",
+    "Model",
+    "ModelRegistry",
+    "ModelSelector",
 ]
