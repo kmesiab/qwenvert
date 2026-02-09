@@ -55,7 +55,9 @@ async def check_ollama_available(ollama_backend_url):
                 tags = response.json()
                 models = [m["name"] for m in tags.get("models", [])]
                 # Check for qwen2.5-coder model
-                has_qwen = any("qwen" in m.lower() and "coder" in m.lower() for m in models)
+                has_qwen = any(
+                    "qwen" in m.lower() and "coder" in m.lower() for m in models
+                )
                 return has_qwen
     except Exception as e:
         print(f"Ollama not available: {e}")
@@ -94,7 +96,9 @@ class TestOllamaE2E:
     """End-to-end tests with real Ollama backend."""
 
     @pytest.mark.asyncio
-    async def test_ollama_health_check(self, ollama_backend_url, check_ollama_available):
+    async def test_ollama_health_check(
+        self, ollama_backend_url, check_ollama_available
+    ):
         """Test Ollama server is running and responsive."""
         if not await check_ollama_available:
             pytest.skip("Ollama not available or qwen model not installed")
@@ -124,7 +128,11 @@ class TestOllamaE2E:
 
         request = MessagesRequest(
             model="qwenvert-default",
-            messages=[Message(role="user", content="Say 'Hello from Ollama' and nothing else.")],
+            messages=[
+                Message(
+                    role="user", content="Say 'Hello from Ollama' and nothing else."
+                )
+            ],
             max_tokens=20,
         )
 
@@ -215,7 +223,9 @@ class TestOllamaE2E:
         # Test with httpx client
         from httpx import AsyncClient, ASGITransport
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             # Test health check
             health_response = await client.get("/health")
             assert health_response.status_code == 200
@@ -230,7 +240,10 @@ class TestOllamaE2E:
                 json={
                     "model": "qwenvert-default",
                     "messages": [
-                        {"role": "user", "content": "What is 2+2? Answer with just the number."}
+                        {
+                            "role": "user",
+                            "content": "What is 2+2? Answer with just the number.",
+                        }
                     ],
                     "max_tokens": 10,
                 },
@@ -268,7 +281,9 @@ class TestOllamaE2E:
 
         from httpx import AsyncClient, ASGITransport
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             print("\n🔄 Testing streaming endpoint...")
 
             async with client.stream(
@@ -333,7 +348,9 @@ class TestErrorHandling:
 
         from httpx import AsyncClient, ASGITransport
 
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
             response = await client.post(
                 "/v1/messages",
                 json={

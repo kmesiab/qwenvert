@@ -42,7 +42,9 @@ class BackendRouter:
         """
         self.model = model
         self.backend_url = backend_url.rstrip("/")
-        self.client = httpx.AsyncClient(timeout=300.0)  # 5 min timeout for long generations
+        self.client = httpx.AsyncClient(
+            timeout=300.0
+        )  # 5 min timeout for long generations
 
     async def generate(self, request: MessagesRequest) -> MessagesResponse:
         """
@@ -64,7 +66,9 @@ class BackendRouter:
         else:
             raise NotImplementedError(f"Backend {self.model.backend} not implemented")
 
-    async def generate_stream(self, request: MessagesRequest) -> AsyncIterator[Dict[str, Any]]:
+    async def generate_stream(
+        self, request: MessagesRequest
+    ) -> AsyncIterator[Dict[str, Any]]:
         """
         Generate streaming response from backend.
 
@@ -91,7 +95,9 @@ class BackendRouter:
     async def _generate_ollama(self, request: MessagesRequest) -> MessagesResponse:
         """Generate response from Ollama backend."""
         # Convert Anthropic messages to Ollama chat format
-        ollama_messages = self._anthropic_to_ollama_messages(request.messages, request.system)
+        ollama_messages = self._anthropic_to_ollama_messages(
+            request.messages, request.system
+        )
 
         # Build Ollama request
         ollama_request = {
@@ -128,9 +134,13 @@ class BackendRouter:
         # Transform to Anthropic format
         return self._ollama_to_anthropic_response(ollama_response, request)
 
-    async def _stream_ollama(self, request: MessagesRequest) -> AsyncIterator[Dict[str, Any]]:
+    async def _stream_ollama(
+        self, request: MessagesRequest
+    ) -> AsyncIterator[Dict[str, Any]]:
         """Stream response from Ollama backend."""
-        ollama_messages = self._anthropic_to_ollama_messages(request.messages, request.system)
+        ollama_messages = self._anthropic_to_ollama_messages(
+            request.messages, request.system
+        )
 
         ollama_request = {
             "model": self.model.backend_model_id,

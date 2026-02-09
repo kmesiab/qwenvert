@@ -11,12 +11,16 @@ from qwenvert.hardware import HardwareDetector, HardwareProfile
 class TestHardwareProfile:
     """Test HardwareProfile helper methods."""
 
-    def test_is_memory_constrained(self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb):
+    def test_is_memory_constrained(
+        self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb
+    ):
         """Test memory constraint detection."""
         assert mock_hardware_m1_air_8gb.is_memory_constrained()
         assert not mock_hardware_m1_16gb.is_memory_constrained()
 
-    def test_is_thermally_constrained(self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb):
+    def test_is_thermally_constrained(
+        self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb
+    ):
         """Test thermal constraint detection."""
         assert mock_hardware_m1_air_8gb.is_thermally_constrained()  # Fanless
         assert not mock_hardware_m1_16gb.is_thermally_constrained()  # Has fan
@@ -33,7 +37,7 @@ class TestHardwareProfile:
 class TestHardwareDetector:
     """Test hardware detection logic."""
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_m1_chip(self, mock_check_output):
         """Test M1 chip detection."""
         mock_check_output.return_value = b"Apple M1\n"
@@ -43,7 +47,7 @@ class TestHardwareDetector:
 
         assert chip_name == "M1"
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_memory(self, mock_check_output):
         """Test memory detection and rounding."""
         # 17179869184 bytes = 16GB

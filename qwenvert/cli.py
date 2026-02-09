@@ -131,7 +131,7 @@ def init(model, backend, adapter_port, context_length):
             try:
                 with console.status(
                     f"[cyan]Downloading {selected_model.display_name}...",
-                    spinner="dots"
+                    spinner="dots",
                 ):
                     model_path = downloader.download(selected_model)
 
@@ -196,6 +196,7 @@ def start():
     except Exception as e:
         console.print(f"\n[red]Error:[/red] {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -214,7 +215,9 @@ def status():
 
     # Check if configured
     if not ConfigManager.exists():
-        console.print("[yellow]Not configured.[/yellow] Run [bold]qwenvert init[/bold] first.\n")
+        console.print(
+            "[yellow]Not configured.[/yellow] Run [bold]qwenvert init[/bold] first.\n"
+        )
         return
 
     # Load config
@@ -315,7 +318,9 @@ def models():
 
 
 @models.command("list")
-@click.option("--backend", type=click.Choice(["ollama", "llamacpp"]), help="Filter by backend")
+@click.option(
+    "--backend", type=click.Choice(["ollama", "llamacpp"]), help="Filter by backend"
+)
 def list_models(backend):
     """
     List available models.
@@ -386,10 +391,14 @@ def hardware():
     table.add_row("GPU Cores", str(hw.gpu_cores))
     table.add_row("Performance Cores", str(hw.cpu_cores_performance))
     table.add_row("Efficiency Cores", str(hw.cpu_cores_efficiency))
-    table.add_row("Cooling", "Active (fan)" if hw.has_active_cooling else "Passive (fanless)")
+    table.add_row(
+        "Cooling", "Active (fan)" if hw.has_active_cooling else "Passive (fanless)"
+    )
     table.add_row("Neural Engine Cores", str(hw.neural_engine_cores))
     table.add_row("Model Identifier", hw.model_identifier)
-    table.add_row("Recommended Context", f"{hw.recommended_context_length() // 1024}K tokens")
+    table.add_row(
+        "Recommended Context", f"{hw.recommended_context_length() // 1024}K tokens"
+    )
 
     console.print(table)
 
@@ -398,9 +407,13 @@ def hardware():
     if hw.is_memory_constrained():
         console.print("  • [yellow]Memory constrained[/yellow] - use Q4 quantization")
     if hw.is_thermally_constrained():
-        console.print("  • [yellow]Thermally constrained[/yellow] - enable thermal pacing")
+        console.print(
+            "  • [yellow]Thermally constrained[/yellow] - enable thermal pacing"
+        )
     if not hw.is_memory_constrained() and not hw.is_thermally_constrained():
-        console.print("  • [green]Good configuration[/green] - can handle larger models")
+        console.print(
+            "  • [green]Good configuration[/green] - can handle larger models"
+        )
 
     console.print()
 
@@ -437,7 +450,9 @@ def monitor(adapter_url, refresh_rate):
         console.print(f"Monitoring: [cyan]{adapter_url}[/cyan]")
     else:
         console.print(f"Monitoring: [cyan]{adapter_url}[/cyan]")
-        console.print("[yellow]Tip:[/yellow] Run [bold]qwenvert init[/bold] to configure\n")
+        console.print(
+            "[yellow]Tip:[/yellow] Run [bold]qwenvert init[/bold] to configure\n"
+        )
 
     console.print("Press [bold cyan]Ctrl+C[/bold cyan] to exit\n")
 
@@ -448,6 +463,7 @@ def monitor(adapter_url, refresh_rate):
     except Exception as e:
         console.print(f"\n[red]Error:[/red] {e}\n")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

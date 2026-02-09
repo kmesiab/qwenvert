@@ -104,17 +104,14 @@ class ServerLauncher:
 
         # Check if ollama is installed
         if not shutil.which("ollama"):
-            raise RuntimeError(
-                "Ollama not found. Install with: brew install ollama"
-            )
+            raise RuntimeError("Ollama not found. Install with: brew install ollama")
 
         # Check if server is already running
         if await self._check_health("http://localhost:11434"):
             logger.info("Ollama server already running")
             # Return placeholder handle (we don't own this process)
             return ProcessHandle(
-                subprocess.Popen(["echo"], stdout=subprocess.DEVNULL),
-                "ollama-existing"
+                subprocess.Popen(["echo"], stdout=subprocess.DEVNULL), "ollama-existing"
             )
 
         # Start Ollama server
@@ -152,9 +149,7 @@ class ServerLauncher:
                     llamacpp_path = Path(alt_path)
                     break
             else:
-                raise RuntimeError(
-                    "llama-server not found. Install llama.cpp first."
-                )
+                raise RuntimeError("llama-server not found. Install llama.cpp first.")
 
         # Generate flags from config
         from .config import ConfigGenerator
@@ -167,11 +162,17 @@ class ServerLauncher:
 
         # Placeholder hardware (we don't have it here, but flags are mostly static)
         from .hardware import HardwareProfile
+
         hardware = HardwareProfile(
-            chip="M1", chip_family="M1", total_memory_gb=16,
-            gpu_cores=8, cpu_cores_performance=4, cpu_cores_efficiency=4,
-            has_active_cooling=True, neural_engine_cores=16,
-            model_identifier="Unknown"
+            chip="M1",
+            chip_family="M1",
+            total_memory_gb=16,
+            gpu_cores=8,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=True,
+            neural_engine_cores=16,
+            model_identifier="Unknown",
         )
 
         config_gen = ConfigGenerator(model, hardware)
@@ -296,9 +297,9 @@ class ServerLauncher:
         print(f"Adapter:  {adapter_url}")
         print(f"Model:    {self.config.backend_model_id}")
         print(f"\nConfigure Claude Code:\n")
-        print(f"  export ANTHROPIC_BASE_URL=\"{adapter_url}\"")
-        print(f"  export ANTHROPIC_API_KEY=\"local-qwen\"")
-        print(f"  export ANTHROPIC_MODEL=\"qwenvert-default\"")
+        print(f'  export ANTHROPIC_BASE_URL="{adapter_url}"')
+        print(f'  export ANTHROPIC_API_KEY="local-qwen"')
+        print(f'  export ANTHROPIC_MODEL="qwenvert-default"')
         print(f"\nThen run: claude\n")
         print("=" * 70 + "\n")
 
@@ -307,7 +308,7 @@ class ServerLauncher:
         logger.info("Stopping qwenvert...")
 
         # Stop adapter
-        if hasattr(self, 'adapter_task'):
+        if hasattr(self, "adapter_task"):
             self.adapter_task.cancel()
             try:
                 await self.adapter_task

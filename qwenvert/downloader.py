@@ -96,17 +96,25 @@ class ModelDownloader:
                 shutil.move(str(downloaded_path_obj), str(local_path))
 
             # Verify checksum if available
-            if hasattr(model, 'checksum') and model.checksum:
+            if hasattr(model, "checksum") and model.checksum:
                 if not self.verify_checksum(local_path, model.checksum):
-                    logger.error("Checksum verification failed, removing corrupted file")
+                    logger.error(
+                        "Checksum verification failed, removing corrupted file"
+                    )
                     local_path.unlink()
-                    raise RuntimeError(f"Checksum verification failed for {model.display_name}")
+                    raise RuntimeError(
+                        f"Checksum verification failed for {model.display_name}"
+                    )
                 logger.info("✅ Checksum verified")
-            elif hasattr(model, 'sha256') and model.sha256:
+            elif hasattr(model, "sha256") and model.sha256:
                 if not self.verify_checksum(local_path, model.sha256):
-                    logger.error("Checksum verification failed, removing corrupted file")
+                    logger.error(
+                        "Checksum verification failed, removing corrupted file"
+                    )
                     local_path.unlink()
-                    raise RuntimeError(f"Checksum verification failed for {model.display_name}")
+                    raise RuntimeError(
+                        f"Checksum verification failed for {model.display_name}"
+                    )
                 logger.info("✅ Checksum verified")
 
             logger.info(f"✅ Download complete: {local_path}")
@@ -132,7 +140,7 @@ class ModelDownloader:
             ValueError: If filename can't be determined
         """
         # Check if model has explicit gguf_filename attribute
-        if hasattr(model, 'gguf_filename') and model.gguf_filename:
+        if hasattr(model, "gguf_filename") and model.gguf_filename:
             return model.gguf_filename
 
         backend_id = model.backend_model_id
@@ -254,9 +262,7 @@ class ModelDownloader:
             return {"total_gb": 0.0, "available_gb": 0.0}
 
         # Calculate total size of downloaded models
-        total_bytes = sum(
-            p.stat().st_size for p in self.models_dir.glob("*.gguf")
-        )
+        total_bytes = sum(p.stat().st_size for p in self.models_dir.glob("*.gguf"))
 
         # Get available disk space
         stat = shutil.disk_usage(self.models_dir)

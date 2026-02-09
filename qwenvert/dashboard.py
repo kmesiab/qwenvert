@@ -292,7 +292,11 @@ class Dashboard:
                 time_str,
                 str(req.tokens_generated),
                 Text(f"{req.latency_ms:.0f}ms", style=latency_style),
-                f"{req.tokens_per_second:.1f} t/s" if req.tokens_per_second > 0 else "-",
+                (
+                    f"{req.tokens_per_second:.1f} t/s"
+                    if req.tokens_per_second > 0
+                    else "-"
+                ),
                 status,
             )
 
@@ -330,7 +334,9 @@ class Dashboard:
                     # Update layout
                     layout["header"].update(self.render_header())
                     layout["metrics"].update(self.render_metrics())
-                    layout["system"].update(self.render_system_with_metrics(system_metrics))
+                    layout["system"].update(
+                        self.render_system_with_metrics(system_metrics)
+                    )
                     layout["status"].update(self.render_status(is_healthy))
                     layout["requests"].update(self.render_requests())
                     layout["footer"].update(self.render_footer())
