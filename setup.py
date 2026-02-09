@@ -58,7 +58,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "qwenvert=qwenvert.cli.main:cli",
+            "qwenvert=qwenvert.cli:cli",
         ],
     },
 )
