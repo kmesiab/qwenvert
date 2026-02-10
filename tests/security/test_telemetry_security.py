@@ -305,16 +305,19 @@ class TestEnvironmentVariableInitialization:
         shutdown_telemetry()
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
 
+        exc = None
         try:
             init_from_env()
             # Should initialize with OTLP enabled
         except Exception as e:
-            # May fail if collector not running, but shouldn't be validation error
-            assert (  # noqa: PT017
-                "localhost" not in str(e).lower() or "connection" in str(e).lower()
-            )
+            # May fail if collector not running
+            exc = e
         finally:
             shutdown_telemetry()
+
+        # If an exception occurred, it shouldn't be a validation error about localhost
+        if exc is not None:
+            assert "localhost" not in str(exc).lower() or "connection" in str(exc).lower()
 
     def test_init_from_env_with_invalid_port(self, monkeypatch):
         """Test invalid Prometheus port is handled gracefully."""
@@ -379,18 +382,21 @@ class TestEnvironmentVariableSecurity:
 
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
 
+        exc = None
         try:
             init_telemetry(
                 service_name="test",
                 enable_otlp=True,
             )
         except Exception as e:
-            # May fail due to collector not running, but shouldn't be validation error
-            assert (  # noqa: PT017
-                "localhost" not in str(e).lower() or "connection" in str(e).lower()
-            )
+            # May fail due to collector not running
+            exc = e
         finally:
             shutdown_telemetry()
+
+        # If an exception occurred, it shouldn't be a validation error about localhost
+        if exc is not None:
+            assert "localhost" not in str(exc).lower() or "connection" in str(exc).lower()
 
 
 class TestOTLPConnectionFailureHandling:
