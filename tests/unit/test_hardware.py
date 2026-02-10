@@ -2,8 +2,9 @@
 Unit tests for hardware detection.
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from qwenvert.hardware import HardwareDetector, HardwareProfile
 
@@ -11,12 +12,16 @@ from qwenvert.hardware import HardwareDetector, HardwareProfile
 class TestHardwareProfile:
     """Test HardwareProfile helper methods."""
 
-    def test_is_memory_constrained(self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb):
+    def test_is_memory_constrained(
+        self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb
+    ):
         """Test memory constraint detection."""
         assert mock_hardware_m1_air_8gb.is_memory_constrained()
         assert not mock_hardware_m1_16gb.is_memory_constrained()
 
-    def test_is_thermally_constrained(self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb):
+    def test_is_thermally_constrained(
+        self, mock_hardware_m1_air_8gb, mock_hardware_m1_16gb
+    ):
         """Test thermal constraint detection."""
         assert mock_hardware_m1_air_8gb.is_thermally_constrained()  # Fanless
         assert not mock_hardware_m1_16gb.is_thermally_constrained()  # Has fan
@@ -33,7 +38,7 @@ class TestHardwareProfile:
 class TestHardwareDetector:
     """Test hardware detection logic."""
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_m1_chip(self, mock_check_output):
         """Test M1 chip detection."""
         mock_check_output.return_value = "Apple M1"
@@ -43,7 +48,7 @@ class TestHardwareDetector:
 
         assert chip_name == "M1"
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_memory(self, mock_check_output):
         """Test memory detection and rounding."""
         # 17179869184 bytes = 16GB
@@ -64,7 +69,7 @@ class TestHardwareDetector:
         assert detector._extract_chip_family("M2") == "M2"
         assert detector._extract_chip_family("M3 Max") == "M3"
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_chip_fallback_to_hw_model(self, mock_check_output):
         """Test chip detection falls back to hw.model."""
         # First call returns non-Apple string, second call returns model
@@ -76,7 +81,7 @@ class TestHardwareDetector:
         # Should infer M1 from MacBookAir10,1
         assert chip_name == "M1"
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_cpu_cores(self, mock_check_output):
         """Test CPU core detection."""
         # Return 4 performance cores and 4 efficiency cores
@@ -88,10 +93,11 @@ class TestHardwareDetector:
         assert perf == 4
         assert eff == 4
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_cpu_cores_fallback(self, mock_check_output):
         """Test CPU core detection fallback on error."""
         import subprocess
+
         mock_check_output.side_effect = subprocess.SubprocessError("Error")
 
         detector = HardwareDetector()
@@ -101,7 +107,7 @@ class TestHardwareDetector:
         assert perf == 4
         assert eff == 4
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_cpu_cores_no_efficiency_cores(self, mock_check_output):
         """Test CPU core detection when no efficiency cores reported."""
         import subprocess
@@ -109,7 +115,8 @@ class TestHardwareDetector:
         def side_effect(cmd, **kwargs):
             if "perflevel0" in cmd[2]:
                 return "8"
-            raise subprocess.SubprocessError("No efficiency cores")
+            msg = "No efficiency cores"
+            raise subprocess.SubprocessError(msg)
 
         mock_check_output.side_effect = side_effect
 
@@ -119,7 +126,7 @@ class TestHardwareDetector:
         assert perf == 8
         assert eff == 0
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_gpu_cores_from_system_profiler(self, mock_check_output):
         """Test GPU core detection from system_profiler."""
         mock_check_output.return_value = "Total Number of Cores: 16"
@@ -129,10 +136,11 @@ class TestHardwareDetector:
 
         assert gpu_cores == 16
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_gpu_cores_fallback_to_map(self, mock_check_output):
         """Test GPU core detection falls back to lookup table."""
         import subprocess
+
         # TimeoutExpired is also caught, so use that
         mock_check_output.side_effect = subprocess.TimeoutExpired("cmd", 5)
 
@@ -142,18 +150,21 @@ class TestHardwareDetector:
 
         assert gpu_cores == 7  # From GPU_CORES_MAP for M1
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_gpu_cores_default_fallback(self, mock_check_output):
         """Test GPU core detection default fallback."""
         import subprocess
-        mock_check_output.side_effect = subprocess.SubprocessError("system_profiler failed")
+
+        mock_check_output.side_effect = subprocess.SubprocessError(
+            "system_profiler failed"
+        )
 
         detector = HardwareDetector()
         gpu_cores = detector._detect_gpu_cores("Unknown Chip")
 
         assert gpu_cores == 8  # Default fallback
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_model_identifier(self, mock_check_output):
         """Test model identifier detection."""
         mock_check_output.return_value = "MacBookPro18,3"
@@ -163,10 +174,11 @@ class TestHardwareDetector:
 
         assert model_id == "MacBookPro18,3"
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_model_identifier_error(self, mock_check_output):
         """Test model identifier detection on error."""
         import subprocess
+
         mock_check_output.side_effect = subprocess.SubprocessError("Error")
 
         detector = HardwareDetector()
@@ -183,7 +195,7 @@ class TestHardwareDetector:
         assert detector._infer_chip_from_model("Mac15,12") == "M3"
         assert detector._infer_chip_from_model("Unknown") == "Unknown"
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_memory_rounding_to_common_sizes(self, mock_check_output):
         """Test memory rounding to common sizes."""
         detector = HardwareDetector()
@@ -197,10 +209,11 @@ class TestHardwareDetector:
         mock_check_output.return_value = str(50 * 1024**3)
         assert detector._detect_memory() == 48
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_memory_error_handling(self, mock_check_output):
         """Test memory detection error handling."""
         import subprocess
+
         mock_check_output.side_effect = subprocess.SubprocessError("Error")
 
         detector = HardwareDetector()
@@ -208,10 +221,11 @@ class TestHardwareDetector:
         with pytest.raises(RuntimeError, match="Failed to detect memory"):
             detector._detect_memory()
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_chip_error_handling(self, mock_check_output):
         """Test chip detection error handling."""
         import subprocess
+
         mock_check_output.side_effect = subprocess.SubprocessError("Error")
 
         detector = HardwareDetector()
@@ -234,10 +248,10 @@ class TestHardwareDetector:
 
         assert "Fanless" in hw_str
 
-    @patch.object(HardwareDetector, 'detect')
+    @patch.object(HardwareDetector, "detect")
     def test_detect_hardware_convenience_function(self, mock_detect):
         """Test detect_hardware convenience function."""
-        from qwenvert.hardware import detect_hardware, HardwareProfile
+        from qwenvert.hardware import detect_hardware
 
         mock_profile = HardwareProfile(
             chip="M1",
@@ -270,21 +284,23 @@ class TestHardwareDetector:
         assert "M2" in HardwareDetector.GPU_CORES_MAP
         assert "M3" in HardwareDetector.GPU_CORES_MAP
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_full_detect_integration(self, mock_check_output):
         """Test full hardware detection flow."""
         # Mock all subprocess calls in order
         mock_check_output.side_effect = [
-            "Apple M1 Pro",              # chip detection (brand string)
-            "17179869184",               # memory detection (16GB)
-            "8",                         # performance cores
-            "4",                         # efficiency cores
-            "MacBookPro18,3",            # model identifier
+            "Apple M1 Pro",  # chip detection (brand string)
+            "17179869184",  # memory detection (16GB)
+            "8",  # performance cores
+            "4",  # efficiency cores
+            "MacBookPro18,3",  # model identifier
         ]
 
-        with patch('subprocess.check_output', side_effect=mock_check_output.side_effect):
+        with patch(
+            "subprocess.check_output", side_effect=mock_check_output.side_effect
+        ):
             # Mock system_profiler to raise timeout
-            with patch.object(HardwareDetector, '_detect_gpu_cores') as mock_gpu:
+            with patch.object(HardwareDetector, "_detect_gpu_cores") as mock_gpu:
                 mock_gpu.return_value = 16  # M1 Pro GPU cores
 
                 profile = HardwareDetector.detect()
@@ -304,7 +320,7 @@ class TestHardwareDetector:
 
         assert detector._extract_chip_family("Unknown Chip") == "Unknown"
 
-    @patch('subprocess.check_output')
+    @patch("subprocess.check_output")
     def test_detect_memory_various_sizes(self, mock_check_output):
         """Test memory detection with various memory sizes."""
         detector = HardwareDetector()

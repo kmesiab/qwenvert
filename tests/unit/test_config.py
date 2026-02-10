@@ -2,8 +2,9 @@
 Unit tests for configuration generation.
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from qwenvert.config import ConfigGenerator, ConfigManager, QwenvertConfig
 from qwenvert.models import Backend
@@ -23,7 +24,9 @@ class TestConfigGenerator:
         assert config.adapter_host == "127.0.0.1"
         assert config.adapter_port == 8088
 
-    def test_generate_qwenvert_config_llamacpp_backend(self, sample_model_14b_q5, mock_hardware_m1_16gb):
+    def test_generate_qwenvert_config_llamacpp_backend(
+        self, sample_model_14b_q5, mock_hardware_m1_16gb
+    ):
         """Test generating qwenvert config for llama.cpp backend."""
         gen = ConfigGenerator(sample_model_14b_q5, mock_hardware_m1_16gb)
         config = gen.generate_qwenvert_config()
@@ -31,7 +34,9 @@ class TestConfigGenerator:
         assert config.backend == Backend.LLAMACPP.value
         assert config.backend_url == "http://localhost:8080"
 
-    def test_generate_qwenvert_config_custom_adapter_settings(self, sample_model_7b_q4, mock_hardware_m1_16gb):
+    def test_generate_qwenvert_config_custom_adapter_settings(
+        self, sample_model_7b_q4, mock_hardware_m1_16gb
+    ):
         """Test generating config with custom adapter settings."""
         gen = ConfigGenerator(sample_model_7b_q4, mock_hardware_m1_16gb)
         config = gen.generate_qwenvert_config(adapter_host="0.0.0.0", adapter_port=9000)
@@ -76,7 +81,9 @@ class TestConfigGenerator:
         assert "PARAMETER num_ctx" in modelfile
         assert "PARAMETER num_gpu 1" in modelfile
 
-    def test_generate_ollama_modelfile_wrong_backend_raises_error(self, sample_model_14b_q5, mock_hardware_m1_16gb):
+    def test_generate_ollama_modelfile_wrong_backend_raises_error(
+        self, sample_model_14b_q5, mock_hardware_m1_16gb
+    ):
         """Test that Ollama Modelfile generation fails for non-Ollama backend."""
         gen = ConfigGenerator(sample_model_14b_q5, mock_hardware_m1_16gb)
 
@@ -95,7 +102,9 @@ class TestConfigGenerator:
         assert "4" in flags  # P-core count
         assert "--mlock" in flags
 
-    def test_generate_llamacpp_flags_wrong_backend_raises_error(self, sample_model_7b_q4, mock_hardware_m1_16gb):
+    def test_generate_llamacpp_flags_wrong_backend_raises_error(
+        self, sample_model_7b_q4, mock_hardware_m1_16gb
+    ):
         """Test that llama.cpp flags generation fails for non-llama.cpp backend."""
         gen = ConfigGenerator(sample_model_7b_q4, mock_hardware_m1_16gb)
 
@@ -113,7 +122,9 @@ class TestConfigGenerator:
         assert "ANTHROPIC_API_KEY" in instructions
         assert "claude" in instructions
 
-    def test_environment_vars_generation(self, sample_model_7b_q4, mock_hardware_m1_16gb):
+    def test_environment_vars_generation(
+        self, sample_model_7b_q4, mock_hardware_m1_16gb
+    ):
         """Test environment variable generation."""
         gen = ConfigGenerator(sample_model_7b_q4, mock_hardware_m1_16gb)
         env_vars = gen.generate_environment_vars()
@@ -185,13 +196,18 @@ class TestQwenvertConfig:
 class TestConfigManager:
     """Test configuration management."""
 
-    def test_save_and_load_through_manager(self, sample_model_7b_q4, monkeypatch, temp_config_dir):
+    def test_save_and_load_through_manager(
+        self, sample_model_7b_q4, monkeypatch, temp_config_dir
+    ):
         """Test ConfigManager save/load operations."""
+
         # Monkey patch default config path to use temp directory
         def mock_default_path(cls):
             return temp_config_dir / "config.yaml"
 
-        monkeypatch.setattr(QwenvertConfig, "default_config_path", classmethod(mock_default_path))
+        monkeypatch.setattr(
+            QwenvertConfig, "default_config_path", classmethod(mock_default_path)
+        )
 
         config = QwenvertConfig(
             model_id=sample_model_7b_q4.id,
@@ -212,10 +228,13 @@ class TestConfigManager:
 
     def test_delete_config(self, sample_model_7b_q4, monkeypatch, temp_config_dir):
         """Test ConfigManager delete operation."""
+
         def mock_default_path(cls):
             return temp_config_dir / "config.yaml"
 
-        monkeypatch.setattr(QwenvertConfig, "default_config_path", classmethod(mock_default_path))
+        monkeypatch.setattr(
+            QwenvertConfig, "default_config_path", classmethod(mock_default_path)
+        )
 
         config = QwenvertConfig(
             model_id=sample_model_7b_q4.id,
@@ -234,10 +253,13 @@ class TestConfigManager:
 
     def test_save_ollama_modelfile(self, temp_config_dir, monkeypatch):
         """Test saving Ollama Modelfile."""
+
         def mock_modelfile_path():
             return temp_config_dir / "Modelfile.qwenvert"
 
-        monkeypatch.setattr(ConfigManager, "get_ollama_modelfile_path", mock_modelfile_path)
+        monkeypatch.setattr(
+            ConfigManager, "get_ollama_modelfile_path", mock_modelfile_path
+        )
 
         content = "FROM qwen2.5-coder:7b\nPARAMETER num_ctx 16384"
         path = ConfigManager.save_ollama_modelfile(content)
@@ -247,6 +269,7 @@ class TestConfigManager:
 
     def test_get_ollama_modelfile_path(self, monkeypatch, temp_config_dir):
         """Test getting Ollama Modelfile path."""
+
         def mock_home():
             return temp_config_dir.parent.parent
 

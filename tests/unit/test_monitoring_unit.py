@@ -5,11 +5,10 @@ Tests MetricsCollector, RequestMetrics, SystemMetrics, and PerformanceStats.
 """
 
 import asyncio
-import platform
+import contextlib
 import subprocess
-import time
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import psutil
@@ -530,20 +529,19 @@ class TestMonitorLoop:
             cpu_percent=45.5,
         )
 
-        with patch.object(
-            collector, "collect_system_metrics", return_value=mock_system_metrics
-        ), patch.object(
-            collector, "check_adapter_health", return_value=True
+        with (
+            patch.object(
+                collector, "collect_system_metrics", return_value=mock_system_metrics
+            ),
+            patch.object(collector, "check_adapter_health", return_value=True),
         ):
             # Run one iteration then cancel
             task = asyncio.create_task(collector.monitor_loop(interval=0.1))
             await asyncio.sleep(0.15)
             task.cancel()
 
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
     async def test_monitor_loop_handles_exception(self):
         """Test monitor loop handles exceptions and continues."""
@@ -555,7 +553,8 @@ class TestMonitorLoop:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                raise Exception("Test error")
+                msg = "Test error"
+                raise Exception(msg)
             return SystemMetrics(
                 memory_used_gb=8.0,
                 memory_total_gb=16.0,
@@ -563,20 +562,19 @@ class TestMonitorLoop:
                 cpu_percent=45.5,
             )
 
-        with patch.object(
-            collector, "collect_system_metrics", side_effect=mock_collect_with_error
-        ), patch.object(
-            collector, "check_adapter_health", return_value=True
+        with (
+            patch.object(
+                collector, "collect_system_metrics", side_effect=mock_collect_with_error
+            ),
+            patch.object(collector, "check_adapter_health", return_value=True),
         ):
             # Run loop and let it handle the error
             task = asyncio.create_task(collector.monitor_loop(interval=0.1))
             await asyncio.sleep(0.25)
             task.cancel()
 
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
 
             # Should have been called at least twice (once with error, once success)
             assert call_count >= 2

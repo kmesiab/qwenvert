@@ -8,7 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from qwenvert.adapter import ContentBlock, Message, MessagesRequest, MessagesResponse, Usage
+from qwenvert.adapter import (
+    Message,
+    MessagesRequest,
+    MessagesResponse,
+)
 from qwenvert.models import Backend, Model
 from qwenvert.router import BackendRouter
 
@@ -52,9 +56,7 @@ def sample_request():
     """Sample Anthropic-format request."""
     return MessagesRequest(
         model="qwenvert-default",
-        messages=[
-            Message(role="user", content="Hello, how are you?")
-        ],
+        messages=[Message(role="user", content="Hello, how are you?")],
         max_tokens=100,
     )
 
@@ -72,13 +74,17 @@ class TestBackendRouterInit:
 
     def test_init_strips_trailing_slash(self, ollama_model):
         """Test that trailing slashes are stripped from backend URL."""
-        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434/")
+        router = BackendRouter(
+            model=ollama_model, backend_url="http://localhost:11434/"
+        )
 
         assert router.backend_url == "http://localhost:11434"
 
     def test_init_llamacpp(self, llamacpp_model):
         """Test initialization with llama.cpp model."""
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         assert router.model == llamacpp_model
         assert router.backend_url == "http://localhost:8080"
@@ -164,7 +170,9 @@ class TestLlamaCppGeneration:
     @pytest.mark.asyncio
     async def test_generate_llamacpp(self, llamacpp_model, sample_request):
         """Test llama.cpp generation."""
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -322,7 +330,7 @@ class TestRequestTransformation:
                     content=[
                         {"type": "text", "text": "First part"},
                         {"type": "text", "text": "Second part"},
-                    ]
+                    ],
                 )
             ],
             max_tokens=100,
@@ -356,7 +364,9 @@ class TestRouterClose:
         """Test that close properly closes the HTTP client."""
         router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
 
-        with patch.object(router.client, "aclose", new_callable=AsyncMock) as mock_close:
+        with patch.object(
+            router.client, "aclose", new_callable=AsyncMock
+        ) as mock_close:
             await router.close()
             mock_close.assert_called_once()
 
@@ -495,7 +505,9 @@ class TestLlamaCppParameterMapping:
             temperature=0.7,
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -524,7 +536,9 @@ class TestLlamaCppParameterMapping:
             top_p=0.9,
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -553,7 +567,9 @@ class TestLlamaCppParameterMapping:
             top_k=40,
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -582,7 +598,9 @@ class TestLlamaCppParameterMapping:
             stop_sequences=["###", "STOP"],
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -652,7 +670,9 @@ class TestLlamaCppStopReasons:
     @pytest.mark.asyncio
     async def test_stop_reason_max_tokens(self, llamacpp_model, sample_request):
         """Test stop reason for max tokens."""
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -672,7 +692,9 @@ class TestLlamaCppStopReasons:
     @pytest.mark.asyncio
     async def test_stop_reason_stop_sequence(self, llamacpp_model, sample_request):
         """Test stop reason for stop sequence."""
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -692,7 +714,9 @@ class TestLlamaCppStopReasons:
     @pytest.mark.asyncio
     async def test_stop_reason_end_turn(self, llamacpp_model, sample_request):
         """Test stop reason for normal completion."""
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -817,7 +841,9 @@ class TestLlamaCppStreaming:
             stop_sequences=["###"],
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         class MockStreamResponse:
             def __init__(self):
@@ -826,7 +852,7 @@ class TestLlamaCppStreaming:
             async def aiter_lines(self):
                 yield 'data: {"content":"Hello"}'
                 yield 'data: {"content":" world"}'
-                yield 'data: [DONE]'
+                yield "data: [DONE]"
 
             def raise_for_status(self):
                 pass
@@ -913,7 +939,9 @@ class TestMessageTransformation:
             max_tokens=100,
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -939,7 +967,9 @@ class TestMessageTransformation:
             max_tokens=100,
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -952,7 +982,7 @@ class TestMessageTransformation:
 
         with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
-            response = await router.generate(request)
+            await router.generate(request)
 
             # Verify system message was included in prompt
             call_kwargs = mock_post.call_args.kwargs
@@ -971,7 +1001,7 @@ class TestMessageTransformation:
                     content=[
                         {"type": "text", "text": "Part 1"},
                         {"type": "text", "text": "Part 2"},
-                    ]
+                    ],
                 )
             ],
             max_tokens=100,
@@ -1004,13 +1034,15 @@ class TestMessageTransformation:
                     content=[
                         {"type": "text", "text": "Part 1"},
                         {"type": "text", "text": "Part 2"},
-                    ]
+                    ],
                 )
             ],
             max_tokens=100,
         )
 
-        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
 
         mock_response = MagicMock()
         mock_response.status_code = 200

@@ -4,6 +4,7 @@ Real-time monitoring and metrics for qwenvert.
 Collects performance metrics, thermal data, and request history
 for display in the monitor dashboard.
 """
+from __future__ import annotations
 
 import asyncio
 import logging
@@ -11,12 +12,15 @@ import platform
 import subprocess
 import time
 from collections import deque
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Deque, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 import psutil
+
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -46,12 +50,12 @@ class SystemMetrics:
 
     # CPU
     cpu_percent: float
-    cpu_temp_celsius: Optional[float] = None
+    cpu_temp_celsius: float | None = None
 
     # Processes
-    qwenvert_memory_mb: Optional[float] = None
-    backend_memory_mb: Optional[float] = None
-    backend_process_name: Optional[str] = None
+    qwenvert_memory_mb: float | None = None
+    backend_memory_mb: float | None = None
+    backend_process_name: str | None = None
 
 
 @dataclass
@@ -83,7 +87,7 @@ class MetricsCollector:
         self,
         adapter_url: str = "http://localhost:8088",
         history_size: int = 100,
-    ):
+    ) -> None:
         """
         Initialize metrics collector.
 
@@ -92,7 +96,7 @@ class MetricsCollector:
             history_size: Number of requests to keep in history
         """
         self.adapter_url = adapter_url
-        self.request_history: Deque[RequestMetrics] = deque(maxlen=history_size)
+        self.request_history: deque[RequestMetrics] = deque(maxlen=history_size)
         self.start_time = time.time()
 
         # For tracking real-time requests
@@ -152,7 +156,7 @@ class MetricsCollector:
             backend_process_name=backend_name,
         )
 
-    def _get_cpu_temperature(self) -> Optional[float]:
+    def _get_cpu_temperature(self) -> float | None:
         """
         Get CPU temperature on macOS.
 
@@ -165,7 +169,17 @@ class MetricsCollector:
         try:
             # Try powermetrics (requires sudo, but may work)
             result = subprocess.run(
-                ["sudo", "-n", "powermetrics", "--samplers", "smc", "-i", "1", "-n", "1"],
+                [
+                    "sudo",
+                    "-n",
+                    "powermetrics",
+                    "--samplers",
+                    "smc",
+                    "-i",
+                    "1",
+                    "-n",
+                    "1",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=2,
@@ -217,9 +231,7 @@ class MetricsCollector:
             PerformanceStats with aggregated metrics
         """
         if not self.request_history:
-            return PerformanceStats(
-                uptime_seconds=time.time() - self.start_time
-            )
+            return PerformanceStats(uptime_seconds=time.time() - self.start_time)
 
         total = len(self.request_history)
         successful = sum(1 for r in self.request_history if r.status == "success")
@@ -228,9 +240,7 @@ class MetricsCollector:
         total_tokens = sum(r.tokens_generated for r in self.request_history)
         latencies = [r.latency_ms for r in self.request_history]
         throughputs = [
-            r.tokens_per_second
-            for r in self.request_history
-            if r.tokens_per_second > 0
+            r.tokens_per_second for r in self.request_history if r.tokens_per_second > 0
         ]
 
         return PerformanceStats(
@@ -259,7 +269,7 @@ class MetricsCollector:
         """
         return list(self.request_history)[-count:]
 
-    async def monitor_loop(self, interval: float = 1.0):
+    async def monitor_loop(self, interval: float = 1.0) -> None:
         """
         Continuous monitoring loop.
 

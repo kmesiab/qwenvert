@@ -2,7 +2,6 @@
 Unit tests for model registry and selection.
 """
 
-import pytest
 
 from qwenvert.models import Backend, ModelRegistry, ModelSelector
 
@@ -46,7 +45,9 @@ class TestModelRegistry:
 
     def test_list_models_without_filters(self, model_registry):
         """Test listing all models without filters."""
-        all_models = model_registry.list_models(coder_only=False, default_candidates_only=False)
+        all_models = model_registry.list_models(
+            coder_only=False, default_candidates_only=False
+        )
         assert len(all_models) > 0
 
     def test_list_models_default_candidates_only(self, model_registry):
@@ -110,7 +111,9 @@ class TestModelRegistry:
 class TestModelSelection:
     """Test intelligent model selection."""
 
-    def test_select_default_for_8gb_system(self, model_registry, mock_hardware_m1_air_8gb):
+    def test_select_default_for_8gb_system(
+        self, model_registry, mock_hardware_m1_air_8gb
+    ):
         """8GB system should get Q4 7B or smaller."""
         selector = ModelSelector(model_registry)
         model = selector.select_default(mock_hardware_m1_air_8gb)
@@ -120,7 +123,9 @@ class TestModelSelection:
         # Should prefer Q4 for memory efficiency
         assert "Q4" in model.quantization
 
-    def test_select_default_for_16gb_system(self, model_registry, mock_hardware_m1_16gb):
+    def test_select_default_for_16gb_system(
+        self, model_registry, mock_hardware_m1_16gb
+    ):
         """16GB system should get optimal 7B model."""
         selector = ModelSelector(model_registry)
         model = selector.select_default(mock_hardware_m1_16gb)
@@ -129,7 +134,9 @@ class TestModelSelection:
         assert model.min_ram_gb <= 16
         assert model.recommended_ram_gb <= 16
 
-    def test_select_default_for_32gb_system(self, model_registry, mock_hardware_m1_max_32gb):
+    def test_select_default_for_32gb_system(
+        self, model_registry, mock_hardware_m1_max_32gb
+    ):
         """32GB system should get larger model."""
         selector = ModelSelector(model_registry)
         model = selector.select_default(mock_hardware_m1_max_32gb)
@@ -163,9 +170,7 @@ class TestModelSelection:
     def test_select_by_preference_speed(self, model_registry, mock_hardware_m1_16gb):
         """Speed preference should select smaller/lower quant."""
         selector = ModelSelector(model_registry)
-        model = selector.select_by_preference(
-            mock_hardware_m1_16gb, prefer_speed=True
-        )
+        model = selector.select_by_preference(mock_hardware_m1_16gb, prefer_speed=True)
 
         assert model is not None
         # Should be smaller for faster inference
@@ -201,7 +206,9 @@ class TestModelSelection:
 
         assert model is None
 
-    def test_select_fanless_mac_prefers_smaller_models(self, model_registry, mock_hardware_m1_air_8gb):
+    def test_select_fanless_mac_prefers_smaller_models(
+        self, model_registry, mock_hardware_m1_air_8gb
+    ):
         """Test that fanless Macs get appropriate smaller models."""
         selector = ModelSelector(model_registry)
         model = selector.select_default(mock_hardware_m1_air_8gb)

@@ -4,15 +4,18 @@ Model registry and selection module.
 Maintains catalog of supported Qwen models with hardware requirements
 and provides intelligent model selection based on detected hardware.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING
 
 import yaml
 
-from .hardware import HardwareProfile
+
+if TYPE_CHECKING:
+    from .hardware import HardwareProfile
 
 
 class Backend(str, Enum):
@@ -58,12 +61,12 @@ class Model:
     context_length: int
     min_ram_gb: int
     recommended_ram_gb: int
-    min_vram_gb: Optional[int] = None
-    recommended_vram_gb: Optional[int] = None
+    min_vram_gb: int | None = None
+    recommended_vram_gb: int | None = None
     is_coder_model: bool = True
     is_default_candidate: bool = True
-    huggingface_repo: Optional[str] = None
-    notes: Optional[str] = None
+    huggingface_repo: str | None = None
+    notes: str | None = None
 
     def fits_hardware(self, hardware: HardwareProfile) -> bool:
         """
@@ -101,14 +104,14 @@ class ModelRegistry:
     Loads model definitions from YAML and provides lookup/filtering methods.
     """
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None) -> None:
         """
         Initialize model registry.
 
         Args:
             config_path: Path to models.yaml (default: configs/models.yaml)
         """
-        self.models: Dict[str, Model] = {}
+        self.models: dict[str, Model] = {}
 
         if config_path is None:
             # Default to configs/models.yaml in package
@@ -219,7 +222,7 @@ class ModelRegistry:
         for model in defaults:
             self.models[model.id] = model
 
-    def get_model(self, model_id: str) -> Optional[Model]:
+    def get_model(self, model_id: str) -> Model | None:
         """
         Get model by ID.
 
@@ -233,10 +236,10 @@ class ModelRegistry:
 
     def list_models(
         self,
-        backend: Optional[Backend] = None,
+        backend: Backend | None = None,
         coder_only: bool = True,
         default_candidates_only: bool = False,
-    ) -> List[Model]:
+    ) -> list[Model]:
         """
         List models with optional filtering.
 
@@ -267,7 +270,7 @@ class ModelRegistry:
 
         return models
 
-    def find_compatible_models(self, hardware: HardwareProfile) -> List[Model]:
+    def find_compatible_models(self, hardware: HardwareProfile) -> list[Model]:
         """
         Find all models compatible with given hardware.
 
@@ -279,7 +282,7 @@ class ModelRegistry:
         """
         return [m for m in self.list_models() if m.fits_hardware(hardware)]
 
-    def find_optimal_models(self, hardware: HardwareProfile) -> List[Model]:
+    def find_optimal_models(self, hardware: HardwareProfile) -> list[Model]:
         """
         Find optimal models for given hardware.
 
@@ -300,7 +303,7 @@ class ModelSelector:
     hardware constraints (memory, thermal, performance).
     """
 
-    def __init__(self, registry: ModelRegistry):
+    def __init__(self, registry: ModelRegistry) -> None:
         """
         Initialize model selector.
 
@@ -309,7 +312,7 @@ class ModelSelector:
         """
         self.registry = registry
 
-    def select_default(self, hardware: HardwareProfile) -> Optional[Model]:
+    def select_default(self, hardware: HardwareProfile) -> Model | None:
         """
         Select default model for given hardware.
 
@@ -385,7 +388,7 @@ class ModelSelector:
         hardware: HardwareProfile,
         prefer_quality: bool = False,
         prefer_speed: bool = False,
-    ) -> Optional[Model]:
+    ) -> Model | None:
         """
         Select model based on user preference.
 

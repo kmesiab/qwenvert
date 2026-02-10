@@ -17,15 +17,19 @@ from __future__ import annotations
 import asyncio
 import signal
 import subprocess
-import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from qwenvert.config import QwenvertConfig
-from qwenvert.launcher import ProcessHandle, ServerLauncher, start_qwenvert, start_qwenvert_sync
+from qwenvert.launcher import (
+    ProcessHandle,
+    ServerLauncher,
+    start_qwenvert,
+    start_qwenvert_sync,
+)
 from qwenvert.models import Backend, Model
 
 
@@ -149,7 +153,10 @@ class TestProcessHandle:
         """Test force kill when graceful termination times out."""
         mock_process.poll.return_value = None  # Running
         # First wait times out, second wait (after kill) succeeds
-        mock_process.wait.side_effect = [subprocess.TimeoutExpired(cmd="test", timeout=10), None]
+        mock_process.wait.side_effect = [
+            subprocess.TimeoutExpired(cmd="test", timeout=10),
+            None,
+        ]
         handle = ProcessHandle(mock_process, "test-process")
 
         result = handle.terminate(timeout=10)
@@ -206,7 +213,9 @@ class TestStartBackend:
         """Test starting Ollama backend."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "_start_ollama", new_callable=AsyncMock) as mock_start:
+        with patch.object(
+            launcher, "_start_ollama", new_callable=AsyncMock
+        ) as mock_start:
             mock_start.return_value = ProcessHandle(mock_process, "ollama")
 
             handle = await launcher.start_backend()
@@ -219,7 +228,9 @@ class TestStartBackend:
         """Test starting llama.cpp backend."""
         launcher = ServerLauncher(llamacpp_config)
 
-        with patch.object(launcher, "_start_llamacpp", new_callable=AsyncMock) as mock_start:
+        with patch.object(
+            launcher, "_start_llamacpp", new_callable=AsyncMock
+        ) as mock_start:
             mock_start.return_value = ProcessHandle(mock_process, "llama-cpp")
 
             handle = await launcher.start_backend()
@@ -260,7 +271,9 @@ class TestStartOllama:
         launcher = ServerLauncher(ollama_config)
 
         with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
-            with patch.object(launcher, "_check_health", new_callable=AsyncMock) as mock_health:
+            with patch.object(
+                launcher, "_check_health", new_callable=AsyncMock
+            ) as mock_health:
                 mock_health.return_value = True
 
                 with patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
@@ -279,24 +292,29 @@ class TestStartOllama:
         launcher = ServerLauncher(ollama_config)
 
         with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
-            with patch.object(launcher, "_check_health", new_callable=AsyncMock) as mock_health:
+            with patch.object(
+                launcher, "_check_health", new_callable=AsyncMock
+            ) as mock_health:
                 mock_health.return_value = False  # Not running initially
 
-                with patch.object(launcher, "_wait_for_health", new_callable=AsyncMock) as mock_wait:
+                with patch.object(
+                    launcher, "_wait_for_health", new_callable=AsyncMock
+                ) as mock_wait:
                     mock_wait.return_value = True
 
-                    with patch.object(launcher, "_ensure_ollama_model", new_callable=AsyncMock):
-                        with patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
-                            mock_popen.return_value = mock_process
+                    with patch.object(
+                        launcher, "_ensure_ollama_model", new_callable=AsyncMock
+                    ), patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
+                        mock_popen.return_value = mock_process
 
-                            handle = await launcher._start_ollama()
+                        handle = await launcher._start_ollama()
 
-                            assert handle.name == "ollama"
-                            assert handle.pid == 12345
-                            mock_popen.assert_called_once()
-                            call_args = mock_popen.call_args
-                            assert call_args[0][0] == ["ollama", "serve"]
-                            assert call_args[1]["start_new_session"] is True
+                        assert handle.name == "ollama"
+                        assert handle.pid == 12345
+                        mock_popen.assert_called_once()
+                        call_args = mock_popen.call_args
+                        assert call_args[0][0] == ["ollama", "serve"]
+                        assert call_args[1]["start_new_session"] is True
 
     @pytest.mark.asyncio
     async def test_start_ollama_health_check_timeout(self, ollama_config, mock_process):
@@ -304,16 +322,22 @@ class TestStartOllama:
         launcher = ServerLauncher(ollama_config)
 
         with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
-            with patch.object(launcher, "_check_health", new_callable=AsyncMock) as mock_health:
+            with patch.object(
+                launcher, "_check_health", new_callable=AsyncMock
+            ) as mock_health:
                 mock_health.return_value = False
 
-                with patch.object(launcher, "_wait_for_health", new_callable=AsyncMock) as mock_wait:
+                with patch.object(
+                    launcher, "_wait_for_health", new_callable=AsyncMock
+                ) as mock_wait:
                     mock_wait.return_value = False  # Health check times out
 
                     with patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
                         mock_popen.return_value = mock_process
 
-                        with pytest.raises(RuntimeError, match="Ollama server failed to start"):
+                        with pytest.raises(
+                            RuntimeError, match="Ollama server failed to start"
+                        ):
                             await launcher._start_ollama()
 
                         # Verify process was terminated
@@ -361,7 +385,11 @@ class TestEnsureOllamaModel:
             # Should call 'ollama list' and 'ollama pull'
             assert mock_run.call_count == 2
             assert mock_run.call_args_list[0][0][0] == ["ollama", "list"]
-            assert mock_run.call_args_list[1][0][0] == ["ollama", "pull", "qwen2.5-coder:7b"]
+            assert mock_run.call_args_list[1][0][0] == [
+                "ollama",
+                "pull",
+                "qwen2.5-coder:7b",
+            ]
             assert mock_run.call_args_list[1][1]["check"] is True
 
 
@@ -383,7 +411,9 @@ class TestStartLlamaCpp:
                 await launcher._start_llamacpp()
 
     @pytest.mark.asyncio
-    async def test_start_llamacpp_success(self, llamacpp_config, mock_process, mock_model):
+    async def test_start_llamacpp_success(
+        self, llamacpp_config, mock_process, mock_model
+    ):
         """Test successfully starting llama.cpp server."""
         launcher = ServerLauncher(llamacpp_config)
 
@@ -398,17 +428,24 @@ class TestStartLlamaCpp:
                 with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
                     mock_config_gen = MagicMock()
                     mock_config_gen.generate_llamacpp_flags.return_value = [
-                        "--model", "/path/to/model.gguf",
-                        "--host", "127.0.0.1",
-                        "--port", "8080",
+                        "--model",
+                        "/path/to/model.gguf",
+                        "--host",
+                        "127.0.0.1",
+                        "--port",
+                        "8080",
                     ]
                     mock_config_gen_cls.return_value = mock_config_gen
 
-                    with patch("qwenvert.hardware.HardwareProfile") as mock_hw:
-                        with patch.object(launcher, "_wait_for_health", new_callable=AsyncMock) as mock_wait:
+                    with patch("qwenvert.hardware.HardwareProfile"):
+                        with patch.object(
+                            launcher, "_wait_for_health", new_callable=AsyncMock
+                        ) as mock_wait:
                             mock_wait.return_value = True
 
-                            with patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen"
+                            ) as mock_popen:
                                 mock_popen.return_value = mock_process
 
                                 handle = await launcher._start_llamacpp()
@@ -418,12 +455,15 @@ class TestStartLlamaCpp:
                                 mock_popen.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_start_llamacpp_alternative_path(self, llamacpp_config, mock_process, mock_model):
+    async def test_start_llamacpp_alternative_path(
+        self, llamacpp_config, mock_process, mock_model
+    ):
         """Test finding llama-server in alternative location."""
         launcher = ServerLauncher(llamacpp_config)
 
         # Mock Path.exists to return False for first path, True for alternative
         call_count = [0]
+
         def exists_side_effect(self):
             call_count[0] += 1
             # First call checks ~/.local/bin/llama-server (False)
@@ -438,14 +478,21 @@ class TestStartLlamaCpp:
 
                 with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
                     mock_config_gen = MagicMock()
-                    mock_config_gen.generate_llamacpp_flags.return_value = ["--model", "test"]
+                    mock_config_gen.generate_llamacpp_flags.return_value = [
+                        "--model",
+                        "test",
+                    ]
                     mock_config_gen_cls.return_value = mock_config_gen
 
                     with patch("qwenvert.hardware.HardwareProfile"):
-                        with patch.object(launcher, "_wait_for_health", new_callable=AsyncMock) as mock_wait:
+                        with patch.object(
+                            launcher, "_wait_for_health", new_callable=AsyncMock
+                        ) as mock_wait:
                             mock_wait.return_value = True
 
-                            with patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen"
+                            ) as mock_popen:
                                 mock_popen.return_value = mock_process
 
                                 handle = await launcher._start_llamacpp()
@@ -457,7 +504,7 @@ class TestStartLlamaCpp:
         """Test error when model is not found in registry."""
         launcher = ServerLauncher(llamacpp_config)
 
-        llamacpp_path = Path.home() / ".local" / "bin" / "llama-server"
+        Path.home() / ".local" / "bin" / "llama-server"
 
         with patch.object(Path, "exists", return_value=True):
             with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
@@ -469,7 +516,9 @@ class TestStartLlamaCpp:
                     await launcher._start_llamacpp()
 
     @pytest.mark.asyncio
-    async def test_start_llamacpp_health_check_timeout(self, llamacpp_config, mock_process, mock_model):
+    async def test_start_llamacpp_health_check_timeout(
+        self, llamacpp_config, mock_process, mock_model
+    ):
         """Test llama.cpp startup failure due to health check timeout."""
         launcher = ServerLauncher(llamacpp_config)
 
@@ -481,17 +530,27 @@ class TestStartLlamaCpp:
 
                 with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
                     mock_config_gen = MagicMock()
-                    mock_config_gen.generate_llamacpp_flags.return_value = ["--model", "test"]
+                    mock_config_gen.generate_llamacpp_flags.return_value = [
+                        "--model",
+                        "test",
+                    ]
                     mock_config_gen_cls.return_value = mock_config_gen
 
                     with patch("qwenvert.hardware.HardwareProfile"):
-                        with patch.object(launcher, "_wait_for_health", new_callable=AsyncMock) as mock_wait:
+                        with patch.object(
+                            launcher, "_wait_for_health", new_callable=AsyncMock
+                        ) as mock_wait:
                             mock_wait.return_value = False  # Health check times out
 
-                            with patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen"
+                            ) as mock_popen:
                                 mock_popen.return_value = mock_process
 
-                                with pytest.raises(RuntimeError, match="llama.cpp server failed to start"):
+                                with pytest.raises(
+                                    RuntimeError,
+                                    match="llama.cpp server failed to start",
+                                ):
                                     await launcher._start_llamacpp()
 
                                 # Verify process was terminated
@@ -524,7 +583,9 @@ class TestHealthChecks:
             result = await launcher._check_health("http://localhost:11434")
 
             assert result is True
-            mock_client.get.assert_called_once_with("http://localhost:11434", timeout=2.0)
+            mock_client.get.assert_called_once_with(
+                "http://localhost:11434", timeout=2.0
+            )
 
     @pytest.mark.asyncio
     async def test_check_health_non_200(self, ollama_config):
@@ -590,10 +651,14 @@ class TestHealthChecks:
         """Test wait_for_health when server is immediately healthy."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "_check_health", new_callable=AsyncMock) as mock_check:
+        with patch.object(
+            launcher, "_check_health", new_callable=AsyncMock
+        ) as mock_check:
             mock_check.return_value = True
 
-            result = await launcher._wait_for_health("http://localhost:11434", timeout=10)
+            result = await launcher._wait_for_health(
+                "http://localhost:11434", timeout=10
+            )
 
             assert result is True
             assert mock_check.call_count == 1
@@ -603,12 +668,16 @@ class TestHealthChecks:
         """Test wait_for_health with retries."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "_check_health", new_callable=AsyncMock) as mock_check:
+        with patch.object(
+            launcher, "_check_health", new_callable=AsyncMock
+        ) as mock_check:
             # Fail twice, then succeed
             mock_check.side_effect = [False, False, True]
 
             with patch("qwenvert.launcher.asyncio.sleep", new_callable=AsyncMock):
-                result = await launcher._wait_for_health("http://localhost:11434", timeout=10)
+                result = await launcher._wait_for_health(
+                    "http://localhost:11434", timeout=10
+                )
 
                 assert result is True
                 assert mock_check.call_count == 3
@@ -618,7 +687,9 @@ class TestHealthChecks:
         """Test wait_for_health timeout."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "_check_health", new_callable=AsyncMock) as mock_check:
+        with patch.object(
+            launcher, "_check_health", new_callable=AsyncMock
+        ) as mock_check:
             mock_check.return_value = False
 
             with patch("qwenvert.launcher.time.time") as mock_time:
@@ -626,7 +697,9 @@ class TestHealthChecks:
                 mock_time.side_effect = [0, 5, 10, 15, 20, 25, 30, 35]
 
                 with patch("qwenvert.launcher.asyncio.sleep", new_callable=AsyncMock):
-                    result = await launcher._wait_for_health("http://localhost:11434", timeout=30)
+                    result = await launcher._wait_for_health(
+                        "http://localhost:11434", timeout=30
+                    )
 
                     assert result is False
 
@@ -635,14 +708,18 @@ class TestHealthChecks:
         """Test wait_for_health with custom timeout value."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "_check_health", new_callable=AsyncMock) as mock_check:
+        with patch.object(
+            launcher, "_check_health", new_callable=AsyncMock
+        ) as mock_check:
             mock_check.return_value = False
 
             with patch("qwenvert.launcher.time.time") as mock_time:
                 mock_time.side_effect = [0, 30, 60, 90]
 
                 with patch("qwenvert.launcher.asyncio.sleep", new_callable=AsyncMock):
-                    result = await launcher._wait_for_health("http://localhost:8080", timeout=60)
+                    result = await launcher._wait_for_health(
+                        "http://localhost:8080", timeout=60
+                    )
 
                     assert result is False
 
@@ -681,7 +758,9 @@ class TestStartAdapter:
                             mock_server.serve = AsyncMock()
                             mock_server_cls.return_value = mock_server
 
-                            with patch.object(launcher, "_wait_for_health", new_callable=AsyncMock) as mock_wait:
+                            with patch.object(
+                                launcher, "_wait_for_health", new_callable=AsyncMock
+                            ) as mock_wait:
                                 mock_wait.return_value = True
 
                                 with patch("asyncio.create_task") as mock_create_task:
@@ -711,7 +790,9 @@ class TestStartAdapter:
                 await launcher.start_adapter(backend_handle)
 
     @pytest.mark.asyncio
-    async def test_start_adapter_health_check_timeout(self, ollama_config, mock_process, mock_model):
+    async def test_start_adapter_health_check_timeout(
+        self, ollama_config, mock_process, mock_model
+    ):
         """Test adapter startup failure due to health check timeout."""
         launcher = ServerLauncher(ollama_config)
         backend_handle = ProcessHandle(mock_process, "ollama")
@@ -729,11 +810,16 @@ class TestStartAdapter:
                             mock_server.serve = AsyncMock()
                             mock_server_cls.return_value = mock_server
 
-                            with patch.object(launcher, "_wait_for_health", new_callable=AsyncMock) as mock_wait:
+                            with patch.object(
+                                launcher, "_wait_for_health", new_callable=AsyncMock
+                            ) as mock_wait:
                                 mock_wait.return_value = False  # Health check times out
 
                                 with patch("asyncio.create_task"):
-                                    with pytest.raises(RuntimeError, match="Qwenvert adapter failed to start"):
+                                    with pytest.raises(
+                                        RuntimeError,
+                                        match="Qwenvert adapter failed to start",
+                                    ):
                                         await launcher.start_adapter(backend_handle)
 
 
@@ -750,11 +836,15 @@ class TestStartAll:
         """Test successfully starting all services."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "start_backend", new_callable=AsyncMock) as mock_backend:
+        with patch.object(
+            launcher, "start_backend", new_callable=AsyncMock
+        ) as mock_backend:
             backend_handle = ProcessHandle(mock_process, "ollama")
             mock_backend.return_value = backend_handle
 
-            with patch.object(launcher, "start_adapter", new_callable=AsyncMock) as mock_adapter:
+            with patch.object(
+                launcher, "start_adapter", new_callable=AsyncMock
+            ) as mock_adapter:
                 with patch.object(launcher, "_print_startup_success") as mock_print:
                     await launcher.start_all()
 
@@ -768,7 +858,9 @@ class TestStartAll:
         """Test start_all when backend fails to start."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "start_backend", new_callable=AsyncMock) as mock_backend:
+        with patch.object(
+            launcher, "start_backend", new_callable=AsyncMock
+        ) as mock_backend:
             mock_backend.side_effect = RuntimeError("Backend failed")
 
             with pytest.raises(RuntimeError, match="Backend failed"):
@@ -779,11 +871,15 @@ class TestStartAll:
         """Test start_all when adapter fails to start."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch.object(launcher, "start_backend", new_callable=AsyncMock) as mock_backend:
+        with patch.object(
+            launcher, "start_backend", new_callable=AsyncMock
+        ) as mock_backend:
             backend_handle = ProcessHandle(mock_process, "ollama")
             mock_backend.return_value = backend_handle
 
-            with patch.object(launcher, "start_adapter", new_callable=AsyncMock) as mock_adapter:
+            with patch.object(
+                launcher, "start_adapter", new_callable=AsyncMock
+            ) as mock_adapter:
                 mock_adapter.side_effect = RuntimeError("Adapter failed")
 
                 with pytest.raises(RuntimeError, match="Adapter failed"):
@@ -841,7 +937,9 @@ class TestStopAll:
         # Should not raise error
 
     @pytest.mark.asyncio
-    async def test_stop_all_adapter_cancellation_error(self, ollama_config, mock_process):
+    async def test_stop_all_adapter_cancellation_error(
+        self, ollama_config, mock_process
+    ):
         """Test that CancelledError is handled during adapter shutdown."""
         launcher = ServerLauncher(ollama_config)
 
@@ -912,19 +1010,26 @@ class TestStartQwenvert:
     async def test_start_qwenvert_success(self, ollama_config, mock_process):
         """Test successful qwenvert startup."""
         with patch("qwenvert.launcher.ConfigManager.exists", return_value=True):
-            with patch("qwenvert.launcher.ConfigManager.load", return_value=ollama_config):
+            with patch(
+                "qwenvert.launcher.ConfigManager.load", return_value=ollama_config
+            ):
                 with patch("qwenvert.launcher.ServerLauncher") as mock_launcher_cls:
                     mock_launcher = MagicMock()
                     mock_launcher.start_all = AsyncMock()
                     mock_launcher.stop_all = AsyncMock()
                     mock_launcher_cls.return_value = mock_launcher
 
-                    with patch("qwenvert.launcher.asyncio.get_event_loop") as mock_get_loop:
+                    with patch(
+                        "qwenvert.launcher.asyncio.get_event_loop"
+                    ) as mock_get_loop:
                         mock_loop = MagicMock()
                         mock_get_loop.return_value = mock_loop
 
                         with patch("qwenvert.launcher.signal.signal") as mock_signal:
-                            with patch("qwenvert.launcher.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                            with patch(
+                                "qwenvert.launcher.asyncio.sleep",
+                                new_callable=AsyncMock,
+                            ) as mock_sleep:
                                 # Make sleep raise KeyboardInterrupt to exit loop
                                 mock_sleep.side_effect = KeyboardInterrupt()
 
@@ -938,10 +1043,14 @@ class TestStartQwenvert:
     async def test_start_qwenvert_with_exception(self, ollama_config):
         """Test qwenvert startup with exception."""
         with patch("qwenvert.launcher.ConfigManager.exists", return_value=True):
-            with patch("qwenvert.launcher.ConfigManager.load", return_value=ollama_config):
+            with patch(
+                "qwenvert.launcher.ConfigManager.load", return_value=ollama_config
+            ):
                 with patch("qwenvert.launcher.ServerLauncher") as mock_launcher_cls:
                     mock_launcher = MagicMock()
-                    mock_launcher.start_all = AsyncMock(side_effect=RuntimeError("Test error"))
+                    mock_launcher.start_all = AsyncMock(
+                        side_effect=RuntimeError("Test error")
+                    )
                     mock_launcher.stop_all = AsyncMock()
                     mock_launcher_cls.return_value = mock_launcher
 
@@ -972,7 +1081,9 @@ class TestSignalHandling:
     async def test_signal_handler_setup(self, ollama_config):
         """Test that signal handlers are properly set up."""
         with patch("qwenvert.launcher.ConfigManager.exists", return_value=True):
-            with patch("qwenvert.launcher.ConfigManager.load", return_value=ollama_config):
+            with patch(
+                "qwenvert.launcher.ConfigManager.load", return_value=ollama_config
+            ):
                 with patch("qwenvert.launcher.ServerLauncher") as mock_launcher_cls:
                     mock_launcher = MagicMock()
                     mock_launcher.start_all = AsyncMock()
@@ -981,15 +1092,28 @@ class TestSignalHandling:
 
                     with patch("qwenvert.launcher.asyncio.get_event_loop"):
                         with patch("qwenvert.launcher.signal.signal") as mock_signal:
-                            with patch("qwenvert.launcher.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+                            with patch(
+                                "qwenvert.launcher.asyncio.sleep",
+                                new_callable=AsyncMock,
+                            ) as mock_sleep:
                                 mock_sleep.side_effect = KeyboardInterrupt()
 
                                 await start_qwenvert()
 
                                 # Verify SIGINT and SIGTERM handlers were registered
-                                signal_calls = [call[0] for call in mock_signal.call_args_list]
-                                assert (signal.SIGINT,) in signal_calls or signal.SIGINT in [c[0] for c in signal_calls]
-                                assert (signal.SIGTERM,) in signal_calls or signal.SIGTERM in [c[0] for c in signal_calls]
+                                signal_calls = [
+                                    call[0] for call in mock_signal.call_args_list
+                                ]
+                                assert (
+                                    signal.SIGINT,
+                                ) in signal_calls or signal.SIGINT in [
+                                    c[0] for c in signal_calls
+                                ]
+                                assert (
+                                    signal.SIGTERM,
+                                ) in signal_calls or signal.SIGTERM in [
+                                    c[0] for c in signal_calls
+                                ]
 
 
 # ============================================================================
@@ -1001,15 +1125,29 @@ class TestEdgeCases:
     """Test edge cases and error scenarios."""
 
     @pytest.mark.asyncio
-    async def test_multiple_backends_in_sequence(self, ollama_config, llamacpp_config, mock_process):
+    async def test_multiple_backends_in_sequence(
+        self, ollama_config, llamacpp_config, mock_process
+    ):
         """Test switching between backends."""
         # First Ollama
         launcher1 = ServerLauncher(ollama_config)
         with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
-            with patch.object(launcher1, "_check_health", new_callable=AsyncMock, return_value=False):
-                with patch.object(launcher1, "_wait_for_health", new_callable=AsyncMock, return_value=True):
-                    with patch.object(launcher1, "_ensure_ollama_model", new_callable=AsyncMock):
-                        with patch("qwenvert.launcher.subprocess.Popen", return_value=mock_process):
+            with patch.object(
+                launcher1, "_check_health", new_callable=AsyncMock, return_value=False
+            ):
+                with patch.object(
+                    launcher1,
+                    "_wait_for_health",
+                    new_callable=AsyncMock,
+                    return_value=True,
+                ):
+                    with patch.object(
+                        launcher1, "_ensure_ollama_model", new_callable=AsyncMock
+                    ):
+                        with patch(
+                            "qwenvert.launcher.subprocess.Popen",
+                            return_value=mock_process,
+                        ):
                             handle1 = await launcher1._start_ollama()
                             assert handle1.name == "ollama"
 
@@ -1024,12 +1162,23 @@ class TestEdgeCases:
 
                 with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
                     mock_config_gen = MagicMock()
-                    mock_config_gen.generate_llamacpp_flags.return_value = ["--model", "test"]
+                    mock_config_gen.generate_llamacpp_flags.return_value = [
+                        "--model",
+                        "test",
+                    ]
                     mock_config_gen_cls.return_value = mock_config_gen
 
                     with patch("qwenvert.hardware.HardwareProfile"):
-                        with patch.object(launcher2, "_wait_for_health", new_callable=AsyncMock, return_value=True):
-                            with patch("qwenvert.launcher.subprocess.Popen", return_value=mock_process):
+                        with patch.object(
+                            launcher2,
+                            "_wait_for_health",
+                            new_callable=AsyncMock,
+                            return_value=True,
+                        ):
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen",
+                                return_value=mock_process,
+                            ):
                                 handle2 = await launcher2._start_llamacpp()
                                 assert handle2.name == "llama-cpp"
 

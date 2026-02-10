@@ -8,9 +8,7 @@ not at qwenvert.cli.X
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -81,7 +79,9 @@ def mock_config():
 class TestInitCommand:
     """Test 'qwenvert init' command."""
 
-    def test_init_auto_select_model(self, runner, mock_hardware, mock_model, mock_config, tmp_path):
+    def test_init_auto_select_model(
+        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+    ):
         """Test init command with automatic model selection."""
         # Mock all the dependencies
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
@@ -99,30 +99,45 @@ class TestInitCommand:
                     mock_selector.select_default.return_value = mock_model
                     mock_selector_cls.return_value = mock_selector
 
-                    with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+                    with patch(
+                        "qwenvert.downloader.ModelDownloader"
+                    ) as mock_downloader_cls:
                         mock_downloader = MagicMock()
-                        mock_downloader.get_model_path.return_value = tmp_path / "model.gguf"
+                        mock_downloader.get_model_path.return_value = (
+                            tmp_path / "model.gguf"
+                        )
                         mock_downloader.models_dir = tmp_path
                         mock_downloader_cls.return_value = mock_downloader
 
                         with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
                             mock_gen = MagicMock()
                             mock_gen.generate_qwenvert_config.return_value = mock_config
-                            mock_gen.print_setup_instructions.return_value = "Instructions"
+                            mock_gen.print_setup_instructions.return_value = (
+                                "Instructions"
+                            )
                             mock_gen_cls.return_value = mock_gen
 
-                            with patch("qwenvert.config.ConfigManager") as mock_manager_cls:
+                            with patch(
+                                "qwenvert.config.ConfigManager"
+                            ) as mock_manager_cls:
                                 mock_manager = MagicMock()
-                                mock_manager.save.return_value = tmp_path / "config.yaml"
+                                mock_manager.save.return_value = (
+                                    tmp_path / "config.yaml"
+                                )
                                 mock_manager_cls.save = mock_manager.save
 
                                 result = runner.invoke(cli, ["init"])
 
                                 assert result.exit_code == 0
                                 assert "Initialization" in result.output
-                                assert "M1 Pro" in result.output or "Detected" in result.output
+                                assert (
+                                    "M1 Pro" in result.output
+                                    or "Detected" in result.output
+                                )
 
-    def test_init_with_specified_model(self, runner, mock_hardware, mock_model, mock_config, tmp_path):
+    def test_init_with_specified_model(
+        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+    ):
         """Test init command with user-specified model."""
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -134,9 +149,13 @@ class TestInitCommand:
                 mock_registry.get_model.return_value = mock_model
                 mock_registry_cls.return_value = mock_registry
 
-                with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+                with patch(
+                    "qwenvert.downloader.ModelDownloader"
+                ) as mock_downloader_cls:
                     mock_downloader = MagicMock()
-                    mock_downloader.get_model_path.return_value = tmp_path / "model.gguf"
+                    mock_downloader.get_model_path.return_value = (
+                        tmp_path / "model.gguf"
+                    )
                     mock_downloader.models_dir = tmp_path
                     mock_downloader_cls.return_value = mock_downloader
 
@@ -156,7 +175,9 @@ class TestInitCommand:
                             )
 
                             assert result.exit_code == 0
-                            mock_registry.get_model.assert_called_once_with("qwen2.5-coder-7b-q4-ollama")
+                            mock_registry.get_model.assert_called_once_with(
+                                "qwen2.5-coder-7b-q4-ollama"
+                            )
 
     def test_init_model_not_found(self, runner, mock_hardware):
         """Test init with invalid model ID."""
@@ -176,7 +197,9 @@ class TestInitCommand:
                 assert result.exit_code == 1
                 assert "not found" in result.output or "Error" in result.output
 
-    def test_init_model_insufficient_ram_user_declines(self, runner, mock_hardware, mock_model, tmp_path):
+    def test_init_model_insufficient_ram_user_declines(
+        self, runner, mock_hardware, mock_model, tmp_path
+    ):
         """Test init when model doesn't fit hardware and user declines."""
         # Make the model require more RAM than available
         large_model = Model(
@@ -224,15 +247,22 @@ class TestInitCommand:
 
                 with patch("qwenvert.models.ModelSelector") as mock_selector_cls:
                     mock_selector = MagicMock()
-                    mock_selector.select_default.return_value = None  # No compatible model
+                    mock_selector.select_default.return_value = (
+                        None  # No compatible model
+                    )
                     mock_selector_cls.return_value = mock_selector
 
                     result = runner.invoke(cli, ["init"])
 
                     assert result.exit_code == 1
-                    assert "No compatible model" in result.output or "Error" in result.output
+                    assert (
+                        "No compatible model" in result.output
+                        or "Error" in result.output
+                    )
 
-    def test_init_model_download_needed(self, runner, mock_hardware, mock_model, mock_config, tmp_path):
+    def test_init_model_download_needed(
+        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+    ):
         """Test init when model needs to be downloaded."""
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -248,7 +278,9 @@ class TestInitCommand:
                     mock_selector.select_default.return_value = mock_model
                     mock_selector_cls.return_value = mock_selector
 
-                    with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+                    with patch(
+                        "qwenvert.downloader.ModelDownloader"
+                    ) as mock_downloader_cls:
                         mock_downloader = MagicMock()
                         # First call: model not present
                         # Second call (after download): return path
@@ -262,20 +294,31 @@ class TestInitCommand:
                         with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
                             mock_gen = MagicMock()
                             mock_gen.generate_qwenvert_config.return_value = mock_config
-                            mock_gen.print_setup_instructions.return_value = "Instructions"
+                            mock_gen.print_setup_instructions.return_value = (
+                                "Instructions"
+                            )
                             mock_gen_cls.return_value = mock_gen
 
-                            with patch("qwenvert.config.ConfigManager") as mock_manager_cls:
+                            with patch(
+                                "qwenvert.config.ConfigManager"
+                            ) as mock_manager_cls:
                                 mock_manager = MagicMock()
-                                mock_manager.save.return_value = tmp_path / "config.yaml"
+                                mock_manager.save.return_value = (
+                                    tmp_path / "config.yaml"
+                                )
                                 mock_manager_cls.save = mock_manager.save
 
                                 result = runner.invoke(cli, ["init"])
 
                                 assert result.exit_code == 0
-                                assert "Downloaded" in result.output or "Downloading" in result.output
+                                assert (
+                                    "Downloaded" in result.output
+                                    or "Downloading" in result.output
+                                )
 
-    def test_init_model_no_huggingface_repo_user_continues(self, runner, mock_hardware, mock_config, tmp_path):
+    def test_init_model_no_huggingface_repo_user_continues(
+        self, runner, mock_hardware, mock_config, tmp_path
+    ):
         """Test init when model has no HuggingFace repo but user continues."""
         model_no_hf = Model(
             id="custom-model",
@@ -305,7 +348,9 @@ class TestInitCommand:
                     mock_selector.select_default.return_value = model_no_hf
                     mock_selector_cls.return_value = mock_selector
 
-                    with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+                    with patch(
+                        "qwenvert.downloader.ModelDownloader"
+                    ) as mock_downloader_cls:
                         mock_downloader = MagicMock()
                         mock_downloader.get_model_path.return_value = None
                         mock_downloader.models_dir = tmp_path
@@ -314,21 +359,32 @@ class TestInitCommand:
                         with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
                             mock_gen = MagicMock()
                             mock_gen.generate_qwenvert_config.return_value = mock_config
-                            mock_gen.print_setup_instructions.return_value = "Instructions"
+                            mock_gen.print_setup_instructions.return_value = (
+                                "Instructions"
+                            )
                             mock_gen_cls.return_value = mock_gen
 
-                            with patch("qwenvert.config.ConfigManager") as mock_manager_cls:
+                            with patch(
+                                "qwenvert.config.ConfigManager"
+                            ) as mock_manager_cls:
                                 mock_manager = MagicMock()
-                                mock_manager.save.return_value = tmp_path / "config.yaml"
+                                mock_manager.save.return_value = (
+                                    tmp_path / "config.yaml"
+                                )
                                 mock_manager_cls.save = mock_manager.save
 
                                 # User continues despite no HuggingFace repo
                                 result = runner.invoke(cli, ["init"], input="y\n")
 
                                 assert result.exit_code == 0
-                                assert "no HuggingFace" in result.output or "manually download" in result.output
+                                assert (
+                                    "no HuggingFace" in result.output
+                                    or "manually download" in result.output
+                                )
 
-    def test_init_download_error_user_continues(self, runner, mock_hardware, mock_model, mock_config, tmp_path):
+    def test_init_download_error_user_continues(
+        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+    ):
         """Test init when download fails but user continues."""
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -344,31 +400,46 @@ class TestInitCommand:
                     mock_selector.select_default.return_value = mock_model
                     mock_selector_cls.return_value = mock_selector
 
-                    with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+                    with patch(
+                        "qwenvert.downloader.ModelDownloader"
+                    ) as mock_downloader_cls:
                         mock_downloader = MagicMock()
                         mock_downloader.get_model_path.return_value = None
-                        mock_downloader.download.side_effect = Exception("Download failed")
+                        mock_downloader.download.side_effect = Exception(
+                            "Download failed"
+                        )
                         mock_downloader.models_dir = tmp_path
                         mock_downloader_cls.return_value = mock_downloader
 
                         with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
                             mock_gen = MagicMock()
                             mock_gen.generate_qwenvert_config.return_value = mock_config
-                            mock_gen.print_setup_instructions.return_value = "Instructions"
+                            mock_gen.print_setup_instructions.return_value = (
+                                "Instructions"
+                            )
                             mock_gen_cls.return_value = mock_gen
 
-                            with patch("qwenvert.config.ConfigManager") as mock_manager_cls:
+                            with patch(
+                                "qwenvert.config.ConfigManager"
+                            ) as mock_manager_cls:
                                 mock_manager = MagicMock()
-                                mock_manager.save.return_value = tmp_path / "config.yaml"
+                                mock_manager.save.return_value = (
+                                    tmp_path / "config.yaml"
+                                )
                                 mock_manager_cls.save = mock_manager.save
 
                                 # User continues after download error
                                 result = runner.invoke(cli, ["init"], input="y\n")
 
                                 assert result.exit_code == 0
-                                assert "Error downloading" in result.output or "manually download" in result.output
+                                assert (
+                                    "Error downloading" in result.output
+                                    or "manually download" in result.output
+                                )
 
-    def test_init_with_context_length(self, runner, mock_hardware, mock_model, mock_config, tmp_path):
+    def test_init_with_context_length(
+        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+    ):
         """Test init with custom context length."""
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -384,30 +455,44 @@ class TestInitCommand:
                     mock_selector.select_default.return_value = mock_model
                     mock_selector_cls.return_value = mock_selector
 
-                    with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+                    with patch(
+                        "qwenvert.downloader.ModelDownloader"
+                    ) as mock_downloader_cls:
                         mock_downloader = MagicMock()
-                        mock_downloader.get_model_path.return_value = tmp_path / "model.gguf"
+                        mock_downloader.get_model_path.return_value = (
+                            tmp_path / "model.gguf"
+                        )
                         mock_downloader.models_dir = tmp_path
                         mock_downloader_cls.return_value = mock_downloader
 
                         with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
                             mock_gen = MagicMock()
                             mock_gen.generate_qwenvert_config.return_value = mock_config
-                            mock_gen.print_setup_instructions.return_value = "Instructions"
+                            mock_gen.print_setup_instructions.return_value = (
+                                "Instructions"
+                            )
                             mock_gen_cls.return_value = mock_gen
 
-                            with patch("qwenvert.config.ConfigManager") as mock_manager_cls:
+                            with patch(
+                                "qwenvert.config.ConfigManager"
+                            ) as mock_manager_cls:
                                 mock_manager = MagicMock()
-                                mock_manager.save.return_value = tmp_path / "config.yaml"
+                                mock_manager.save.return_value = (
+                                    tmp_path / "config.yaml"
+                                )
                                 mock_manager_cls.save = mock_manager.save
 
-                                result = runner.invoke(cli, ["init", "--context-length", "65536"])
+                                result = runner.invoke(
+                                    cli, ["init", "--context-length", "65536"]
+                                )
 
                                 assert result.exit_code == 0
                                 # Verify context length was set
                                 assert mock_config.context_length == 65536
 
-    def test_init_ollama_backend_generates_modelfile(self, runner, mock_hardware, mock_model, mock_config, tmp_path):
+    def test_init_ollama_backend_generates_modelfile(
+        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+    ):
         """Test init with Ollama backend generates Modelfile."""
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -420,28 +505,46 @@ class TestInitCommand:
 
                 with patch("qwenvert.models.ModelSelector") as mock_selector_cls:
                     mock_selector = MagicMock()
-                    mock_selector.select_default.return_value = mock_model  # Ollama backend
+                    mock_selector.select_default.return_value = (
+                        mock_model  # Ollama backend
+                    )
                     mock_selector_cls.return_value = mock_selector
 
-                    with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+                    with patch(
+                        "qwenvert.downloader.ModelDownloader"
+                    ) as mock_downloader_cls:
                         mock_downloader = MagicMock()
-                        mock_downloader.get_model_path.return_value = tmp_path / "model.gguf"
+                        mock_downloader.get_model_path.return_value = (
+                            tmp_path / "model.gguf"
+                        )
                         mock_downloader.models_dir = tmp_path
                         mock_downloader_cls.return_value = mock_downloader
 
                         with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
                             mock_gen = MagicMock()
                             mock_gen.generate_qwenvert_config.return_value = mock_config
-                            mock_gen.generate_ollama_modelfile.return_value = "FROM ./model.gguf"
-                            mock_gen.print_setup_instructions.return_value = "Instructions"
+                            mock_gen.generate_ollama_modelfile.return_value = (
+                                "FROM ./model.gguf"
+                            )
+                            mock_gen.print_setup_instructions.return_value = (
+                                "Instructions"
+                            )
                             mock_gen_cls.return_value = mock_gen
 
-                            with patch("qwenvert.config.ConfigManager") as mock_manager_cls:
+                            with patch(
+                                "qwenvert.config.ConfigManager"
+                            ) as mock_manager_cls:
                                 mock_manager = MagicMock()
-                                mock_manager.save.return_value = tmp_path / "config.yaml"
-                                mock_manager.save_ollama_modelfile.return_value = tmp_path / "Modelfile"
+                                mock_manager.save.return_value = (
+                                    tmp_path / "config.yaml"
+                                )
+                                mock_manager.save_ollama_modelfile.return_value = (
+                                    tmp_path / "Modelfile"
+                                )
                                 mock_manager_cls.save = mock_manager.save
-                                mock_manager_cls.save_ollama_modelfile = mock_manager.save_ollama_modelfile
+                                mock_manager_cls.save_ollama_modelfile = (
+                                    mock_manager.save_ollama_modelfile
+                                )
 
                                 result = runner.invoke(cli, ["init"])
 
@@ -541,7 +644,9 @@ class TestStatusCommand:
             mock_manager_cls.load.return_value = mock_config
 
             # Mock httpx.get to raise connection errors
-            with patch("httpx.get", side_effect=httpx.ConnectError("Connection refused")):
+            with patch(
+                "httpx.get", side_effect=httpx.ConnectError("Connection refused")
+            ):
                 result = runner.invoke(cli, ["status"])
 
                 assert result.exit_code == 0
@@ -588,7 +693,9 @@ class TestStopCommand:
                 result = runner.invoke(cli, ["stop"])
 
                 assert result.exit_code == 0
-                assert "No running servers" in result.output or "stopped" in result.output
+                assert (
+                    "No running servers" in result.output or "stopped" in result.output
+                )
 
     def test_stop_subprocess_exception(self, runner):
         """Test stop when subprocess raises exception."""
@@ -673,7 +780,9 @@ class TestHardwareCommand:
             result = runner.invoke(cli, ["hardware"])
 
             assert result.exit_code == 0
-            assert "Hardware Information" in result.output or "Hardware" in result.output
+            assert (
+                "Hardware Information" in result.output or "Hardware" in result.output
+            )
             assert "M1 Pro" in result.output
             assert "16GB" in result.output or "16" in result.output
 
@@ -723,7 +832,10 @@ class TestHardwareCommand:
             result = runner.invoke(cli, ["hardware"])
 
             assert result.exit_code == 0
-            assert "Thermally constrained" in result.output or "thermal pacing" in result.output
+            assert (
+                "Thermally constrained" in result.output
+                or "thermal pacing" in result.output
+            )
 
     def test_hardware_good_configuration(self, runner, mock_hardware):
         """Test hardware command with good hardware configuration."""
@@ -736,7 +848,10 @@ class TestHardwareCommand:
             result = runner.invoke(cli, ["hardware"])
 
             assert result.exit_code == 0
-            assert "Good configuration" in result.output or "larger models" in result.output
+            assert (
+                "Good configuration" in result.output
+                or "larger models" in result.output
+            )
 
 
 class TestMonitorCommand:

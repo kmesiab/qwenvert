@@ -4,12 +4,13 @@ Integration tests for server lifecycle and process management.
 Tests the ServerLauncher, health checks, and graceful shutdown.
 """
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
-import httpx
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from qwenvert.launcher import ServerLauncher, ProcessHandle
+import httpx
+import pytest
+
+from qwenvert.launcher import ProcessHandle, ServerLauncher
 from qwenvert.models import Backend
 
 
@@ -20,7 +21,7 @@ class TestServerLauncher:
     async def test_ollama_backend_launch(self, mock_qwenvert_config):
         """Test launching Ollama backend."""
 
-        with patch('subprocess.Popen') as mock_popen:
+        with patch("subprocess.Popen") as mock_popen:
             # Mock process
             mock_process = MagicMock()
             mock_process.pid = 12345
@@ -30,7 +31,7 @@ class TestServerLauncher:
             launcher = ServerLauncher(config=mock_qwenvert_config)
 
             # Mock health check to succeed immediately
-            with patch('httpx.Client.get') as mock_get:
+            with patch("httpx.Client.get") as mock_get:
                 mock_response = MagicMock()
                 mock_response.status_code = 200
                 mock_get.return_value = mock_response
@@ -47,6 +48,7 @@ class TestServerLauncher:
 
         # Update model to llama.cpp
         from qwenvert.models import Model
+
         llamacpp_model = Model(
             id=sample_model_14b_q5.id,
             display_name=sample_model_14b_q5.display_name,
@@ -60,7 +62,7 @@ class TestServerLauncher:
             recommended_ram_gb=sample_model_14b_q5.recommended_ram_gb,
         )
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
             mock_process.pid = 12346
             mock_process.returncode = None
@@ -73,7 +75,7 @@ class TestServerLauncher:
                 adapter_port=8088,
             )
 
-            with patch('httpx.AsyncClient.get') as mock_get:
+            with patch("httpx.AsyncClient.get") as mock_get:
                 mock_response = MagicMock()
                 mock_response.status_code = 200
                 mock_get.return_value = mock_response
@@ -92,7 +94,7 @@ class TestServerLauncher:
     async def test_backend_health_check_retry(self, sample_model_7b_q4):
         """Test that launcher retries health checks on startup."""
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
             mock_process.pid = 12347
             mock_process.returncode = None
@@ -112,12 +114,13 @@ class TestServerLauncher:
                 nonlocal call_count
                 call_count += 1
                 if call_count < 3:
-                    raise httpx.ConnectError("Connection refused")
+                    msg = "Connection refused"
+                    raise httpx.ConnectError(msg)
                 mock_response = MagicMock()
                 mock_response.status_code = 200
                 return mock_response
 
-            with patch('httpx.AsyncClient.get', side_effect=mock_health_check):
+            with patch("httpx.AsyncClient.get", side_effect=mock_health_check):
                 handle = await launcher.start_backend()
 
                 assert handle is not None
@@ -127,7 +130,7 @@ class TestServerLauncher:
     async def test_backend_health_check_timeout(self, sample_model_7b_q4):
         """Test that launcher times out if backend never becomes healthy."""
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
             mock_process.pid = 12348
             mock_process.returncode = None
@@ -141,16 +144,18 @@ class TestServerLauncher:
             )
 
             # Mock health check always failing
-            with patch('httpx.AsyncClient.get', side_effect=httpx.ConnectError("Connection refused")):
-                with pytest.raises((TimeoutError, RuntimeError, Exception)):
-                    # Should timeout after max retries
-                    await launcher.start_backend()
+            with patch(
+                "httpx.AsyncClient.get",
+                side_effect=httpx.ConnectError("Connection refused"),
+            ), pytest.raises((TimeoutError, RuntimeError, Exception)):
+                # Should timeout after max retries
+                await launcher.start_backend()
 
     @pytest.mark.asyncio
     async def test_graceful_shutdown(self, sample_model_7b_q4):
         """Test graceful shutdown of backend process."""
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             mock_process = MagicMock()
             mock_process.pid = 12349
             mock_process.returncode = None
@@ -165,7 +170,7 @@ class TestServerLauncher:
                 adapter_port=8088,
             )
 
-            with patch('httpx.AsyncClient.get') as mock_get:
+            with patch("httpx.AsyncClient.get") as mock_get:
                 mock_response = MagicMock()
                 mock_response.status_code = 200
                 mock_get.return_value = mock_response
@@ -201,7 +206,7 @@ class TestAdapterLauncher:
             adapter_port=8088,
         )
 
-        with patch('uvicorn.Server.serve') as mock_serve:
+        with patch("uvicorn.Server.serve") as mock_serve:
             mock_serve.return_value = None
 
             # Start adapter (this would normally block)
@@ -219,7 +224,7 @@ class TestHealthChecks:
     async def test_backend_health_check_success(self):
         """Test successful backend health check."""
 
-        with patch('httpx.AsyncClient.get') as mock_get:
+        with patch("httpx.AsyncClient.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"status": "ok"}
@@ -234,7 +239,10 @@ class TestHealthChecks:
     async def test_backend_health_check_failure(self):
         """Test failed backend health check."""
 
-        with patch('httpx.AsyncClient.get', side_effect=httpx.ConnectError("Connection refused")):
+        with patch(
+            "httpx.AsyncClient.get",
+            side_effect=httpx.ConnectError("Connection refused"),
+        ):
             from qwenvert.launcher import _check_backend_health
 
             is_healthy = await _check_backend_health("http://localhost:11434")
@@ -244,7 +252,7 @@ class TestHealthChecks:
     async def test_backend_health_check_http_error(self):
         """Test backend health check with HTTP error."""
 
-        with patch('httpx.AsyncClient.get') as mock_get:
+        with patch("httpx.AsyncClient.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 500
             mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -306,7 +314,7 @@ class TestProcessManagement:
         # Mock wait to timeout
         async def mock_wait_timeout():
             await asyncio.sleep(0.1)
-            raise asyncio.TimeoutError()
+            raise asyncio.TimeoutError
 
         mock_process.wait = mock_wait_timeout
 

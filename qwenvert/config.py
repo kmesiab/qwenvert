@@ -4,16 +4,19 @@ Configuration generation and management.
 Generates optimal configurations for Ollama, llama.cpp, and qwenvert
 based on hardware profile and model selection.
 """
+from __future__ import annotations
 
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING
 
 import yaml
 
-from .hardware import HardwareProfile
 from .models import Backend, Model
+
+
+if TYPE_CHECKING:
+    from .hardware import HardwareProfile
 
 
 @dataclass
@@ -42,7 +45,7 @@ class QwenvertConfig:
     context_length: int = 16384
     thermal_monitoring: bool = True
     thermal_pacing: bool = False
-    model_path: Optional[str] = None
+    model_path: str | None = None
 
     @classmethod
     def default_config_path(cls) -> Path:
@@ -51,7 +54,7 @@ class QwenvertConfig:
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / "config.yaml"
 
-    def save(self, path: Optional[Path] = None) -> Path:
+    def save(self, path: Path | None = None) -> Path:
         """
         Save configuration to YAML file.
 
@@ -72,7 +75,7 @@ class QwenvertConfig:
         return path
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "QwenvertConfig":
+    def load(cls, path: Path | None = None) -> QwenvertConfig:
         """
         Load configuration from YAML file.
 
@@ -99,7 +102,7 @@ class ConfigGenerator:
     Generates optimal configurations for backends and qwenvert.
     """
 
-    def __init__(self, model: Model, hardware: HardwareProfile):
+    def __init__(self, model: Model, hardware: HardwareProfile) -> None:
         """
         Initialize config generator.
 
@@ -180,7 +183,7 @@ class ConfigGenerator:
         # Use performance cores only
         num_threads = self.hardware.cpu_cores_performance
 
-        modelfile = f"""# Qwenvert Modelfile for {self.model.display_name}
+        return f"""# Qwenvert Modelfile for {self.model.display_name}
 # Generated for {self.hardware.chip} with {self.hardware.total_memory_gb}GB RAM
 
 FROM {self.model.backend_model_id}
@@ -202,9 +205,8 @@ PARAMETER repeat_penalty 1.1
 SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running locally via qwenvert.
 """
 
-        return modelfile
 
-    def generate_llamacpp_flags(self) -> List[str]:
+    def generate_llamacpp_flags(self) -> list[str]:
         """
         Generate llama.cpp command-line flags with optimal parameters.
 
@@ -225,7 +227,7 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
         # Use performance cores only
         num_threads = self.hardware.cpu_cores_performance
 
-        flags = [
+        return [
             "--model",
             f"~/.cache/qwenvert/models/{self.model.backend_model_id}",
             # GPU offloading
@@ -248,9 +250,8 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
             "--log-disable",  # Reduce log noise
         ]
 
-        return flags
 
-    def generate_environment_vars(self) -> Dict[str, str]:
+    def generate_environment_vars(self) -> dict[str, str]:
         """
         Generate environment variables for Claude Code integration.
 
@@ -282,7 +283,7 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
         config = self.generate_qwenvert_config()
         env_vars = self.generate_environment_vars()
 
-        instructions = f"""
+        return f"""
 ╔════════════════════════════════════════════════════════════════╗
 ║                  Qwenvert Setup Complete                       ║
 ╚════════════════════════════════════════════════════════════════╝
@@ -306,7 +307,6 @@ Then start Claude Code:
 Configuration saved to: {config.default_config_path()}
 """
 
-        return instructions
 
 
 class ConfigManager:

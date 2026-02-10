@@ -2,9 +2,8 @@
 Pytest configuration and shared fixtures.
 """
 
+
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch
 
 from qwenvert.hardware import HardwareProfile
 from qwenvert.models import Backend, Model, ModelRegistry

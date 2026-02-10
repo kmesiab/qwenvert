@@ -4,17 +4,19 @@ Model downloader for qwenvert.
 Downloads Qwen GGUF models from HuggingFace Hub with progress tracking,
 integrity verification, and resume support.
 """
+from __future__ import annotations
 
 import hashlib
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from huggingface_hub import hf_hub_download
-from tqdm import tqdm
 
-from .models import Model
+
+if TYPE_CHECKING:
+    from .models import Model
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +33,7 @@ class ModelDownloader:
     - Organized storage in ~/.qwenvert/models/
     """
 
-    def __init__(self, models_dir: Optional[Path] = None):
+    def __init__(self, models_dir: Path | None = None) -> None:
         """
         Initialize model downloader.
 
@@ -96,17 +98,25 @@ class ModelDownloader:
                 shutil.move(str(downloaded_path_obj), str(local_path))
 
             # Verify checksum if available
-            if hasattr(model, 'checksum') and model.checksum:
+            if hasattr(model, "checksum") and model.checksum:
                 if not self.verify_checksum(local_path, model.checksum):
-                    logger.error("Checksum verification failed, removing corrupted file")
+                    logger.error(
+                        "Checksum verification failed, removing corrupted file"
+                    )
                     local_path.unlink()
-                    raise RuntimeError(f"Checksum verification failed for {model.display_name}")
+                    raise RuntimeError(
+                        f"Checksum verification failed for {model.display_name}"
+                    )
                 logger.info("✅ Checksum verified")
-            elif hasattr(model, 'sha256') and model.sha256:
+            elif hasattr(model, "sha256") and model.sha256:
                 if not self.verify_checksum(local_path, model.sha256):
-                    logger.error("Checksum verification failed, removing corrupted file")
+                    logger.error(
+                        "Checksum verification failed, removing corrupted file"
+                    )
                     local_path.unlink()
-                    raise RuntimeError(f"Checksum verification failed for {model.display_name}")
+                    raise RuntimeError(
+                        f"Checksum verification failed for {model.display_name}"
+                    )
                 logger.info("✅ Checksum verified")
 
             logger.info(f"✅ Download complete: {local_path}")
@@ -132,7 +142,7 @@ class ModelDownloader:
             ValueError: If filename can't be determined
         """
         # Check if model has explicit gguf_filename attribute
-        if hasattr(model, 'gguf_filename') and model.gguf_filename:
+        if hasattr(model, "gguf_filename") and model.gguf_filename:
             return model.gguf_filename
 
         backend_id = model.backend_model_id
@@ -160,7 +170,7 @@ class ModelDownloader:
     def verify_checksum(
         self,
         model_path: Path,
-        expected_checksum: Optional[str] = None,
+        expected_checksum: str | None = None,
     ) -> bool:
         """
         Verify model file integrity with SHA256 checksum.
@@ -189,11 +199,10 @@ class ModelDownloader:
         if actual_checksum == expected_checksum:
             logger.info("✅ Checksum verified")
             return True
-        else:
-            logger.error(f"❌ Checksum mismatch!")
-            logger.error(f"   Expected: {expected_checksum}")
-            logger.error(f"   Actual:   {actual_checksum}")
-            return False
+        logger.error("❌ Checksum mismatch!")
+        logger.error(f"   Expected: {expected_checksum}")
+        logger.error(f"   Actual:   {actual_checksum}")
+        return False
 
     def list_downloaded_models(self) -> list[Path]:
         """
@@ -207,7 +216,7 @@ class ModelDownloader:
 
         return sorted(self.models_dir.glob("*.gguf"))
 
-    def get_model_path(self, model: Model) -> Optional[Path]:
+    def get_model_path(self, model: Model) -> Path | None:
         """
         Get path to downloaded model if it exists.
 
@@ -254,9 +263,7 @@ class ModelDownloader:
             return {"total_gb": 0.0, "available_gb": 0.0}
 
         # Calculate total size of downloaded models
-        total_bytes = sum(
-            p.stat().st_size for p in self.models_dir.glob("*.gguf")
-        )
+        total_bytes = sum(p.stat().st_size for p in self.models_dir.glob("*.gguf"))
 
         # Get available disk space
         stat = shutil.disk_usage(self.models_dir)

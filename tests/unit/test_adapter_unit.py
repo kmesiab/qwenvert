@@ -5,27 +5,24 @@ Focuses on unit testing individual functions and components with mocked dependen
 Aims to achieve 90%+ code coverage for adapter.py.
 """
 
-import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
-from typing import AsyncIterator
+from unittest.mock import AsyncMock, Mock, patch
 
-from fastapi import HTTPException
+import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from qwenvert.adapter import (
+    ContentBlock,
+    ErrorResponse,
     Message,
     MessagesRequest,
     MessagesResponse,
-    ContentBlock,
-    Usage,
     MessageStreamEvent,
-    ErrorResponse,
-    create_app,
+    Usage,
+    _estimate_tokens,
     _generate_response,
     _stream_response,
-    _estimate_tokens,
+    create_app,
     run_server,
     start_server_sync,
 )
@@ -633,9 +630,7 @@ class TestGenerateResponse:
     async def test_generate_response_backend_error(self):
         """Test error handling in response generation."""
         mock_router = AsyncMock()
-        mock_router.generate = AsyncMock(
-            side_effect=Exception("Backend error")
-        )
+        mock_router.generate = AsyncMock(side_effect=Exception("Backend error"))
 
         request = MessagesRequest(
             model="test-model",
@@ -652,6 +647,7 @@ class TestStreamResponse:
     @pytest.mark.asyncio
     async def test_stream_response_success(self):
         """Test successful streaming response."""
+
         async def mock_backend_stream(request):
             yield {"type": "message_start", "message": {"id": "msg_1"}}
             yield {"type": "content_block_delta", "delta": {"text": "Hi"}}
@@ -674,9 +670,11 @@ class TestStreamResponse:
         assert len(events) >= 3
 
         # Check that our events are in the output
-        event_types = [event.split('\n')[0].replace('event: ', '') for event in events]
+        event_types = [event.split("\n")[0].replace("event: ", "") for event in events]
         assert "message_start" in event_types
-        assert "content_block_delta" in event_types or "content_block_start" in event_types
+        assert (
+            "content_block_delta" in event_types or "content_block_start" in event_types
+        )
         assert "message_stop" in event_types
 
         # Verify JSON data format
@@ -687,9 +685,11 @@ class TestStreamResponse:
     @pytest.mark.asyncio
     async def test_stream_response_error_handling(self):
         """Test error handling in streaming response."""
+
         async def mock_backend_stream_error(request):
             yield {"type": "message_start", "message": {"id": "msg_1"}}
-            raise Exception("Stream error")
+            msg = "Stream error"
+            raise Exception(msg)
 
         mock_router = AsyncMock()
         mock_router.generate_stream = mock_backend_stream_error
@@ -720,6 +720,7 @@ class TestStreamResponse:
     @pytest.mark.asyncio
     async def test_stream_response_event_formatting(self):
         """Test SSE event formatting."""
+
         async def mock_backend_stream(request):
             yield {
                 "type": "content_block_delta",
@@ -753,7 +754,7 @@ class TestStreamResponse:
         assert "event: content_block_delta\n" in event_str
         assert "data: {" in event_str
         # Check for JSON with or without spaces
-        assert ("content_block_delta" in event_str)
+        assert "content_block_delta" in event_str
         assert event_str.endswith("\n\n")
 
 

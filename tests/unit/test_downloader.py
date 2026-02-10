@@ -5,7 +5,7 @@ Unit tests for ModelDownloader.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -59,7 +59,7 @@ class TestModelDownloaderInit:
         models_dir = tmp_path / "custom" / "models"
         assert not models_dir.exists()
 
-        downloader = ModelDownloader(models_dir=models_dir)
+        ModelDownloader(models_dir=models_dir)
 
         assert models_dir.exists()
 
@@ -145,7 +145,6 @@ class TestModelDownload:
 
     def test_download_with_checksum_verification(self, sample_model, temp_models_dir):
         """Test download with checksum attribute."""
-        import hashlib
 
         # Calculate wrong checksum
         sample_model.checksum = "abc123wrongchecksum"
@@ -205,8 +204,12 @@ class TestModelDownload:
         with patch("qwenvert.downloader.hf_hub_download") as mock_download:
             with patch("qwenvert.downloader.shutil.move") as mock_move:
                 # Return a different path than expected
-                downloaded_path = temp_models_dir / ".cache" / "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
-                expected_path = temp_models_dir / "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
+                downloaded_path = (
+                    temp_models_dir / ".cache" / "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
+                )
+                (
+                    temp_models_dir / "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
+                )
 
                 def create_file_in_cache(*args, **kwargs):
                     downloaded_path.parent.mkdir(parents=True, exist_ok=True)
@@ -220,7 +223,7 @@ class TestModelDownload:
                 mock_download.side_effect = create_file_in_cache
                 mock_move.side_effect = move_file
 
-                result = downloader.download(sample_model)
+                downloader.download(sample_model)
 
                 # Should have moved the file
                 assert mock_move.called
@@ -365,6 +368,7 @@ class TestListDownloadedModels:
 
         # Remove the directory that was created during init
         import shutil
+
         if nonexistent_dir.exists():
             shutil.rmtree(nonexistent_dir)
 
@@ -419,8 +423,10 @@ class TestGetDiskUsage:
         downloader = ModelDownloader(models_dir=temp_models_dir)
 
         # Create model files
-        (temp_models_dir / "model1.gguf").write_bytes(b"x" * 1024 * 1024 * 100)  # 100 MB
-        (temp_models_dir / "model2.gguf").write_bytes(b"x" * 1024 * 1024 * 50)   # 50 MB
+        (temp_models_dir / "model1.gguf").write_bytes(
+            b"x" * 1024 * 1024 * 100
+        )  # 100 MB
+        (temp_models_dir / "model2.gguf").write_bytes(b"x" * 1024 * 1024 * 50)  # 50 MB
 
         usage = downloader.get_disk_usage()
 
@@ -434,6 +440,7 @@ class TestGetDiskUsage:
 
         # Remove the directory that was created during init
         import shutil
+
         if nonexistent_dir.exists():
             shutil.rmtree(nonexistent_dir)
 
@@ -456,6 +463,7 @@ class TestChecksumVerification:
 
         # Calculate expected checksum
         import hashlib
+
         expected = hashlib.sha256(b"test data").hexdigest()
 
         result = downloader.verify_checksum(test_file, expected)

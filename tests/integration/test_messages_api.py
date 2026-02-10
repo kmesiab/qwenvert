@@ -8,12 +8,12 @@ These tests validate the complete end-to-end flow:
 4. Streaming and non-streaming modes
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from unittest.mock import AsyncMock, patch, MagicMock
+from httpx import ASGITransport, AsyncClient
 
 from qwenvert.adapter import create_app
-from qwenvert.models import Backend, Model, ModelRegistry
 from qwenvert.router import BackendRouter
 
 
@@ -23,7 +23,7 @@ async def adapter_client(sample_model_7b_q4):
     app = create_app()
 
     # Mock the backend router to avoid actual backend calls
-    with patch('qwenvert.adapter.BackendRouter') as mock_router_class:
+    with patch("qwenvert.adapter.BackendRouter") as mock_router_class:
         mock_router = AsyncMock()
         mock_router_class.return_value = mock_router
 
@@ -39,7 +39,9 @@ async def adapter_client(sample_model_7b_q4):
         }
 
         transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://localhost:8088") as client:
+        async with AsyncClient(
+            transport=transport, base_url="http://localhost:8088"
+        ) as client:
             yield client, mock_router
 
 
@@ -49,7 +51,7 @@ class TestMessagesEndpoint:
     @pytest.mark.asyncio
     async def test_simple_message_request(self, adapter_client):
         """Test basic non-streaming message request."""
-        client, mock_router = adapter_client
+        client, _mock_router = adapter_client
 
         response = await client.post(
             "/v1/messages",
@@ -75,7 +77,7 @@ class TestMessagesEndpoint:
     @pytest.mark.asyncio
     async def test_message_with_system_prompt(self, adapter_client):
         """Test message with system prompt."""
-        client, mock_router = adapter_client
+        client, _mock_router = adapter_client
 
         response = await client.post(
             "/v1/messages",
@@ -137,7 +139,7 @@ class TestMessagesEndpoint:
     @pytest.mark.asyncio
     async def test_multimodal_message(self, adapter_client):
         """Test message with multiple content blocks."""
-        client, mock_router = adapter_client
+        client, _mock_router = adapter_client
 
         response = await client.post(
             "/v1/messages",
@@ -252,18 +254,19 @@ class TestBackendIntegration:
         - Ollama running on localhost:11434
         - qwen2.5-coder:7b model downloaded
         """
-        from qwenvert.router import BackendRouter
 
         router = BackendRouter(
             model=sample_model_7b_q4,
             backend_url="http://localhost:11434",
         )
 
-        response = await router.generate({
-            "model": "qwenvert-default",
-            "messages": [{"role": "user", "content": "Say 'Hello'"}],
-            "max_tokens": 10,
-        })
+        response = await router.generate(
+            {
+                "model": "qwenvert-default",
+                "messages": [{"role": "user", "content": "Say 'Hello'"}],
+                "max_tokens": 10,
+            }
+        )
 
         assert response["type"] == "message"
         assert response["role"] == "assistant"
@@ -282,18 +285,19 @@ class TestBackendIntegration:
         - llama.cpp server running on localhost:8080
         - Qwen model loaded
         """
-        from qwenvert.router import BackendRouter
 
         router = BackendRouter(
             model=sample_model_14b_q5,
             backend_url="http://localhost:8080",
         )
 
-        response = await router.generate({
-            "model": "qwenvert-default",
-            "messages": [{"role": "user", "content": "Say 'Hello'"}],
-            "max_tokens": 10,
-        })
+        response = await router.generate(
+            {
+                "model": "qwenvert-default",
+                "messages": [{"role": "user", "content": "Say 'Hello'"}],
+                "max_tokens": 10,
+            }
+        )
 
         assert response["type"] == "message"
         assert response["role"] == "assistant"
@@ -305,7 +309,6 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_backend_connection_error(self, sample_model_7b_q4):
         """Test handling of backend connection failure."""
-        from qwenvert.router import BackendRouter
 
         # Point to non-existent backend
         router = BackendRouter(
@@ -314,11 +317,13 @@ class TestErrorHandling:
         )
 
         with pytest.raises(Exception):  # Should raise connection error
-            await router.generate({
-                "model": "qwenvert-default",
-                "messages": [{"role": "user", "content": "Hello"}],
-                "max_tokens": 10,
-            })
+            await router.generate(
+                {
+                    "model": "qwenvert-default",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "max_tokens": 10,
+                }
+            )
 
     @pytest.mark.asyncio
     async def test_malformed_request(self, adapter_client):
@@ -377,7 +382,15 @@ class TestAnthropicCompatibility:
         data = response.json()
 
         # Required fields per Anthropic spec
-        required_fields = ["id", "type", "role", "content", "model", "stop_reason", "usage"]
+        required_fields = [
+            "id",
+            "type",
+            "role",
+            "content",
+            "model",
+            "stop_reason",
+            "usage",
+        ]
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
 
