@@ -234,6 +234,7 @@ ignore = [
 ]
 "qwenvert/launcher.py" = [
     "ANN001",  # Signal handlers have standard signatures
+    "T201",    # print() is allowed for user-facing startup messages
 ]
 "qwenvert/models.py" = [
     "PLR0911", # Model selection logic has multiple returns
