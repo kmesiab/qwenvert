@@ -17,7 +17,6 @@ from typing import Deque, Optional
 
 import httpx
 import psutil
-from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
 
 from .telemetry import get_meter
@@ -352,16 +351,32 @@ class MetricsCollector:
 
         # Record to OpenTelemetry
         if self.enable_otel:
-            # Record token usage with semantic conventions
+            # Map internal status to OTEL-compliant finish reasons
             # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/
+            finish_reason_map = {
+                "success": "stop",  # Completion finished naturally
+                "timeout": "timeout",  # Request timed out
+                "error": "error",  # Error occurred
+            }
+            finish_reason = finish_reason_map.get(metric.status, "stop")
+
+            # Record token usage with semantic conventions
             self.token_usage_counter.add(
                 metric.tokens_generated,
                 attributes={
                     "gen_ai.operation.name": "completion",
                     "gen_ai.request.model": metric.model,
-                    "gen_ai.response.finish_reasons": [metric.status],
+                    "gen_ai.response.finish_reasons": [finish_reason],
                 },
             )
+
+            # Map internal status to HTTP status codes
+            status_code_map = {
+                "success": 200,
+                "timeout": 504,  # Gateway Timeout
+                "error": 500,  # Internal Server Error
+            }
+            status_code = status_code_map.get(metric.status, 500)
 
             # Record request duration
             self.request_duration_histogram.record(
@@ -369,7 +384,7 @@ class MetricsCollector:
                 attributes={
                     "http.request.method": "POST",
                     "http.route": "/v1/messages",
-                    "http.response.status_code": 200 if metric.status == "success" else 500,
+                    "http.response.status_code": status_code,
                 },
             )
 

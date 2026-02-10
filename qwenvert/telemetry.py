@@ -18,6 +18,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import (
     ConsoleMetricExporter,
+    MetricReader,
     PeriodicExportingMetricReader,
 )
 from opentelemetry.sdk.resources import Resource
@@ -34,21 +35,29 @@ _meter_provider: Optional[MeterProvider] = None
 _tracer_provider: Optional[TracerProvider] = None
 
 
-def _validate_localhost_endpoint(endpoint: str) -> str:
+def _validate_localhost_endpoint(endpoint: Optional[str]) -> str:
     """
     Validate that endpoint is localhost-only for security.
 
     Args:
-        endpoint: Endpoint URL to validate
+        endpoint: Endpoint URL to validate. Can include protocol prefix
+                  (http://, https://, grpc://) and port number.
+                  Examples: "localhost:4317", "http://127.0.0.1:4317"
+                  If None, defaults to "localhost:4317"
 
     Returns:
-        The endpoint if valid
+        The endpoint if valid (unchanged)
 
     Raises:
-        ValueError: If endpoint is not localhost
+        ValueError: If endpoint is not localhost. Error message includes
+                    the rejected endpoint and list of allowed patterns.
 
-    Security: Prevents data exfiltration to external collectors
+    Security: Prevents data exfiltration to external collectors.
+              Only localhost, 127.0.0.1, and ::1 are permitted.
     """
+    if endpoint is None:
+        endpoint = "localhost:4317"
+
     endpoint_lower = endpoint.lower()
 
     # Allow localhost, 127.0.0.1, ::1, and no hostname (defaults to localhost)
@@ -139,7 +148,7 @@ def _init_metrics(
     prometheus_port: int,
 ) -> MeterProvider:
     """Initialize metrics with configured exporters."""
-    metric_readers = []
+    metric_readers: list[MetricReader] = []
 
     # Console exporter for debugging
     if enable_console:
