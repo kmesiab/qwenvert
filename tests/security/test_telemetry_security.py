@@ -310,9 +310,9 @@ class TestEnvironmentVariableInitialization:
             # Should initialize with OTLP enabled
         except Exception as e:
             # May fail if collector not running, but shouldn't be validation error
-            assert (
-                "localhost" not in str(e).lower()
-            )  # noqa: PT017 or "connection" in str(e).lower()
+            assert (  # noqa: PT017
+                "localhost" not in str(e).lower() or "connection" in str(e).lower()
+            )
         finally:
             shutdown_telemetry()
 
@@ -386,9 +386,9 @@ class TestEnvironmentVariableSecurity:
             )
         except Exception as e:
             # May fail due to collector not running, but shouldn't be validation error
-            assert (
-                "localhost" not in str(e).lower()
-            )  # noqa: PT017 or "connection" in str(e).lower()
+            assert (  # noqa: PT017
+                "localhost" not in str(e).lower() or "connection" in str(e).lower()
+            )
         finally:
             shutdown_telemetry()
 
