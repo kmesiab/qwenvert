@@ -4,7 +4,7 @@ Tests for qwenvert monitoring and metrics collection.
 OTEL-014: System metrics collection tests
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import psutil
@@ -210,7 +210,7 @@ class TestRequestMetrics:
         collector = MetricsCollector(enable_otel=False)
 
         metric = RequestMetrics(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
             model="qwen-test",
             tokens_generated=100,
             latency_ms=1500.0,
@@ -232,7 +232,7 @@ class TestRequestMetrics:
         # Add more than history_size metrics
         for i in range(20):
             metric = RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model="qwen-test",
                 tokens_generated=i,
                 latency_ms=1000.0,
@@ -265,7 +265,7 @@ class TestRequestMetrics:
         # Add some test metrics
         metrics = [
             RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model="qwen-test",
                 tokens_generated=100,
                 latency_ms=1000.0,
@@ -274,7 +274,7 @@ class TestRequestMetrics:
                 status="success",
             ),
             RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model="qwen-test",
                 tokens_generated=200,
                 latency_ms=2000.0,
@@ -283,7 +283,7 @@ class TestRequestMetrics:
                 status="success",
             ),
             RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model="qwen-test",
                 tokens_generated=0,
                 latency_ms=500.0,

@@ -7,6 +7,8 @@ Verifies that telemetry configuration maintains qwenvert's security guarantees:
 - No sensitive data in metrics
 """
 
+import contextlib
+
 import pytest
 
 from qwenvert.telemetry import _validate_localhost_endpoint, init_telemetry
@@ -75,7 +77,7 @@ class TestOTLPEndpointSecurity:
             )
         except Exception as e:
             # May fail due to OTLP collector not running, but should not be ValueError
-            assert "localhost" not in str(e).lower()
+            assert "localhost" not in str(e).lower()  # noqa: PT017
         finally:
             shutdown_telemetry()
 
@@ -85,16 +87,15 @@ class TestMetricDataSecurity:
 
     def test_metrics_do_not_capture_prompt_content(self):
         """SECURITY: Verify no user prompts are captured in metrics."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         from qwenvert.monitoring import MetricsCollector, RequestMetrics
 
         collector = MetricsCollector(enable_otel=False)  # Disable OTEL for unit test
 
         # Simulate a request with sensitive prompt content
-        sensitive_prompt = "def hack_password():\n    return 'secret123'"
         metric = RequestMetrics(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
             model="test-model",
             tokens_generated=100,
             latency_ms=1500,
@@ -114,14 +115,14 @@ class TestMetricDataSecurity:
 
     def test_metrics_collector_only_captures_metadata(self):
         """SECURITY: Verify only non-sensitive metadata is captured."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         from qwenvert.monitoring import MetricsCollector, RequestMetrics
 
         collector = MetricsCollector(enable_otel=False)
 
         metric = RequestMetrics(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
             model="qwen-test",
             tokens_generated=50,
             latency_ms=1000.0,  # Use float
@@ -133,7 +134,7 @@ class TestMetricDataSecurity:
         collector.add_request_metric(metric)
 
         # Verify only safe metadata is present
-        req = list(collector.request_history)[0]
+        req = next(iter(collector.request_history))
         assert isinstance(req.tokens_generated, int)
         assert isinstance(req.latency_ms, (int, float))  # Accept both
         assert isinstance(req.tokens_per_second, (int, float))  # Accept both
@@ -309,7 +310,9 @@ class TestEnvironmentVariableInitialization:
             # Should initialize with OTLP enabled
         except Exception as e:
             # May fail if collector not running, but shouldn't be validation error
-            assert "localhost" not in str(e).lower() or "connection" in str(e).lower()
+            assert (
+                "localhost" not in str(e).lower()
+            )  # noqa: PT017 or "connection" in str(e).lower()
         finally:
             shutdown_telemetry()
 
@@ -383,7 +386,9 @@ class TestEnvironmentVariableSecurity:
             )
         except Exception as e:
             # May fail due to collector not running, but shouldn't be validation error
-            assert "localhost" not in str(e).lower() or "connection" in str(e).lower()
+            assert (
+                "localhost" not in str(e).lower()
+            )  # noqa: PT017 or "connection" in str(e).lower()
         finally:
             shutdown_telemetry()
 
@@ -447,12 +452,10 @@ class TestOTLPConnectionFailureHandling:
                 for (
                     reader
                 ) in telemetry_module._meter_provider._sdk_config.metric_readers:
-                    try:
+                    # Expected - OTLP collector not available
+                    # Should not propagate to application
+                    with contextlib.suppress(Exception):
                         reader.collect()
-                    except Exception:
-                        # Expected - OTLP collector not available
-                        # Should not propagate to application
-                        pass
 
         finally:
             shutdown_telemetry()
@@ -652,7 +655,7 @@ class TestObservableCallbackErrorHandling:
 
         # Mock to raise an exception in callback
         with patch.object(
-            collector, "_cached_cpu", new_callable=lambda: property(lambda self: 1 / 0)
+            collector, "_cached_cpu", new_callable=lambda: property(lambda _: 1 / 0)
         ):
             with caplog.at_level(logging.ERROR):
                 options = CallbackOptions()
