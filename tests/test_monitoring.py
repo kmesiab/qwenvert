@@ -318,7 +318,7 @@ class TestMetricsCollectorInitialization:
 
         assert collector.adapter_url == "http://localhost:8088"
         assert len(collector.request_history) == 0
-        assert collector.enable_otel is True
+        assert collector.enable_otel is False  # Opt-in design
 
     def test_init_with_custom_params(self):
         """Test initialization with custom parameters."""

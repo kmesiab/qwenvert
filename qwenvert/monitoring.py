@@ -92,7 +92,7 @@ class MetricsCollector:
         self,
         adapter_url: str = "http://localhost:8088",
         history_size: int = 100,
-        enable_otel: bool = True,
+        enable_otel: bool = False,
     ):
         """
         Initialize metrics collector.
@@ -137,13 +137,7 @@ class MetricsCollector:
         self.request_duration_histogram = meter.create_histogram(
             name="http.server.request.duration",
             description="Duration of HTTP requests",
-            unit="ms",
-        )
-
-        self.active_requests_counter = meter.create_up_down_counter(
-            name="http.server.active_requests",
-            description="Number of active HTTP requests",
-            unit="request",
+            unit="s",  # OTEL spec requires seconds
         )
 
         # System semantic conventions
@@ -186,9 +180,7 @@ class MetricsCollector:
 
         logger.info("✓ OpenTelemetry metrics initialized")
 
-    def _observe_cpu_utilization(
-        self, options: CallbackOptions
-    ) -> list[Observation]:
+    def _observe_cpu_utilization(self, options: CallbackOptions) -> list[Observation]:
         """
         Observable callback for CPU utilization (non-blocking).
 
@@ -217,9 +209,7 @@ class MetricsCollector:
             logger.error(f"Error observing memory utilization: {e}")
             return []
 
-    def _observe_cpu_temperature(
-        self, options: CallbackOptions
-    ) -> list[Observation]:
+    def _observe_cpu_temperature(self, options: CallbackOptions) -> list[Observation]:
         """
         Observable callback for CPU temperature (non-blocking).
 
@@ -233,9 +223,7 @@ class MetricsCollector:
 
         return []
 
-    def _observe_token_throughput(
-        self, options: CallbackOptions
-    ) -> list[Observation]:
+    def _observe_token_throughput(self, options: CallbackOptions) -> list[Observation]:
         """Observable callback for token throughput."""
         try:
             stats = self.get_performance_stats()
@@ -398,9 +386,9 @@ class MetricsCollector:
             }
             status_code = status_code_map.get(metric.status, 500)
 
-            # Record request duration
+            # Record request duration (convert ms to seconds per OTEL spec)
             self.request_duration_histogram.record(
-                metric.latency_ms,
+                metric.latency_ms / 1000.0,
                 attributes={
                     "http.request.method": "POST",
                     "http.route": "/v1/messages",

@@ -460,7 +460,9 @@ def monitor(adapter_url, refresh_rate, enable_otel) -> None:
             )
             console.print("[dim]✓ OpenTelemetry metrics enabled[/dim]")
         except Exception as e:
-            console.print(f"[yellow]Warning:[/yellow] Could not initialize telemetry: {e}")
+            console.print(
+                f"[yellow]Warning:[/yellow] Could not initialize telemetry: {e}"
+            )
             console.print("[dim]Continuing without OpenTelemetry...[/dim]")
 
     # Load config if available to get adapter URL

@@ -60,6 +60,7 @@ See also:
 import logging
 import os
 from typing import Optional
+from urllib.parse import urlparse
 
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
@@ -110,22 +111,35 @@ def _validate_localhost_endpoint(endpoint: Optional[str]) -> str:
     if endpoint is None:
         endpoint = "localhost:4317"
 
-    endpoint_lower = endpoint.lower()
+    # Parse the endpoint to extract hostname
+    # Handle various formats: "host:port", "http://host:port", "[::1]:4317"
+    parsed_endpoint = endpoint
 
-    # Allow localhost, 127.0.0.1, ::1, and no hostname (defaults to localhost)
-    allowed_patterns = ["localhost", "127.0.0.1", "::1"]
+    # Add scheme if missing to help urlparse
+    if "://" not in endpoint:
+        parsed_endpoint = f"http://{endpoint}"
 
-    # Check if endpoint contains any allowed pattern
-    if not any(pattern in endpoint_lower for pattern in allowed_patterns):
+    try:
+        parsed = urlparse(parsed_endpoint)
+        # Extract hostname (handles IPv6 brackets automatically)
+        hostname = parsed.hostname or "localhost"
+    except Exception:
+        # If parsing fails, fall back to original string check
+        hostname = endpoint.split(":")[0].strip("[]")
+
+    # Allowed localhost hostnames (exact match only)
+    allowed_hostnames = {"localhost", "127.0.0.1", "::1"}
+
+    if hostname.lower() not in allowed_hostnames:
         msg = (
             f"Security: OTLP endpoint must be localhost for data privacy. "
-            f"Got: {endpoint}. "
+            f"Got: {endpoint} (hostname: {hostname}). "
             f"Allowed: localhost, 127.0.0.1, ::1"
         )
         logger.error(msg)
         raise ValueError(msg)
 
-    logger.info(f"✓ Validated localhost endpoint: {endpoint}")
+    logger.info(f"✓ Validated localhost endpoint: {endpoint} (hostname: {hostname})")
     return endpoint
 
 
@@ -191,13 +205,21 @@ def init_telemetry(
         }
     )
 
+    # Resolve and validate OTLP endpoint once
+    resolved_otlp_endpoint = None
+    if enable_otlp:
+        resolved_otlp_endpoint = otlp_endpoint or os.getenv(
+            "OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317"
+        )
+        resolved_otlp_endpoint = _validate_localhost_endpoint(resolved_otlp_endpoint)
+
     # Initialize metrics
     _meter_provider = _init_metrics(
         resource=resource,
         enable_console=enable_console,
         enable_otlp=enable_otlp,
         enable_prometheus=enable_prometheus,
-        otlp_endpoint=otlp_endpoint,
+        otlp_endpoint=resolved_otlp_endpoint,
         prometheus_port=prometheus_port,
     )
 
@@ -206,7 +228,7 @@ def init_telemetry(
         resource=resource,
         enable_console=enable_console,
         enable_otlp=enable_otlp,
-        otlp_endpoint=otlp_endpoint,
+        otlp_endpoint=resolved_otlp_endpoint,
     )
 
     # Instrument HTTP libraries
@@ -237,16 +259,14 @@ def _init_metrics(
         logger.info("✓ Console metric exporter enabled")
 
     # OTLP exporter for collectors (e.g., Jaeger, SigNoz)
-    if enable_otlp:
-        endpoint = otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
-        # Security: Validate endpoint is localhost-only
-        endpoint = _validate_localhost_endpoint(endpoint)
+    if enable_otlp and otlp_endpoint:
+        # Endpoint already resolved and validated in init_telemetry
         otlp_reader = PeriodicExportingMetricReader(
-            OTLPMetricExporter(endpoint=endpoint),
+            OTLPMetricExporter(endpoint=otlp_endpoint),
             export_interval_millis=60000,
         )
         metric_readers.append(otlp_reader)
-        logger.info(f"✓ OTLP metric exporter enabled (endpoint: {endpoint})")
+        logger.info(f"✓ OTLP metric exporter enabled (endpoint: {otlp_endpoint})")
 
     # Prometheus exporter
     # Security Note: PrometheusMetricReader does NOT start an HTTP server.
@@ -256,7 +276,9 @@ def _init_metrics(
         prometheus_reader = PrometheusMetricReader()
         metric_readers.append(prometheus_reader)
         logger.info(f"✓ Prometheus exporter enabled (metrics available for collection)")
-        logger.info("   Note: No HTTP server started - metrics must be scraped externally")
+        logger.info(
+            "   Note: No HTTP server started - metrics must be scraped externally"
+        )
 
     # Create meter provider
     meter_provider = MeterProvider(
@@ -286,13 +308,11 @@ def _init_tracing(
         logger.info("✓ Console trace exporter enabled")
 
     # OTLP exporter
-    if enable_otlp:
-        endpoint = otlp_endpoint or os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
-        # Security: Validate endpoint is localhost-only
-        endpoint = _validate_localhost_endpoint(endpoint)
-        otlp_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+    if enable_otlp and otlp_endpoint:
+        # Endpoint already resolved and validated in init_telemetry
+        otlp_processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint))
         tracer_provider.add_span_processor(otlp_processor)
-        logger.info(f"✓ OTLP trace exporter enabled (endpoint: {endpoint})")
+        logger.info(f"✓ OTLP trace exporter enabled (endpoint: {otlp_endpoint})")
 
     # Set global tracer provider
     trace.set_tracer_provider(tracer_provider)
@@ -454,17 +474,34 @@ def shutdown_telemetry() -> None:
     if not _initialized:
         return
 
-    if _meter_provider:
-        _meter_provider.shutdown()
-        logger.info("✓ Metrics provider shut down")
+    try:
+        # Uninstrument HTTP libraries
+        try:
+            HTTPXClientInstrumentor().uninstrument()
+        except Exception as e:
+            logger.debug(f"HTTPX uninstrumentation skipped: {e}")
 
-    if _tracer_provider:
-        _tracer_provider.shutdown()
-        logger.info("✓ Tracer provider shut down")
+        # Shutdown providers with individual error handling
+        if _meter_provider:
+            try:
+                _meter_provider.shutdown()
+                logger.info("✓ Metrics provider shut down")
+            except Exception as e:
+                logger.warning(f"Error shutting down metrics provider: {e}", exc_info=True)
 
-    _initialized = False
-    _meter_provider = None
-    _tracer_provider = None
+        if _tracer_provider:
+            try:
+                _tracer_provider.shutdown()
+                logger.info("✓ Tracer provider shut down")
+            except Exception as e:
+                logger.warning(
+                    f"Error shutting down tracer provider: {e}", exc_info=True
+                )
+    finally:
+        # Always reset state even if shutdown fails
+        _initialized = False
+        _meter_provider = None
+        _tracer_provider = None
 
 
 # Environment variable configuration helper
@@ -527,7 +564,9 @@ def init_from_env() -> None:
         prometheus_port = int(prometheus_port_str)
     except ValueError:
         prometheus_port = 9464
-        logger.warning(f"Invalid OTEL_EXPORTER_PROMETHEUS_PORT: {prometheus_port_str}, using default 9464")
+        logger.warning(
+            f"Invalid OTEL_EXPORTER_PROMETHEUS_PORT: {prometheus_port_str}, using default 9464"
+        )
 
     init_telemetry(
         service_name=service_name,
