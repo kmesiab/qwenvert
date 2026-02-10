@@ -110,6 +110,11 @@ class MetricsCollector:
         self._last_check_time = time.time()
         self._last_request_count = 0
 
+        # Cached system metrics (updated in background, non-blocking reads)
+        self._cached_cpu = 0.0
+        self._cached_memory = 0.0
+        self._cached_temp: Optional[float] = None
+
         # OpenTelemetry metrics
         self.enable_otel = enable_otel
         if enable_otel:
@@ -184,11 +189,15 @@ class MetricsCollector:
     def _observe_cpu_utilization(
         self, options: CallbackOptions
     ) -> list[Observation]:
-        """Observable callback for CPU utilization."""
+        """
+        Observable callback for CPU utilization (non-blocking).
+
+        Uses cached value updated by background task to avoid blocking
+        the metric export thread.
+        """
         try:
-            cpu_percent = psutil.cpu_percent(interval=0.1)
-            # Convert percentage (0-100) to ratio (0-1) for semantic conventions
-            return [Observation(value=cpu_percent / 100.0)]
+            # Use cached value (non-blocking)
+            return [Observation(value=self._cached_cpu / 100.0)]
         except Exception as e:
             logger.error(f"Error observing CPU utilization: {e}")
             return []
@@ -196,11 +205,14 @@ class MetricsCollector:
     def _observe_memory_utilization(
         self, options: CallbackOptions
     ) -> list[Observation]:
-        """Observable callback for memory utilization."""
+        """
+        Observable callback for memory utilization (non-blocking).
+
+        Uses cached value updated by background task.
+        """
         try:
-            memory = psutil.virtual_memory()
-            # Already a ratio (0-1)
-            return [Observation(value=memory.percent / 100.0)]
+            # Use cached value (non-blocking)
+            return [Observation(value=self._cached_memory / 100.0)]
         except Exception as e:
             logger.error(f"Error observing memory utilization: {e}")
             return []
@@ -208,11 +220,14 @@ class MetricsCollector:
     def _observe_cpu_temperature(
         self, options: CallbackOptions
     ) -> list[Observation]:
-        """Observable callback for CPU temperature."""
+        """
+        Observable callback for CPU temperature (non-blocking).
+
+        Uses cached value updated by background task.
+        """
         try:
-            temp = self._get_cpu_temperature()
-            if temp is not None:
-                return [Observation(value=temp)]
+            if self._cached_temp is not None:
+                return [Observation(value=self._cached_temp)]
         except Exception as e:
             logger.error(f"Error observing CPU temperature: {e}")
 
@@ -448,11 +463,23 @@ class MetricsCollector:
         """
         Continuous monitoring loop.
 
+        Updates cached system metrics for non-blocking observable callbacks
+        and checks adapter health.
+
         Args:
             interval: Update interval in seconds
         """
         while True:
             try:
+                # Update cached system metrics (for non-blocking observable callbacks)
+                if self.enable_otel:
+                    try:
+                        self._cached_cpu = psutil.cpu_percent(interval=0.1)
+                        self._cached_memory = psutil.virtual_memory().percent
+                        self._cached_temp = self._get_cpu_temperature()
+                    except Exception as e:
+                        logger.debug(f"Error updating cached system metrics: {e}")
+
                 # Collect system metrics
                 system_metrics = await self.collect_system_metrics()
 

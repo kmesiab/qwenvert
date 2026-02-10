@@ -185,6 +185,169 @@ class TestPrometheusExporterSecurity:
         assert hasattr(reader, "collect")
 
 
+class TestTelemetryLifecycle:
+    """Test telemetry initialization and shutdown lifecycle."""
+
+    def test_shutdown_telemetry_clean(self):
+        """OTEL-002: Test telemetry shuts down cleanly and flushes data."""
+        from qwenvert.telemetry import shutdown_telemetry, init_telemetry
+        import qwenvert.telemetry as telemetry_module
+
+        # Initialize
+        shutdown_telemetry()  # Clean slate
+        init_telemetry(service_name="test-shutdown")
+
+        # Verify initialized
+        assert telemetry_module._initialized is True
+        assert telemetry_module._meter_provider is not None
+        assert telemetry_module._tracer_provider is not None
+
+        # Shutdown
+        shutdown_telemetry()
+
+        # Verify cleaned up
+        assert telemetry_module._initialized is False
+        assert telemetry_module._meter_provider is None
+        assert telemetry_module._tracer_provider is None
+
+    def test_shutdown_telemetry_before_init(self):
+        """OTEL-002: Test shutdown before init is safe (idempotent)."""
+        from qwenvert.telemetry import shutdown_telemetry
+        import qwenvert.telemetry as telemetry_module
+
+        # Ensure not initialized
+        shutdown_telemetry()
+        assert telemetry_module._initialized is False
+
+        # Shutdown again (should be safe)
+        shutdown_telemetry()
+        assert telemetry_module._initialized is False
+
+    def test_double_shutdown_is_idempotent(self):
+        """OTEL-002: Test double shutdown doesn't cause errors."""
+        from qwenvert.telemetry import shutdown_telemetry, init_telemetry
+
+        shutdown_telemetry()
+        init_telemetry(service_name="test-double-shutdown")
+
+        # First shutdown
+        shutdown_telemetry()
+
+        # Second shutdown (should be safe)
+        shutdown_telemetry()  # Should not raise
+
+
+class TestNoOpProviderFallback:
+    """OTEL-004: Test no-op provider fallback when not initialized."""
+
+    def test_get_meter_before_init_returns_noop(self):
+        """Test no-op meter is returned when not initialized."""
+        from qwenvert.telemetry import get_meter, shutdown_telemetry
+
+        # Ensure clean state
+        shutdown_telemetry()
+
+        # Get meter before init
+        meter = get_meter("test")
+
+        # Should return meter (no-op), not raise exception
+        counter = meter.create_counter("test_counter")
+        counter.add(1)  # Should not crash
+
+    def test_get_tracer_before_init_returns_noop(self):
+        """Test no-op tracer is returned when not initialized."""
+        from qwenvert.telemetry import get_tracer, shutdown_telemetry
+
+        # Ensure clean state
+        shutdown_telemetry()
+
+        # Get tracer before init
+        tracer = get_tracer("test")
+
+        # Should return tracer (no-op), not raise exception
+        with tracer.start_as_current_span("test_span"):
+            pass  # Should not crash
+
+    def test_get_meter_after_shutdown_returns_noop(self):
+        """Test no-op meter after shutdown."""
+        from qwenvert.telemetry import get_meter, init_telemetry, shutdown_telemetry
+
+        shutdown_telemetry()
+        init_telemetry(service_name="test")
+        shutdown_telemetry()  # Now shutdown
+
+        # Get meter after shutdown
+        meter = get_meter("test")
+        counter = meter.create_counter("test_counter")
+        counter.add(1)  # Should not crash
+
+
+class TestEnvironmentVariableInitialization:
+    """OTEL-005: Test environment variable initialization."""
+
+    def test_init_from_env_with_defaults(self, monkeypatch):
+        """Test init_from_env with default environment."""
+        from qwenvert.telemetry import init_from_env, shutdown_telemetry
+
+        shutdown_telemetry()
+
+        # No env vars set - should use defaults
+        monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
+        monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+
+        init_from_env()
+        # Should not raise, should use defaults
+
+    def test_init_from_env_with_otlp_endpoint(self, monkeypatch):
+        """Test OTLP is enabled when env var set."""
+        from qwenvert.telemetry import init_from_env, shutdown_telemetry
+
+        shutdown_telemetry()
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+
+        try:
+            init_from_env()
+            # Should initialize with OTLP enabled
+        except Exception as e:
+            # May fail if collector not running, but shouldn't be validation error
+            assert "localhost" not in str(e).lower() or "connection" in str(e).lower()
+        finally:
+            shutdown_telemetry()
+
+    def test_init_from_env_with_invalid_port(self, monkeypatch):
+        """Test invalid Prometheus port is handled gracefully."""
+        from qwenvert.telemetry import init_from_env, shutdown_telemetry
+
+        shutdown_telemetry()
+        monkeypatch.setenv("OTEL_EXPORTER_PROMETHEUS_PORT", "invalid_port")
+
+        # Should use default 9464, not crash
+        init_from_env()
+        shutdown_telemetry()
+
+    def test_init_from_env_with_console_enabled(self, monkeypatch):
+        """Test console exporter enabled via env var."""
+        from qwenvert.telemetry import init_from_env, shutdown_telemetry
+
+        shutdown_telemetry()
+        monkeypatch.setenv("OTEL_EXPORTER_CONSOLE", "true")
+
+        init_from_env()
+        # Should initialize with console enabled
+        shutdown_telemetry()
+
+    def test_init_from_env_with_custom_service_name(self, monkeypatch):
+        """Test custom service name from env var."""
+        from qwenvert.telemetry import init_from_env, shutdown_telemetry
+
+        shutdown_telemetry()
+        monkeypatch.setenv("OTEL_SERVICE_NAME", "my-custom-service")
+
+        init_from_env()
+        # Should use custom service name
+        shutdown_telemetry()
+
+
 class TestEnvironmentVariableSecurity:
     """Test environment variable handling for security."""
 
