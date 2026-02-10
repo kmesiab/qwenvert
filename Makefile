@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all
+.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark
 
 PYTHON ?= python3
 
@@ -21,6 +21,9 @@ help:
 	@echo "  make test-unit        Run unit tests only"
 	@echo "  make test-integration Run integration tests only"
 	@echo "  make coverage         Generate coverage report"
+	@echo ""
+	@echo "Performance:"
+	@echo "  make benchmark        Run performance benchmarks"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean            Remove build artifacts and cache"
@@ -81,6 +84,13 @@ coverage:
 # Run all checks (CI equivalent)
 check-all: format-check lint typecheck test
 	@echo "✓ All checks passed!"
+
+# Performance benchmarks
+benchmark:
+	@echo "Running performance benchmarks..."
+	@echo "Make sure qwenvert is running (qwenvert start)"
+	$(PYTHON) benchmarks/run_benchmarks.py
+	@echo "✓ Benchmarks complete"
 
 # Cleanup
 clean:
