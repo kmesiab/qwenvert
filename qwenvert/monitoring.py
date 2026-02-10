@@ -268,19 +268,24 @@ class MetricsCollector:
         for proc in psutil.process_iter(["pid", "name", "memory_info"]):
             try:
                 name = proc.info["name"].lower()
+                mem_info = proc.info["memory_info"]
+
+                # Skip if memory info not available
+                if mem_info is None:
+                    continue
 
                 if "python" in name:
                     # Check if it's running qwenvert
                     cmdline = proc.cmdline()
                     if any("qwenvert" in arg for arg in cmdline):
-                        qwenvert_mem = proc.info["memory_info"].rss / (1024 * 1024)
+                        qwenvert_mem = mem_info.rss / (1024 * 1024)
 
                 elif "ollama" in name:
-                    backend_mem = proc.info["memory_info"].rss / (1024 * 1024)
+                    backend_mem = mem_info.rss / (1024 * 1024)
                     backend_name = "Ollama"
 
                 elif "llama" in name or "server" in name:
-                    backend_mem = proc.info["memory_info"].rss / (1024 * 1024)
+                    backend_mem = mem_info.rss / (1024 * 1024)
                     backend_name = "llama.cpp"
 
             except (psutil.NoSuchProcess, psutil.AccessDenied):
