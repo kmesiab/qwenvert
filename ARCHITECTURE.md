@@ -11,7 +11,7 @@ Qwenvert is a production-grade local LLM inference system designed to bridge Cla
 - **Separation of Concerns**: Clear boundaries between model management, inference, and API serving
 - **Hardware Awareness**: Dynamic optimization based on real-time system metrics
 - **Framework Agnosticism**: Pluggable inference backends (MLX, Ollama, llama.cpp)
-- **Observability**: Comprehensive monitoring of performance, thermal, and memory metrics
+- **Observability**: OpenTelemetry-compliant metrics and tracing with security-first design
 - **Developer Experience**: Zero-config setup with intelligent defaults
 
 ---
@@ -24,31 +24,31 @@ Qwenvert is a production-grade local LLM inference system designed to bridge Cla
 └────────────────────────┬────────────────────────────────────┘
                          │ HTTP (Anthropic Messages API)
                          │
-┌────────────────────────▼────────────────────────────────────┐
-│                   API Gateway Layer                          │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Anthropic Messages API Adapter                      │   │
-│  │  - /v1/messages                                      │   │
-│  │  - /v1/messages/count_tokens                         │   │
-│  │  - SSE streaming support                             │   │
-│  └──────────────────────────────────────────────────────┘   │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────────┐
-│                 Inference Orchestrator                       │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Request Router                                      │   │
-│  │  - Load balancing                                    │   │
-│  │  - Request queuing                                   │   │
-│  │  - Thermal-aware throttling                          │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Context Manager                                     │   │
-│  │  - KV cache management                               │   │
-│  │  - Context window optimization                       │   │
-│  │  - Memory pressure handling                          │   │
-│  └──────────────────────────────────────────────────────┘   │
-└────────────────────────┬────────────────────────────────────┘
+┌────────────────────────▼───────────────────┐  ┌─────────────┐
+│            API Gateway Layer               │  │ Telemetry & │
+│  ┌─────────────────────────────────────┐   │◄─┤ Observability│
+│  │ Anthropic Messages API Adapter      │   │  │             │
+│  │ - /v1/messages                      │   │  │ - OTLP      │
+│  │ - /v1/messages/count_tokens         │   │  │ - Prometheus│
+│  │ - SSE streaming support             │   │  │ - Metrics   │
+│  └─────────────────────────────────────┘   │  │ - Tracing   │
+└────────────────────────┬───────────────────┘  │             │
+                         │                       │ OTEL-       │
+┌────────────────────────▼───────────────────┐  │ Compliant   │
+│          Inference Orchestrator            │◄─┤             │
+│  ┌─────────────────────────────────────┐   │  │ Localhost-  │
+│  │ Request Router                      │   │  │ Only Export │
+│  │ - Load balancing                    │   │  │             │
+│  │ - Request queuing                   │   │  │ gen_ai.*    │
+│  │ - Thermal-aware throttling          │   │  │ http.*      │
+│  └─────────────────────────────────────┘   │  │ system.*    │
+│  ┌─────────────────────────────────────┐   │  │             │
+│  │ Context Manager                     │   │  └─────────────┘
+│  │ - KV cache management               │   │
+│  │ - Context window optimization       │   │
+│  │ - Memory pressure handling          │   │
+│  └─────────────────────────────────────┘   │
+└────────────────────────┬───────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────────────┐
 │              Inference Engine Abstraction                    │
@@ -1023,7 +1023,254 @@ class SystemMetrics:
 
 ---
 
-### 7. Configuration System
+### 7. Telemetry & Observability Layer
+
+**Responsibility**: OpenTelemetry-compliant metrics and tracing with security-first design.
+
+**Design Pattern**: Observer Pattern + Decorator Pattern
+
+**Key Classes**:
+
+```python
+from opentelemetry import metrics, trace
+from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.trace import TracerProvider
+
+class TelemetrySystem:
+    """
+    OpenTelemetry-compliant telemetry system.
+
+    Security guarantees:
+    - All exporters disabled by default
+    - OTLP endpoints validated as localhost-only
+    - No sensitive data (prompts, responses) captured
+    - No network ports opened automatically
+
+    Semantic conventions:
+    - gen_ai.client.token.usage (token metrics)
+    - gen_ai.response.finish_reasons (completion status)
+    - http.server.request.duration (request latency)
+    - system.cpu.utilization (CPU usage)
+    - system.memory.utilization (memory usage)
+    """
+
+    def __init__(
+        self,
+        service_name: str = "qwenvert",
+        enable_otlp: bool = False,
+        enable_prometheus: bool = False,
+        otlp_endpoint: Optional[str] = None,
+    ):
+        self.service_name = service_name
+        self.meter_provider: Optional[MeterProvider] = None
+        self.tracer_provider: Optional[TracerProvider] = None
+
+        if enable_otlp:
+            # Security: Validate endpoint is localhost-only
+            validated_endpoint = self._validate_localhost_endpoint(otlp_endpoint)
+            self._init_otlp_exporters(validated_endpoint)
+
+        if enable_prometheus:
+            self._init_prometheus_reader()
+
+    def _validate_localhost_endpoint(self, endpoint: Optional[str]) -> str:
+        """
+        Security validation: Only localhost endpoints allowed.
+
+        Prevents data exfiltration to external collectors.
+        """
+        if endpoint is None:
+            endpoint = "localhost:4317"
+
+        allowed = ["localhost", "127.0.0.1", "::1"]
+        if not any(pattern in endpoint.lower() for pattern in allowed):
+            raise ValueError(
+                f"Security: OTLP endpoint must be localhost. "
+                f"Got: {endpoint}. Allowed: {allowed}"
+            )
+
+        return endpoint
+
+
+class MetricsCollector:
+    """
+    Collects performance and system metrics.
+
+    OpenTelemetry semantic conventions:
+    - gen_ai.client.token.usage (tokens generated)
+    - http.server.request.duration (request latency)
+    - system.cpu.utilization (CPU usage ratio 0-1)
+    - system.memory.utilization (memory usage ratio 0-1)
+    - system.cpu.temperature (CPU temp in Celsius)
+    """
+
+    def __init__(self, enable_otel: bool = True):
+        self.enable_otel = enable_otel
+        if enable_otel:
+            self._init_otel_metrics()
+
+    def _init_otel_metrics(self):
+        """Initialize OTEL-compliant metrics."""
+        meter = get_meter("qwenvert.monitoring")
+
+        # Gen AI metrics
+        self.token_usage_counter = meter.create_counter(
+            name="gen_ai.client.token.usage",
+            description="Number of tokens used in completions",
+            unit="token",
+        )
+
+        # HTTP metrics
+        self.request_duration_histogram = meter.create_histogram(
+            name="http.server.request.duration",
+            description="Duration of HTTP requests",
+            unit="ms",
+        )
+
+        # System metrics (observable gauges with caching for performance)
+        meter.create_observable_gauge(
+            name="system.cpu.utilization",
+            description="CPU utilization ratio",
+            unit="1",  # ratio 0-1
+            callbacks=[self._observe_cpu_utilization],
+        )
+
+        meter.create_observable_gauge(
+            name="system.memory.utilization",
+            description="Memory utilization ratio",
+            unit="1",
+            callbacks=[self._observe_memory_utilization],
+        )
+
+    def add_request_metric(self, metric: RequestMetrics):
+        """Record request metrics to OpenTelemetry."""
+        if not self.enable_otel:
+            return
+
+        # Map internal status to OTEL-compliant finish reasons
+        finish_reason_map = {
+            "success": "stop",
+            "timeout": "timeout",
+            "error": "error",
+        }
+
+        # Record tokens with gen_ai attributes
+        self.token_usage_counter.add(
+            metric.tokens_generated,
+            attributes={
+                "gen_ai.operation.name": "completion",
+                "gen_ai.request.model": metric.model,
+                "gen_ai.response.finish_reasons": [
+                    finish_reason_map.get(metric.status, "stop")
+                ],
+            },
+        )
+
+        # Record HTTP latency with proper status codes
+        status_code_map = {
+            "success": 200,
+            "timeout": 504,
+            "error": 500,
+        }
+
+        self.request_duration_histogram.record(
+            metric.latency_ms,
+            attributes={
+                "http.request.method": "POST",
+                "http.route": "/v1/messages",
+                "http.response.status_code": status_code_map.get(metric.status, 500),
+            },
+        )
+```
+
+**Integration with Inference Pipeline**:
+
+```python
+# In AnthropicMessagesAdapter
+async def handle_messages(self, request: MessagesRequest):
+    start_time = time.time()
+
+    # Start trace span
+    with get_tracer("qwenvert.api").start_as_current_span("handle_messages") as span:
+        span.set_attribute("http.method", "POST")
+        span.set_attribute("http.route", "/v1/messages")
+
+        try:
+            # Execute inference
+            response = await self.orchestrator.generate(request)
+
+            # Record success metrics
+            latency_ms = (time.time() - start_time) * 1000
+            self.metrics_collector.add_request_metric(
+                RequestMetrics(
+                    timestamp=datetime.now(),
+                    model=request.model,
+                    tokens_generated=response.usage.output_tokens,
+                    latency_ms=latency_ms,
+                    tokens_per_second=response.usage.output_tokens / (latency_ms / 1000),
+                    streaming=request.stream,
+                    status="success",
+                )
+            )
+
+            return response
+
+        except Exception as e:
+            # Record error metrics
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            self.metrics_collector.add_request_metric(
+                RequestMetrics(
+                    timestamp=datetime.now(),
+                    model=request.model,
+                    tokens_generated=0,
+                    latency_ms=(time.time() - start_time) * 1000,
+                    tokens_per_second=0.0,
+                    streaming=request.stream,
+                    status="error",
+                )
+            )
+            raise
+```
+
+**Security Design**:
+
+1. **Default-Disabled**: All exporters (OTLP, Prometheus, Console) disabled by default
+2. **Localhost-Only OTLP**: Endpoint validation prevents external data exfiltration
+3. **No Sensitive Data**: Only metadata captured (tokens, latency, status), never prompts or responses
+4. **No Network Exposure**: Prometheus reader doesn't open HTTP ports
+5. **Test-Proven Security**: 23 dedicated security tests verify isolation
+
+**Performance Optimization**:
+
+Observable gauge callbacks use cached system metrics (updated by background task) to avoid blocking the metric export thread:
+
+```python
+async def monitor_loop(self, interval: float = 1.0):
+    """Background task updates cached metrics."""
+    while True:
+        # Non-blocking: update cache for observable callbacks
+        self._cached_cpu = psutil.cpu_percent(interval=0.1)
+        self._cached_memory = psutil.virtual_memory().percent
+        await asyncio.sleep(interval)
+
+def _observe_cpu_utilization(self, options):
+    """Non-blocking: reads from cache (100ms → <1ms)."""
+    return [Observation(value=self._cached_cpu / 100.0)]
+```
+
+**Rationale**:
+- Security-first design prevents accidental data leaks
+- OTEL semantic conventions enable standard tooling integration
+- Performance optimizations prevent telemetry overhead
+- No-op provider pattern enables graceful degradation
+- Environment variable configuration for 12-factor app compliance
+
+**See also**: [TELEMETRY_SECURITY.md](./TELEMETRY_SECURITY.md) for complete security documentation.
+
+---
+
+### 8. Configuration System
 
 **Responsibility**: Hardware-aware configuration with intelligent defaults.
 

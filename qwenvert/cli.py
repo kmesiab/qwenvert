@@ -428,19 +428,42 @@ def hardware() -> None:
     default=1.0,
     help="Dashboard refresh rate in seconds (default: 1.0)",
 )
-def monitor(adapter_url, refresh_rate) -> None:
+@click.option(
+    "--enable-otel/--no-otel",
+    default=False,
+    help="Enable OpenTelemetry metrics (default: disabled)",
+)
+def monitor(adapter_url, refresh_rate, enable_otel) -> None:
     """
     Real-time monitoring dashboard.
 
     Displays live performance metrics, system resources, and request history
-    in a beautiful terminal interface.
+    in a beautiful terminal interface with OpenTelemetry-compliant metrics.
     """
     import asyncio
 
     from .config import ConfigManager
     from .dashboard import run_dashboard
+    from .telemetry import init_telemetry, shutdown_telemetry
 
     console.print("\n[bold blue]Starting Qwenvert Monitor[/bold blue]\n")
+
+    # Initialize OpenTelemetry if enabled
+    if enable_otel:
+        try:
+            init_telemetry(
+                service_name="qwenvert-monitor",
+                service_version="0.1.0",
+                enable_console=False,  # Console exporter would interfere with TUI
+                enable_otlp=False,  # User can enable via env vars if needed
+                enable_prometheus=False,  # User can enable via env vars if needed
+            )
+            console.print("[dim]✓ OpenTelemetry metrics enabled[/dim]")
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning:[/yellow] Could not initialize telemetry: {e}"
+            )
+            console.print("[dim]Continuing without OpenTelemetry...[/dim]")
 
     # Load config if available to get adapter URL
     if ConfigManager.exists():
@@ -456,7 +479,13 @@ def monitor(adapter_url, refresh_rate) -> None:
     console.print("Press [bold cyan]Ctrl+C[/bold cyan] to exit\n")
 
     try:
-        asyncio.run(run_dashboard(adapter_url=adapter_url, refresh_rate=refresh_rate))
+        asyncio.run(
+            run_dashboard(
+                adapter_url=adapter_url,
+                refresh_rate=refresh_rate,
+                enable_otel=enable_otel,
+            )
+        )
     except KeyboardInterrupt:
         console.print("\n[yellow]Monitor stopped[/yellow]\n")
     except Exception as e:
@@ -465,6 +494,9 @@ def monitor(adapter_url, refresh_rate) -> None:
 
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        if enable_otel:
+            shutdown_telemetry()
 
 
 if __name__ == "__main__":

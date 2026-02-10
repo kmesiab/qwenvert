@@ -247,12 +247,28 @@ class ServerLauncher:
 
     async def start_adapter(self, backend_handle: ProcessHandle) -> None:
         """
-        Start qwenvert adapter server.
+        Start qwenvert adapter server with OpenTelemetry instrumentation.
 
         Args:
             backend_handle: Handle to backend server process
         """
         logger.info("Starting qwenvert adapter...")
+
+        # Initialize OpenTelemetry
+        from .telemetry import init_telemetry, instrument_fastapi
+
+        try:
+            init_telemetry(
+                service_name="qwenvert-adapter",
+                service_version="0.1.0",
+                enable_console=False,
+                enable_otlp=False,  # Can be enabled via env vars
+                enable_prometheus=False,  # Can be enabled via env vars
+            )
+            logger.info("✓ OpenTelemetry initialized")
+        except Exception as e:
+            logger.warning(f"Could not initialize OpenTelemetry: {e}")
+            logger.info("Continuing without OpenTelemetry instrumentation...")
 
         # Import adapter and router
         from .adapter import create_app
@@ -271,6 +287,12 @@ class ServerLauncher:
         # Create and configure app
         app = create_app()
         app.state.backend_router = router
+
+        # Instrument FastAPI app with OpenTelemetry
+        try:
+            instrument_fastapi(app)
+        except Exception as e:
+            logger.warning(f"Could not instrument FastAPI: {e}")
 
         # Start server in background
         import uvicorn
@@ -315,7 +337,7 @@ class ServerLauncher:
         """Print startup success message with instructions."""
 
     async def stop_all(self) -> None:
-        """Stop all managed processes."""
+        """Stop all managed processes and shutdown telemetry."""
         logger.info("Stopping qwenvert...")
 
         # Stop adapter
@@ -327,6 +349,11 @@ class ServerLauncher:
         # Stop backend
         if self.backend_process:
             self.backend_process.terminate()
+
+        # Shutdown telemetry
+        from .telemetry import shutdown_telemetry
+
+        shutdown_telemetry()
 
         logger.info("✓ Qwenvert stopped")
 
