@@ -999,12 +999,16 @@ class TestStartQwenvert:
 
     @pytest.mark.asyncio
     async def test_start_qwenvert_no_config(self, capsys):
-        """Test when no configuration exists."""
+        """Test when no configuration exists - should return early without output."""
         with patch("qwenvert.launcher.ConfigManager.exists", return_value=False):
-            await start_qwenvert()
+            result = await start_qwenvert()
 
+            # Should return None and exit early without starting anything
+            assert result is None
+
+            # Should not produce any output
             captured = capsys.readouterr()
-            assert "No configuration found" in captured.out
+            assert captured.out == ""
 
     @pytest.mark.asyncio
     async def test_start_qwenvert_success(self, ollama_config, mock_process):
