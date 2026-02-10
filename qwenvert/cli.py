@@ -479,7 +479,13 @@ def monitor(adapter_url, refresh_rate, enable_otel) -> None:
     console.print("Press [bold cyan]Ctrl+C[/bold cyan] to exit\n")
 
     try:
-        asyncio.run(run_dashboard(adapter_url=adapter_url, refresh_rate=refresh_rate))
+        asyncio.run(
+            run_dashboard(
+                adapter_url=adapter_url,
+                refresh_rate=refresh_rate,
+                enable_otel=enable_otel,
+            )
+        )
     except KeyboardInterrupt:
         console.print("\n[yellow]Monitor stopped[/yellow]\n")
     except Exception as e:
