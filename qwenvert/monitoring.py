@@ -100,7 +100,7 @@ class MetricsCollector:
         Args:
             adapter_url: URL of qwenvert adapter
             history_size: Number of requests to keep in history
-            enable_otel: Enable OpenTelemetry metrics (default: True)
+            enable_otel: Enable OpenTelemetry metrics (default: False)
         """
         self.adapter_url = adapter_url
         self.request_history: Deque[RequestMetrics] = deque(maxlen=history_size)

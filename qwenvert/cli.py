@@ -430,8 +430,8 @@ def hardware() -> None:
 )
 @click.option(
     "--enable-otel/--no-otel",
-    default=True,
-    help="Enable OpenTelemetry metrics (default: enabled)",
+    default=False,
+    help="Enable OpenTelemetry metrics (default: disabled)",
 )
 def monitor(adapter_url, refresh_rate, enable_otel) -> None:
     """
