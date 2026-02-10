@@ -243,7 +243,9 @@ class TestSystemMetrics:
 
         # Mock process that raises exception
         mock_proc = MagicMock()
-        mock_proc.info = {"name": "python3"}
+        mock_memory_info = MagicMock()
+        mock_memory_info.rss = 100 * 1024 * 1024  # 100MB
+        mock_proc.info = {"name": "python3", "pid": 1234, "memory_info": mock_memory_info}
         mock_proc.cmdline.side_effect = psutil.NoSuchProcess(1234)
 
         mock_process_iter.return_value = [mock_proc]
