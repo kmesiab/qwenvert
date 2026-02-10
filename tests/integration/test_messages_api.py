@@ -9,7 +9,7 @@ These tests validate the complete end-to-end flow:
 """
 
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from qwenvert.adapter import create_app
@@ -38,7 +38,8 @@ async def adapter_client(sample_model_7b_q4):
             "usage": {"input_tokens": 10, "output_tokens": 8},
         }
 
-        async with AsyncClient(app=app, base_url="http://localhost:8088") as client:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://localhost:8088") as client:
             yield client, mock_router
 
 

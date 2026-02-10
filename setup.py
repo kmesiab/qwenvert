@@ -47,9 +47,11 @@ setup(
             "pytest>=7.4.0",
             "pytest-asyncio>=0.21.0",
             "pytest-cov>=4.1.0",
+            "pytest-httpx>=0.30.0",
             "black>=23.11.0",
             "ruff>=0.1.6",
             "mypy>=1.7.0",
+            "certifi>=2023.7.22",
         ],
         "mlx": [
             "mlx>=0.0.8",

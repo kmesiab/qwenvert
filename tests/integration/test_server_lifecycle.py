@@ -17,25 +17,20 @@ class TestServerLauncher:
     """Test server launching and lifecycle management."""
 
     @pytest.mark.asyncio
-    async def test_ollama_backend_launch(self, sample_model_7b_q4, temp_config_dir):
+    async def test_ollama_backend_launch(self, mock_qwenvert_config):
         """Test launching Ollama backend."""
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch('subprocess.Popen') as mock_popen:
             # Mock process
             mock_process = MagicMock()
             mock_process.pid = 12345
-            mock_process.returncode = None
-            mock_subprocess.return_value = mock_process
+            mock_process.poll.return_value = None
+            mock_popen.return_value = mock_process
 
-            launcher = ServerLauncher(
-                model=sample_model_7b_q4,
-                backend_url="http://localhost:11434",
-                adapter_host="127.0.0.1",
-                adapter_port=8088,
-            )
+            launcher = ServerLauncher(config=mock_qwenvert_config)
 
             # Mock health check to succeed immediately
-            with patch('httpx.AsyncClient.get') as mock_get:
+            with patch('httpx.Client.get') as mock_get:
                 mock_response = MagicMock()
                 mock_response.status_code = 200
                 mock_get.return_value = mock_response
