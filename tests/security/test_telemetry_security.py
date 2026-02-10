@@ -555,3 +555,149 @@ class TestOTLPConnectionFailureHandling:
 
         finally:
             shutdown_telemetry()
+
+
+class TestObservableCallbackErrorHandling:
+    """OTEL-012: Test observable callback error handling."""
+
+    def test_cpu_utilization_callback_handles_division_by_zero(self):
+        """Test CPU utilization callback handles edge case when cached value is invalid."""
+        from qwenvert.monitoring import MetricsCollector
+        from opentelemetry.metrics import CallbackOptions
+
+        collector = MetricsCollector(enable_otel=False)  # No OTEL to avoid side effects
+
+        # Set invalid cached CPU value
+        collector._cached_cpu = float('inf')
+
+        # Call observable callback
+        options = CallbackOptions()
+        result = collector._observe_cpu_utilization(options)
+
+        # Should return empty list on error, not crash
+        assert isinstance(result, list)
+
+    def test_memory_utilization_callback_handles_invalid_cached_value(self):
+        """Test memory utilization callback handles corrupted cached value."""
+        from qwenvert.monitoring import MetricsCollector
+        from opentelemetry.metrics import CallbackOptions
+
+        collector = MetricsCollector(enable_otel=False)
+
+        # Set invalid cached memory value
+        collector._cached_memory = float('nan')
+
+        # Call observable callback
+        options = CallbackOptions()
+        result = collector._observe_memory_utilization(options)
+
+        # Should return empty list on error, not crash
+        assert isinstance(result, list)
+
+    def test_cpu_temperature_callback_handles_none_cached_value(self):
+        """Test CPU temperature callback returns empty when temp unavailable."""
+        from qwenvert.monitoring import MetricsCollector
+        from opentelemetry.metrics import CallbackOptions
+
+        collector = MetricsCollector(enable_otel=False)
+
+        # Temperature not available (None)
+        collector._cached_temp = None
+
+        # Call observable callback
+        options = CallbackOptions()
+        result = collector._observe_cpu_temperature(options)
+
+        # Should return empty list (no observation)
+        assert result == []
+
+    def test_token_throughput_callback_handles_empty_history(self):
+        """Test token throughput callback handles empty request history."""
+        from qwenvert.monitoring import MetricsCollector
+        from opentelemetry.metrics import CallbackOptions
+
+        collector = MetricsCollector(enable_otel=False)
+
+        # Empty request history
+        collector.request_history.clear()
+
+        # Call observable callback
+        options = CallbackOptions()
+        result = collector._observe_token_throughput(options)
+
+        # Should return observation with 0.0 value, not crash
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0].value == 0.0
+
+    def test_observable_callbacks_log_errors_without_crashing(self, caplog):
+        """Test all observable callbacks log errors instead of crashing."""
+        import logging
+        from qwenvert.monitoring import MetricsCollector
+        from opentelemetry.metrics import CallbackOptions
+        from unittest.mock import patch
+
+        collector = MetricsCollector(enable_otel=False)
+
+        # Mock to raise an exception in callback
+        with patch.object(collector, '_cached_cpu', new_callable=lambda: property(lambda self: 1/0)):
+            with caplog.at_level(logging.ERROR):
+                options = CallbackOptions()
+                result = collector._observe_cpu_utilization(options)
+
+                # Should return empty list, not crash
+                assert result == []
+
+    def test_all_observable_callbacks_are_resilient(self):
+        """
+        Integration test: Verify all observable callbacks are resilient.
+
+        Tests that callbacks can be called repeatedly without crashing,
+        even with edge case values.
+        """
+        from qwenvert.monitoring import MetricsCollector
+        from opentelemetry.metrics import CallbackOptions
+
+        collector = MetricsCollector(enable_otel=False)
+        options = CallbackOptions()
+
+        # Test with various edge case values
+        edge_cases = [
+            (float('inf'), float('inf'), float('inf')),
+            (float('nan'), float('nan'), float('nan')),
+            (0.0, 0.0, 0.0),
+            (-1.0, -1.0, -1.0),
+            (10000.0, 10000.0, 10000.0),
+        ]
+
+        for cpu, mem, temp in edge_cases:
+            collector._cached_cpu = cpu
+            collector._cached_memory = mem
+            collector._cached_temp = temp
+
+            # All callbacks should handle edge cases gracefully
+            cpu_result = collector._observe_cpu_utilization(options)
+            mem_result = collector._observe_memory_utilization(options)
+            temp_result = collector._observe_cpu_temperature(options)
+            throughput_result = collector._observe_token_throughput(options)
+
+            # Should return lists, not crash
+            assert isinstance(cpu_result, list)
+            assert isinstance(mem_result, list)
+            assert isinstance(temp_result, list)
+            assert isinstance(throughput_result, list)
+
+    def test_observable_callback_returns_empty_on_attribute_error(self):
+        """Test callbacks return empty list if cached attributes are missing."""
+        from qwenvert.monitoring import MetricsCollector
+        from opentelemetry.metrics import CallbackOptions
+
+        collector = MetricsCollector(enable_otel=False)
+        options = CallbackOptions()
+
+        # Delete cached attributes to simulate corruption
+        del collector._cached_cpu
+
+        # Should return empty, not raise AttributeError
+        result = collector._observe_cpu_utilization(options)
+        assert result == []
