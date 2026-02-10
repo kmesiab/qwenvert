@@ -160,8 +160,12 @@ class TestOllamaGeneration:
             # Verify system prompt was included
             call_kwargs = mock_post.call_args.kwargs
             request_json = call_kwargs.get("json", {})
-            # System prompt should be in the request
-            assert "messages" in request_json or "system" in request_json
+            # System prompt should be injected as a system-role message
+            messages = request_json.get("messages", [])
+            assert any(
+                m.get("role") == "system" and "coding assistant" in m.get("content", "").lower()
+                for m in messages
+            ), "System prompt not found in messages array"
 
 
 class TestLlamaCppGeneration:
