@@ -40,12 +40,16 @@ def temp_models_dir(tmp_path):
 class TestModelDownloaderInit:
     """Test ModelDownloader initialization."""
 
-    def test_init_default_dir(self):
+    def test_init_default_dir(self, tmp_path):
         """Test initialization with default directory."""
-        downloader = ModelDownloader()
+        fake_home = tmp_path / "fakehome"
+        fake_home.mkdir()
 
-        assert downloader.models_dir == Path.home() / ".qwenvert" / "models"
-        assert downloader.models_dir.exists()
+        with patch("pathlib.Path.home", return_value=fake_home):
+            downloader = ModelDownloader()
+
+            assert downloader.models_dir == fake_home / ".qwenvert" / "models"
+            assert downloader.models_dir.exists()
 
     def test_init_custom_dir(self, temp_models_dir):
         """Test initialization with custom directory."""
@@ -401,8 +405,8 @@ class TestDeleteModel:
 
         success = downloader.delete_model(sample_model)
 
-        # Should return False or handle gracefully
-        assert success is False or success is True  # Implementation may vary
+        # Should return False when file doesn't exist
+        assert success is False
 
 
 class TestGetDiskUsage:
