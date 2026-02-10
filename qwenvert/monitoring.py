@@ -2,7 +2,7 @@
 Real-time monitoring and metrics for qwenvert.
 
 Collects performance metrics, thermal data, and request history
-for display in the monitor dashboard.
+for display in the monitor dashboard. Now OpenTelemetry-compliant.
 """
 
 import asyncio
@@ -17,6 +17,10 @@ from typing import Deque, Optional
 
 import httpx
 import psutil
+from opentelemetry import metrics
+from opentelemetry.metrics import CallbackOptions, Observation
+
+from .telemetry import get_meter
 
 
 logger = logging.getLogger(__name__)
@@ -73,6 +77,12 @@ class MetricsCollector:
     """
     Collects real-time metrics from qwenvert adapter and system.
 
+    Now OpenTelemetry-compliant with semantic conventions for:
+    - gen_ai.client.token.usage (tokens generated)
+    - http.server.request.duration (request latency)
+    - system.cpu.utilization (CPU usage)
+    - system.memory.utilization (memory usage)
+
     Monitors:
     - Request performance (latency, throughput)
     - System resources (CPU, memory, temperature)
@@ -83,6 +93,7 @@ class MetricsCollector:
         self,
         adapter_url: str = "http://localhost:8088",
         history_size: int = 100,
+        enable_otel: bool = True,
     ):
         """
         Initialize metrics collector.
@@ -90,6 +101,7 @@ class MetricsCollector:
         Args:
             adapter_url: URL of qwenvert adapter
             history_size: Number of requests to keep in history
+            enable_otel: Enable OpenTelemetry metrics (default: True)
         """
         self.adapter_url = adapter_url
         self.request_history: Deque[RequestMetrics] = deque(maxlen=history_size)
@@ -98,6 +110,125 @@ class MetricsCollector:
         # For tracking real-time requests
         self._last_check_time = time.time()
         self._last_request_count = 0
+
+        # OpenTelemetry metrics
+        self.enable_otel = enable_otel
+        if enable_otel:
+            self._init_otel_metrics()
+
+    def _init_otel_metrics(self) -> None:
+        """Initialize OpenTelemetry metrics following semantic conventions."""
+        meter = get_meter("qwenvert.monitoring")
+
+        # Gen AI semantic conventions
+        # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/
+        self.token_usage_counter = meter.create_counter(
+            name="gen_ai.client.token.usage",
+            description="Number of tokens used in prompts and completions",
+            unit="token",
+        )
+
+        # HTTP semantic conventions
+        # https://opentelemetry.io/docs/specs/semconv/http/http-metrics/
+        self.request_duration_histogram = meter.create_histogram(
+            name="http.server.request.duration",
+            description="Duration of HTTP requests",
+            unit="ms",
+        )
+
+        self.active_requests_counter = meter.create_up_down_counter(
+            name="http.server.active_requests",
+            description="Number of active HTTP requests",
+            unit="request",
+        )
+
+        # System semantic conventions
+        # https://opentelemetry.io/docs/specs/semconv/system/system-metrics/
+        meter.create_observable_gauge(
+            name="system.cpu.utilization",
+            description="CPU utilization ratio",
+            unit="1",  # ratio 0-1
+            callbacks=[self._observe_cpu_utilization],
+        )
+
+        meter.create_observable_gauge(
+            name="system.memory.utilization",
+            description="Memory utilization ratio",
+            unit="1",  # ratio 0-1
+            callbacks=[self._observe_memory_utilization],
+        )
+
+        meter.create_observable_gauge(
+            name="system.cpu.temperature",
+            description="CPU temperature in Celsius",
+            unit="Cel",
+            callbacks=[self._observe_cpu_temperature],
+        )
+
+        # Request status counter
+        self.request_status_counter = meter.create_counter(
+            name="qwenvert.request.count",
+            description="Total number of requests by status",
+            unit="request",
+        )
+
+        # Tokens per second gauge
+        meter.create_observable_gauge(
+            name="gen_ai.client.token.throughput",
+            description="Token generation throughput",
+            unit="token/s",
+            callbacks=[self._observe_token_throughput],
+        )
+
+        logger.info("✓ OpenTelemetry metrics initialized")
+
+    def _observe_cpu_utilization(
+        self, options: CallbackOptions
+    ) -> list[Observation]:
+        """Observable callback for CPU utilization."""
+        try:
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            # Convert percentage (0-100) to ratio (0-1) for semantic conventions
+            return [Observation(value=cpu_percent / 100.0)]
+        except Exception as e:
+            logger.error(f"Error observing CPU utilization: {e}")
+            return []
+
+    def _observe_memory_utilization(
+        self, options: CallbackOptions
+    ) -> list[Observation]:
+        """Observable callback for memory utilization."""
+        try:
+            memory = psutil.virtual_memory()
+            # Already a ratio (0-1)
+            return [Observation(value=memory.percent / 100.0)]
+        except Exception as e:
+            logger.error(f"Error observing memory utilization: {e}")
+            return []
+
+    def _observe_cpu_temperature(
+        self, options: CallbackOptions
+    ) -> list[Observation]:
+        """Observable callback for CPU temperature."""
+        try:
+            temp = self._get_cpu_temperature()
+            if temp is not None:
+                return [Observation(value=temp)]
+        except Exception as e:
+            logger.error(f"Error observing CPU temperature: {e}")
+
+        return []
+
+    def _observe_token_throughput(
+        self, options: CallbackOptions
+    ) -> list[Observation]:
+        """Observable callback for token throughput."""
+        try:
+            stats = self.get_performance_stats()
+            return [Observation(value=stats.avg_tokens_per_second)]
+        except Exception as e:
+            logger.error(f"Error observing token throughput: {e}")
+            return []
 
     async def collect_system_metrics(self) -> SystemMetrics:
         """
@@ -212,12 +343,45 @@ class MetricsCollector:
 
     def add_request_metric(self, metric: RequestMetrics) -> None:
         """
-        Add a request metric to history.
+        Add a request metric to history and record to OpenTelemetry.
 
         Args:
             metric: Request metrics to add
         """
         self.request_history.append(metric)
+
+        # Record to OpenTelemetry
+        if self.enable_otel:
+            # Record token usage with semantic conventions
+            # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/
+            self.token_usage_counter.add(
+                metric.tokens_generated,
+                attributes={
+                    "gen_ai.operation.name": "completion",
+                    "gen_ai.request.model": metric.model,
+                    "gen_ai.response.finish_reasons": [metric.status],
+                },
+            )
+
+            # Record request duration
+            self.request_duration_histogram.record(
+                metric.latency_ms,
+                attributes={
+                    "http.request.method": "POST",
+                    "http.route": "/v1/messages",
+                    "http.response.status_code": 200 if metric.status == "success" else 500,
+                },
+            )
+
+            # Record request status
+            self.request_status_counter.add(
+                1,
+                attributes={
+                    "status": metric.status,
+                    "model": metric.model,
+                    "streaming": str(metric.streaming).lower(),
+                },
+            )
 
     def get_performance_stats(self) -> PerformanceStats:
         """
