@@ -361,10 +361,11 @@ class MetricsCollector:
         if self.enable_otel:
             # Map internal status to OTEL-compliant finish reasons
             # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/
+            # Valid spec values: "stop", "length", "content_filter"
             finish_reason_map = {
                 "success": "stop",  # Completion finished naturally
-                "timeout": "timeout",  # Request timed out
-                "error": "error",  # Error occurred
+                "timeout": "stop",  # Map timeout to stop (spec-compliant)
+                "error": "stop",  # Map error to stop (spec-compliant)
             }
             finish_reason = finish_reason_map.get(metric.status, "stop")
 
