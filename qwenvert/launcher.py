@@ -29,21 +29,21 @@ class ProcessHandle:
     """Handle for a managed process."""
 
     def __init__(
-        self, process: subprocess.Popen | None, name: str, unmanaged: bool = False
+        self, process: subprocess.Popen | None, name: str, is_unmanaged: bool = False
     ) -> None:
         self.process = process
         self.name = name
         self.pid = process.pid if process else None
-        self.unmanaged = unmanaged
+        self.is_unmanaged = is_unmanaged
 
     @classmethod
-    def unmanaged(cls, name: str) -> "ProcessHandle":
+    def unmanaged(cls, name: str) -> ProcessHandle:
         """Create an unmanaged process handle for externally-running processes."""
-        return cls(process=None, name=name, unmanaged=True)
+        return cls(process=None, name=name, is_unmanaged=True)
 
     def is_running(self) -> bool:
         """Check if process is still running."""
-        if self.unmanaged or self.process is None:
+        if self.is_unmanaged or self.process is None:
             return False
         return self.process.poll() is None
 
@@ -57,7 +57,7 @@ class ProcessHandle:
         Returns:
             True if terminated successfully
         """
-        if self.unmanaged or self.process is None:
+        if self.is_unmanaged or self.process is None:
             return True
 
         if not self.is_running():
@@ -182,7 +182,9 @@ class ServerLauncher:
         try:
             hardware = HardwareDetector.detect()
         except Exception as e:
-            logger.warning(f"Hardware detection failed: {e}, using conservative defaults")
+            logger.warning(
+                f"Hardware detection failed: {e}, using conservative defaults"
+            )
             # Conservative fallback for safety
             hardware = HardwareProfile(
                 chip="Unknown",

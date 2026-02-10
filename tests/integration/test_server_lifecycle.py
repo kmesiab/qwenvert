@@ -4,7 +4,6 @@ Integration tests for server lifecycle and process management.
 Tests the ServerLauncher, health checks, and graceful shutdown.
 """
 
-import asyncio
 from unittest.mock import MagicMock, patch
 
 import httpx
