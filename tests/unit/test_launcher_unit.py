@@ -438,8 +438,11 @@ class TestStartLlamaCpp:
                     mock_config_gen_cls.return_value = mock_config_gen
 
                     # Mock hardware detection to prevent subprocess call
-                    with patch("qwenvert.hardware.HardwareDetector.detect") as mock_detect:
+                    with patch(
+                        "qwenvert.hardware.HardwareDetector.detect"
+                    ) as mock_detect:
                         from qwenvert.hardware import HardwareProfile
+
                         mock_detect.return_value = HardwareProfile(
                             chip="Apple M1",
                             chip_family="M1",
