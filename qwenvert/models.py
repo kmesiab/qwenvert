@@ -4,6 +4,7 @@ Model registry and selection module.
 Maintains catalog of supported Qwen models with hardware requirements
 and provides intelligent model selection based on detected hardware.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

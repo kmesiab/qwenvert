@@ -211,9 +211,7 @@ class TestModelDownload:
                 downloaded_path = (
                     temp_models_dir / ".cache" / "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
                 )
-                (
-                    temp_models_dir / "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
-                )
+                (temp_models_dir / "qwen2.5-coder-7b-instruct-q4_K_M.gguf")
 
                 def create_file_in_cache(*args, **kwargs):
                     downloaded_path.parent.mkdir(parents=True, exist_ok=True)

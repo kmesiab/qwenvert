@@ -4,6 +4,7 @@ Configuration generation and management.
 Generates optimal configurations for Ollama, llama.cpp, and qwenvert
 based on hardware profile and model selection.
 """
+
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
@@ -205,7 +206,6 @@ PARAMETER repeat_penalty 1.1
 SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running locally via qwenvert.
 """
 
-
     def generate_llamacpp_flags(self) -> list[str]:
         """
         Generate llama.cpp command-line flags with optimal parameters.
@@ -249,7 +249,6 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
             # API compatibility
             "--log-disable",  # Reduce log noise
         ]
-
 
     def generate_environment_vars(self) -> dict[str, str]:
         """
@@ -306,7 +305,6 @@ Then start Claude Code:
 
 Configuration saved to: {config.default_config_path()}
 """
-
 
 
 class ConfigManager:

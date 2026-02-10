@@ -347,8 +347,8 @@ class ServerLauncher:
         print(f"🤖 Model:    {model_name}")
         print("\n💡 Configure Claude Code:")
         print(f"   export ANTHROPIC_BASE_URL={adapter_url}")
-        print(f"   export ANTHROPIC_API_KEY=local-qwen")
-        print(f"   export ANTHROPIC_MODEL=qwenvert-default")
+        print("   export ANTHROPIC_API_KEY=local-qwen")
+        print("   export ANTHROPIC_MODEL=qwenvert-default")
         print("\n" + "=" * 70 + "\n")
 
     async def stop_all(self) -> None:

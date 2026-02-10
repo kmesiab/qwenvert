@@ -302,9 +302,12 @@ class TestStartOllama:
                 ) as mock_wait:
                     mock_wait.return_value = True
 
-                    with patch.object(
-                        launcher, "_ensure_ollama_model", new_callable=AsyncMock
-                    ), patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
+                    with (
+                        patch.object(
+                            launcher, "_ensure_ollama_model", new_callable=AsyncMock
+                        ),
+                        patch("qwenvert.launcher.subprocess.Popen") as mock_popen,
+                    ):
                         mock_popen.return_value = mock_process
 
                         handle = await launcher._start_ollama()

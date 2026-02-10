@@ -2,7 +2,6 @@
 Pytest configuration and shared fixtures.
 """
 
-
 import pytest
 
 from qwenvert.hardware import HardwareProfile

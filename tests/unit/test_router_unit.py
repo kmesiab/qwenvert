@@ -163,7 +163,8 @@ class TestOllamaGeneration:
             # System prompt should be injected as a system-role message
             messages = request_json.get("messages", [])
             assert any(
-                m.get("role") == "system" and "coding assistant" in m.get("content", "").lower()
+                m.get("role") == "system"
+                and "coding assistant" in m.get("content", "").lower()
                 for m in messages
             ), "System prompt not found in messages array"
 
@@ -241,7 +242,11 @@ class TestStreamingGeneration:
             types = [chunk.get("type") for chunk in chunks]
             assert any(
                 event_type in types
-                for event_type in ["message_start", "content_block_delta", "message_stop"]
+                for event_type in [
+                    "message_start",
+                    "content_block_delta",
+                    "message_stop",
+                ]
             ), f"Expected streaming event types not found. Got: {types}"
 
 
