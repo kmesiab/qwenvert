@@ -442,9 +442,12 @@ class TestOTLPConnectionFailureHandling:
 
             # Force a metrics collection attempt
             import qwenvert.telemetry as telemetry_module
+
             if telemetry_module._meter_provider:
                 # Trigger metric readers
-                for reader in telemetry_module._meter_provider._sdk_config.metric_readers:
+                for (
+                    reader
+                ) in telemetry_module._meter_provider._sdk_config.metric_readers:
                     try:
                         reader.collect()
                     except Exception:
@@ -482,6 +485,7 @@ class TestOTLPConnectionFailureHandling:
 
             # Force span export
             import qwenvert.telemetry as telemetry_module
+
             if telemetry_module._tracer_provider:
                 # Span processors export in background
                 # Just verify we can complete spans without crashing
@@ -510,6 +514,7 @@ class TestOTLPConnectionFailureHandling:
 
             # Create some data
             from qwenvert.telemetry import get_meter
+
             meter = get_meter("test")
             counter = meter.create_counter("test.counter")
             counter.add(100)
@@ -568,7 +573,7 @@ class TestObservableCallbackErrorHandling:
         collector = MetricsCollector(enable_otel=False)  # No OTEL to avoid side effects
 
         # Set invalid cached CPU value
-        collector._cached_cpu = float('inf')
+        collector._cached_cpu = float("inf")
 
         # Call observable callback
         options = CallbackOptions()
@@ -585,7 +590,7 @@ class TestObservableCallbackErrorHandling:
         collector = MetricsCollector(enable_otel=False)
 
         # Set invalid cached memory value
-        collector._cached_memory = float('nan')
+        collector._cached_memory = float("nan")
 
         # Call observable callback
         options = CallbackOptions()
@@ -640,7 +645,9 @@ class TestObservableCallbackErrorHandling:
         collector = MetricsCollector(enable_otel=False)
 
         # Mock to raise an exception in callback
-        with patch.object(collector, '_cached_cpu', new_callable=lambda: property(lambda self: 1/0)):
+        with patch.object(
+            collector, "_cached_cpu", new_callable=lambda: property(lambda self: 1 / 0)
+        ):
             with caplog.at_level(logging.ERROR):
                 options = CallbackOptions()
                 result = collector._observe_cpu_utilization(options)
@@ -663,8 +670,8 @@ class TestObservableCallbackErrorHandling:
 
         # Test with various edge case values
         edge_cases = [
-            (float('inf'), float('inf'), float('inf')),
-            (float('nan'), float('nan'), float('nan')),
+            (float("inf"), float("inf"), float("inf")),
+            (float("nan"), float("nan"), float("nan")),
             (0.0, 0.0, 0.0),
             (-1.0, -1.0, -1.0),
             (10000.0, 10000.0, 10000.0),

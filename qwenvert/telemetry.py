@@ -487,7 +487,9 @@ def shutdown_telemetry() -> None:
                 _meter_provider.shutdown()
                 logger.info("✓ Metrics provider shut down")
             except Exception as e:
-                logger.warning(f"Error shutting down metrics provider: {e}", exc_info=True)
+                logger.warning(
+                    f"Error shutting down metrics provider: {e}", exc_info=True
+                )
 
         if _tracer_provider:
             try:
