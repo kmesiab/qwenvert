@@ -504,8 +504,6 @@ class TestStartLlamaCpp:
         """Test error when model is not found in registry."""
         launcher = ServerLauncher(llamacpp_config)
 
-        Path.home() / ".local" / "bin" / "llama-server"
-
         with patch.object(Path, "exists", return_value=True):
             with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
                 mock_registry = MagicMock()
