@@ -606,6 +606,50 @@ Qwenvert provides:
 
 ---
 
+## 📊 Performance Benchmarks
+
+Measure qwenvert performance on your Mac:
+
+```bash
+# Start qwenvert
+qwenvert start
+
+# Run benchmarks (separate terminal)
+make benchmark
+```
+
+**What it tests:**
+- Different prompt lengths (short, medium, long)
+- Streaming vs non-streaming
+- Different token limits (50, 100, 200)
+- Code generation tasks
+
+**Metrics:**
+- Latency (ms)
+- Throughput (tokens/sec)
+- Time to first token (TTFT)
+- Success rate
+
+**Example output:**
+```
+┌────────────────┬─────────┬──────┬─────────┬────────┬─────────┬────────┐
+│ Benchmark      │ Backend │ Quant│ Latency │ Tokens │ Speed   │ Status │
+├────────────────┼─────────┼──────┼─────────┼────────┼─────────┼────────┤
+│ prompt_short   │ ollama  │ Q4_K │ 1234ms  │ 5      │ 4.1 t/s │   ✓    │
+│ prompt_medium  │ ollama  │ Q4_K │ 2456ms  │ 89     │ 36.2t/s │   ✓    │
+└────────────────┴─────────┴──────┴─────────┴────────┴─────────┴────────┘
+
+Summary:
+  Average latency: 1845ms
+  Average throughput: 32.4 tokens/sec
+```
+
+Results saved to `benchmarks/results/` for tracking over time.
+
+See [benchmarks/README.md](./benchmarks/README.md) for details.
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Areas where help is needed:
