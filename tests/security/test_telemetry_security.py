@@ -317,7 +317,9 @@ class TestEnvironmentVariableInitialization:
 
         # If an exception occurred, it shouldn't be a validation error about localhost
         if exc is not None:
-            assert "localhost" not in str(exc).lower() or "connection" in str(exc).lower()
+            assert (
+                "localhost" not in str(exc).lower() or "connection" in str(exc).lower()
+            )
 
     def test_init_from_env_with_invalid_port(self, monkeypatch):
         """Test invalid Prometheus port is handled gracefully."""
@@ -396,7 +398,9 @@ class TestEnvironmentVariableSecurity:
 
         # If an exception occurred, it shouldn't be a validation error about localhost
         if exc is not None:
-            assert "localhost" not in str(exc).lower() or "connection" in str(exc).lower()
+            assert (
+                "localhost" not in str(exc).lower() or "connection" in str(exc).lower()
+            )
 
 
 class TestOTLPConnectionFailureHandling:
