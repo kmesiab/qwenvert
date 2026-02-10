@@ -147,30 +147,26 @@ class TestModelDownload:
             assert result == model_file
             assert mock_download.called
 
-    def test_download_with_checksum_verification(self, sample_model, temp_models_dir):
-        """Test download with checksum attribute."""
-
-        # Calculate wrong checksum
-        sample_model.checksum = "abc123wrongchecksum"
-
+    def test_download_success(self, sample_model, temp_models_dir):
+        """Test successful download without checksum verification."""
         downloader = ModelDownloader(models_dir=temp_models_dir)
 
         with patch("qwenvert.downloader.hf_hub_download") as mock_download:
             model_file = temp_models_dir / "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
 
-            def create_file_with_wrong_checksum(*args, **kwargs):
+            def create_downloaded_file(*args, **kwargs):
                 model_file.parent.mkdir(parents=True, exist_ok=True)
-                model_file.write_bytes(b"test data with wrong checksum")
+                model_file.write_bytes(b"test model data")
                 return str(model_file)
 
-            mock_download.side_effect = create_file_with_wrong_checksum
+            mock_download.side_effect = create_downloaded_file
 
-            # This should fail checksum verification and raise error
-            with pytest.raises(RuntimeError, match="Checksum verification failed"):
-                downloader.download(sample_model)
+            # Download should succeed
+            result = downloader.download(sample_model)
 
-            # File should be deleted after failed checksum
-            assert not model_file.exists()
+            assert result == model_file
+            assert model_file.exists()
+            assert mock_download.called
 
     def test_download_with_sha256_verification(self, sample_model, temp_models_dir):
         """Test download with sha256 attribute."""
