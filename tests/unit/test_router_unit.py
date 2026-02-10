@@ -323,8 +323,8 @@ class TestRequestTransformation:
             # Verify max_tokens was sent to backend
             call_kwargs = mock_post.call_args.kwargs
             request_json = call_kwargs.get("json", {})
-            # Backend should receive some form of token limit
-            assert request_json  # At least verify request was made
+            # Ollama maps max_tokens to options.num_predict
+            assert request_json.get("options", {}).get("num_predict") == 500
 
     @pytest.mark.asyncio
     async def test_multipart_message(self, ollama_model):
