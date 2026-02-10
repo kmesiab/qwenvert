@@ -190,8 +190,8 @@ class MetricsCollector:
         try:
             # Use cached value (non-blocking)
             return [Observation(value=self._cached_cpu / 100.0)]
-        except Exception as e:
-            logger.error(f"Error observing CPU utilization: {e}")
+        except Exception:
+            logger.exception("Error observing CPU utilization")
             return []
 
     def _observe_memory_utilization(
@@ -205,8 +205,8 @@ class MetricsCollector:
         try:
             # Use cached value (non-blocking)
             return [Observation(value=self._cached_memory / 100.0)]
-        except Exception as e:
-            logger.error(f"Error observing memory utilization: {e}")
+        except Exception:
+            logger.exception("Error observing memory utilization")
             return []
 
     def _observe_cpu_temperature(self, options: CallbackOptions) -> list[Observation]:
@@ -218,8 +218,8 @@ class MetricsCollector:
         try:
             if self._cached_temp is not None:
                 return [Observation(value=self._cached_temp)]
-        except Exception as e:
-            logger.error(f"Error observing CPU temperature: {e}")
+        except Exception:
+            logger.exception("Error observing CPU temperature")
 
         return []
 
@@ -228,8 +228,8 @@ class MetricsCollector:
         try:
             stats = self.get_performance_stats()
             return [Observation(value=stats.avg_tokens_per_second)]
-        except Exception as e:
-            logger.error(f"Error observing token throughput: {e}")
+        except Exception:
+            logger.exception("Error observing token throughput")
             return []
 
     async def collect_system_metrics(self) -> SystemMetrics:

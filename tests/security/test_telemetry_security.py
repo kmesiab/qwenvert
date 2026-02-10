@@ -85,8 +85,9 @@ class TestMetricDataSecurity:
 
     def test_metrics_do_not_capture_prompt_content(self):
         """SECURITY: Verify no user prompts are captured in metrics."""
-        from qwenvert.monitoring import MetricsCollector, RequestMetrics
         from datetime import datetime
+
+        from qwenvert.monitoring import MetricsCollector, RequestMetrics
 
         collector = MetricsCollector(enable_otel=False)  # Disable OTEL for unit test
 
@@ -113,8 +114,9 @@ class TestMetricDataSecurity:
 
     def test_metrics_collector_only_captures_metadata(self):
         """SECURITY: Verify only non-sensitive metadata is captured."""
-        from qwenvert.monitoring import MetricsCollector, RequestMetrics
         from datetime import datetime
+
+        from qwenvert.monitoring import MetricsCollector, RequestMetrics
 
         collector = MetricsCollector(enable_otel=False)
 
@@ -146,19 +148,16 @@ class TestTelemetryDefaultSecurity:
         """SECURITY: OTLP should be disabled by default."""
         # This is verified by checking the CLI and launcher code
         # Both default enable_otlp=False
-        pass
 
     def test_prometheus_disabled_by_default(self):
         """SECURITY: Prometheus should be disabled by default."""
         # This is verified by checking the CLI and launcher code
         # Both default enable_prometheus=False
-        pass
 
     def test_console_exporter_disabled_by_default(self):
         """SECURITY: Console exporter should be disabled by default to prevent log leaks."""
         # This is verified by checking the CLI and launcher code
         # Both default enable_console=False
-        pass
 
 
 class TestPrometheusExporterSecurity:
@@ -190,8 +189,8 @@ class TestTelemetryLifecycle:
 
     def test_shutdown_telemetry_clean(self):
         """OTEL-002: Test telemetry shuts down cleanly and flushes data."""
-        from qwenvert.telemetry import shutdown_telemetry, init_telemetry
         import qwenvert.telemetry as telemetry_module
+        from qwenvert.telemetry import init_telemetry, shutdown_telemetry
 
         # Initialize
         shutdown_telemetry()  # Clean slate
@@ -212,8 +211,8 @@ class TestTelemetryLifecycle:
 
     def test_shutdown_telemetry_before_init(self):
         """OTEL-002: Test shutdown before init is safe (idempotent)."""
-        from qwenvert.telemetry import shutdown_telemetry
         import qwenvert.telemetry as telemetry_module
+        from qwenvert.telemetry import shutdown_telemetry
 
         # Ensure not initialized
         shutdown_telemetry()
@@ -225,7 +224,7 @@ class TestTelemetryLifecycle:
 
     def test_double_shutdown_is_idempotent(self):
         """OTEL-002: Test double shutdown doesn't cause errors."""
-        from qwenvert.telemetry import shutdown_telemetry, init_telemetry
+        from qwenvert.telemetry import init_telemetry, shutdown_telemetry
 
         shutdown_telemetry()
         init_telemetry(service_name="test-double-shutdown")
@@ -420,7 +419,7 @@ class TestOTLPConnectionFailureHandling:
 
         Metrics should be dropped silently, not crash the application.
         """
-        from qwenvert.telemetry import init_telemetry, get_meter, shutdown_telemetry
+        from qwenvert.telemetry import get_meter, init_telemetry, shutdown_telemetry
 
         shutdown_telemetry()
 
@@ -464,7 +463,7 @@ class TestOTLPConnectionFailureHandling:
 
         Spans should be dropped silently, not crash the application.
         """
-        from qwenvert.telemetry import init_telemetry, get_tracer, shutdown_telemetry
+        from qwenvert.telemetry import get_tracer, init_telemetry, shutdown_telemetry
 
         shutdown_telemetry()
 
@@ -500,8 +499,9 @@ class TestOTLPConnectionFailureHandling:
 
         Shutdown should flush pending data without blocking indefinitely.
         """
-        from qwenvert.telemetry import init_telemetry, shutdown_telemetry
         import time
+
+        from qwenvert.telemetry import init_telemetry, shutdown_telemetry
 
         shutdown_telemetry()
 
@@ -538,7 +538,7 @@ class TestOTLPConnectionFailureHandling:
 
         Verify memory doesn't leak from failed export attempts.
         """
-        from qwenvert.telemetry import init_telemetry, get_meter, shutdown_telemetry
+        from qwenvert.telemetry import get_meter, init_telemetry, shutdown_telemetry
 
         shutdown_telemetry()
 
@@ -567,8 +567,9 @@ class TestObservableCallbackErrorHandling:
 
     def test_cpu_utilization_callback_handles_division_by_zero(self):
         """Test CPU utilization callback handles edge case when cached value is invalid."""
-        from qwenvert.monitoring import MetricsCollector
         from opentelemetry.metrics import CallbackOptions
+
+        from qwenvert.monitoring import MetricsCollector
 
         collector = MetricsCollector(enable_otel=False)  # No OTEL to avoid side effects
 
@@ -584,8 +585,9 @@ class TestObservableCallbackErrorHandling:
 
     def test_memory_utilization_callback_handles_invalid_cached_value(self):
         """Test memory utilization callback handles corrupted cached value."""
-        from qwenvert.monitoring import MetricsCollector
         from opentelemetry.metrics import CallbackOptions
+
+        from qwenvert.monitoring import MetricsCollector
 
         collector = MetricsCollector(enable_otel=False)
 
@@ -601,8 +603,9 @@ class TestObservableCallbackErrorHandling:
 
     def test_cpu_temperature_callback_handles_none_cached_value(self):
         """Test CPU temperature callback returns empty when temp unavailable."""
-        from qwenvert.monitoring import MetricsCollector
         from opentelemetry.metrics import CallbackOptions
+
+        from qwenvert.monitoring import MetricsCollector
 
         collector = MetricsCollector(enable_otel=False)
 
@@ -618,8 +621,9 @@ class TestObservableCallbackErrorHandling:
 
     def test_token_throughput_callback_handles_empty_history(self):
         """Test token throughput callback handles empty request history."""
-        from qwenvert.monitoring import MetricsCollector
         from opentelemetry.metrics import CallbackOptions
+
+        from qwenvert.monitoring import MetricsCollector
 
         collector = MetricsCollector(enable_otel=False)
 
@@ -638,9 +642,11 @@ class TestObservableCallbackErrorHandling:
     def test_observable_callbacks_log_errors_without_crashing(self, caplog):
         """Test all observable callbacks log errors instead of crashing."""
         import logging
-        from qwenvert.monitoring import MetricsCollector
-        from opentelemetry.metrics import CallbackOptions
         from unittest.mock import patch
+
+        from opentelemetry.metrics import CallbackOptions
+
+        from qwenvert.monitoring import MetricsCollector
 
         collector = MetricsCollector(enable_otel=False)
 
@@ -662,8 +668,9 @@ class TestObservableCallbackErrorHandling:
         Tests that callbacks can be called repeatedly without crashing,
         even with edge case values.
         """
-        from qwenvert.monitoring import MetricsCollector
         from opentelemetry.metrics import CallbackOptions
+
+        from qwenvert.monitoring import MetricsCollector
 
         collector = MetricsCollector(enable_otel=False)
         options = CallbackOptions()
@@ -696,8 +703,9 @@ class TestObservableCallbackErrorHandling:
 
     def test_observable_callback_returns_empty_on_attribute_error(self):
         """Test callbacks return empty list if cached attributes are missing."""
-        from qwenvert.monitoring import MetricsCollector
         from opentelemetry.metrics import CallbackOptions
+
+        from qwenvert.monitoring import MetricsCollector
 
         collector = MetricsCollector(enable_otel=False)
         options = CallbackOptions()

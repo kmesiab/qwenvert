@@ -4,9 +4,8 @@ Tests for qwenvert monitoring and metrics collection.
 OTEL-014: System metrics collection tests
 """
 
-import asyncio
 from datetime import datetime
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import psutil
 import pytest

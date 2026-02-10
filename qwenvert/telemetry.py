@@ -59,10 +59,14 @@ See also:
 
 import logging
 import os
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from urllib.parse import urlparse
 
 from opentelemetry import metrics, trace
+
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
@@ -143,7 +147,7 @@ def _validate_localhost_endpoint(endpoint: Optional[str]) -> str:
     return endpoint
 
 
-def init_telemetry(
+def init_telemetry(  # noqa: PLR0913
     service_name: str = "qwenvert",
     service_version: str = "0.1.0",
     enable_console: bool = False,
@@ -189,7 +193,7 @@ def init_telemetry(
             ...     enable_console=True
             ... )
     """
-    global _initialized, _meter_provider, _tracer_provider
+    global _initialized, _meter_provider, _tracer_provider  # noqa: PLW0603
 
     if _initialized:
         logger.warning("Telemetry already initialized, skipping")
@@ -238,7 +242,7 @@ def init_telemetry(
     logger.info(f"✓ OpenTelemetry initialized for {service_name} v{service_version}")
 
 
-def _init_metrics(
+def _init_metrics(  # noqa: PLR0913
     resource: Resource,
     enable_console: bool,
     enable_otlp: bool,
@@ -275,7 +279,7 @@ def _init_metrics(
     if enable_prometheus:
         prometheus_reader = PrometheusMetricReader()
         metric_readers.append(prometheus_reader)
-        logger.info(f"✓ Prometheus exporter enabled (metrics available for collection)")
+        logger.info("✓ Prometheus exporter enabled (metrics available for collection)")
         logger.info(
             "   Note: No HTTP server started - metrics must be scraped externally"
         )
@@ -320,7 +324,7 @@ def _init_tracing(
     return tracer_provider
 
 
-def instrument_fastapi(app) -> None:
+def instrument_fastapi(app: "FastAPI") -> None:
     """
     Instrument FastAPI app with OpenTelemetry.
 
@@ -469,7 +473,7 @@ def shutdown_telemetry() -> None:
             ...     # Application code
             ...     pass
     """
-    global _initialized, _meter_provider, _tracer_provider
+    global _initialized, _meter_provider, _tracer_provider  # noqa: PLW0603
 
     if not _initialized:
         return
