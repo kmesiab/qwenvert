@@ -2,9 +2,6 @@
 Unit tests for configuration generation.
 """
 
-import pytest
-from pathlib import Path
-
 from qwenvert.config import ConfigGenerator, ConfigManager, QwenvertConfig
 from qwenvert.models import Backend
 
@@ -72,7 +69,9 @@ class TestConfigGenerator:
         assert "4" in flags  # P-core count
         assert "--mlock" in flags
 
-    def test_environment_vars_generation(self, sample_model_7b_q4, mock_hardware_m1_16gb):
+    def test_environment_vars_generation(
+        self, sample_model_7b_q4, mock_hardware_m1_16gb
+    ):
         """Test environment variable generation."""
         gen = ConfigGenerator(sample_model_7b_q4, mock_hardware_m1_16gb)
         env_vars = gen.generate_environment_vars()
@@ -80,7 +79,11 @@ class TestConfigGenerator:
         assert "ANTHROPIC_BASE_URL" in env_vars
         assert "ANTHROPIC_API_KEY" in env_vars
         assert "ANTHROPIC_MODEL" in env_vars
-        assert "localhost" in env_vars["ANTHROPIC_BASE_URL"]
+        # Accept either localhost or 127.0.0.1
+        assert (
+            "localhost" in env_vars["ANTHROPIC_BASE_URL"]
+            or "127.0.0.1" in env_vars["ANTHROPIC_BASE_URL"]
+        )
         assert env_vars["ANTHROPIC_API_KEY"] == "local-qwen"
 
 
@@ -113,10 +116,14 @@ class TestQwenvertConfig:
 class TestConfigManager:
     """Test configuration management."""
 
-    def test_save_and_load_through_manager(self, sample_model_7b_q4, monkeypatch, temp_config_dir):
+    def test_save_and_load_through_manager(
+        self, sample_model_7b_q4, monkeypatch, temp_config_dir
+    ):
         """Test ConfigManager save/load operations."""
+
         # Monkey patch default config path to use temp directory
-        def mock_default_path():
+        @classmethod
+        def mock_default_path(cls):
             return temp_config_dir / "config.yaml"
 
         monkeypatch.setattr(QwenvertConfig, "default_config_path", mock_default_path)

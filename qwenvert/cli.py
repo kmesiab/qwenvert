@@ -10,25 +10,23 @@ Commands:
 """
 
 import sys
-from pathlib import Path
 
 import click
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
+
 
 console = Console()
 
 
 @click.group()
 @click.version_option(version="0.1.0")
-def cli():
+def cli() -> None:
     """
     Qwenvert - One-click local LLM inference for Claude Code.
 
     Run local Qwen models with Claude Code through an Anthropic-compatible adapter.
     """
-    pass
 
 
 @cli.command()
@@ -52,7 +50,7 @@ def cli():
     type=int,
     help="Maximum context length (default: hardware-dependent)",
 )
-def init(model, backend, adapter_port, context_length):
+def init(model, backend, adapter_port, context_length) -> None:
     """
     Initialize qwenvert configuration.
 
@@ -110,43 +108,42 @@ def init(model, backend, adapter_port, context_length):
 
     if model_path:
         console.print(f"✓ Model already downloaded: [green]{model_path}[/green]")
+    # Verify model has HuggingFace repo before attempting download
+    elif not selected_model.huggingface_repo:
+        console.print(
+            f"\n[red]Error:[/red] Model {selected_model.id} has no HuggingFace repository specified"
+        )
+        console.print(
+            "\n[yellow]You can manually download the model and place it in:[/yellow]"
+        )
+        console.print(f"  {downloader.models_dir}")
+        if not click.confirm("\nContinue with configuration anyway?"):
+            sys.exit(1)
     else:
-        # Verify model has HuggingFace repo before attempting download
-        if not selected_model.huggingface_repo:
-            console.print(
-                f"\n[red]Error:[/red] Model {selected_model.id} has no HuggingFace repository specified"
-            )
+        console.print(
+            f"\n[cyan]Downloading {selected_model.display_name} from HuggingFace...[/cyan]"
+        )
+        console.print(f"Repository: {selected_model.huggingface_repo}")
+
+        try:
+            with console.status(
+                f"[cyan]Downloading {selected_model.display_name}...",
+                spinner="dots",
+            ):
+                model_path = downloader.download(selected_model)
+
+            console.print(f"✓ Model downloaded: [green]{model_path}[/green]")
+            size_gb = model_path.stat().st_size / (1024**3)
+            console.print(f"  Size: {size_gb:.2f} GB")
+
+        except Exception as e:
+            console.print(f"\n[red]Error downloading model:[/red] {e}")
             console.print(
                 "\n[yellow]You can manually download the model and place it in:[/yellow]"
             )
             console.print(f"  {downloader.models_dir}")
             if not click.confirm("\nContinue with configuration anyway?"):
                 sys.exit(1)
-        else:
-            console.print(
-                f"\n[cyan]Downloading {selected_model.display_name} from HuggingFace...[/cyan]"
-            )
-            console.print(f"Repository: {selected_model.huggingface_repo}")
-
-            try:
-                with console.status(
-                    f"[cyan]Downloading {selected_model.display_name}...",
-                    spinner="dots"
-                ):
-                    model_path = downloader.download(selected_model)
-
-                console.print(f"✓ Model downloaded: [green]{model_path}[/green]")
-                size_gb = model_path.stat().st_size / (1024**3)
-                console.print(f"  Size: {size_gb:.2f} GB")
-
-            except Exception as e:
-                console.print(f"\n[red]Error downloading model:[/red] {e}")
-                console.print(
-                    "\n[yellow]You can manually download the model and place it in:[/yellow]"
-                )
-                console.print(f"  {downloader.models_dir}")
-                if not click.confirm("\nContinue with configuration anyway?"):
-                    sys.exit(1)
 
     # Step 4: Generate configuration
     config_gen = ConfigGenerator(selected_model, hardware)
@@ -178,7 +175,7 @@ def init(model, backend, adapter_port, context_length):
 
 
 @cli.command()
-def start():
+def start() -> None:
     """
     Start qwenvert servers (backend + adapter).
 
@@ -196,25 +193,29 @@ def start():
     except Exception as e:
         console.print(f"\n[red]Error:[/red] {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
 
 @cli.command()
-def status():
+def status() -> None:
     """
     Show qwenvert status.
 
     Displays current configuration and server health.
     """
     import httpx
+
     from .config import ConfigManager
 
     console.print("\n[bold blue]Qwenvert Status[/bold blue]\n")
 
     # Check if configured
     if not ConfigManager.exists():
-        console.print("[yellow]Not configured.[/yellow] Run [bold]qwenvert init[/bold] first.\n")
+        console.print(
+            "[yellow]Not configured.[/yellow] Run [bold]qwenvert init[/bold] first.\n"
+        )
         return
 
     # Load config
@@ -242,34 +243,35 @@ def status():
     try:
         response = httpx.get(f"{config.backend_url}/health", timeout=2.0)
         if response.status_code == 200:
-            console.print(f"  Backend:  [green]✓ Running[/green]")
+            console.print("  Backend:  [green]✓ Running[/green]")
         else:
-            console.print(f"  Backend:  [red]✗ Unhealthy[/red]")
+            console.print("  Backend:  [red]✗ Unhealthy[/red]")
     except Exception:
-        console.print(f"  Backend:  [red]✗ Not running[/red]")
+        console.print("  Backend:  [red]✗ Not running[/red]")
 
     # Check adapter
     adapter_url = f"http://{config.adapter_host}:{config.adapter_port}"
     try:
         response = httpx.get(f"{adapter_url}/health", timeout=2.0)
         if response.status_code == 200:
-            console.print(f"  Adapter:  [green]✓ Running[/green]")
+            console.print("  Adapter:  [green]✓ Running[/green]")
         else:
-            console.print(f"  Adapter:  [red]✗ Unhealthy[/red]")
+            console.print("  Adapter:  [red]✗ Unhealthy[/red]")
     except Exception:
-        console.print(f"  Adapter:  [red]✗ Not running[/red]")
+        console.print("  Adapter:  [red]✗ Not running[/red]")
 
     console.print()
 
 
 @cli.command()
-def stop():
+def stop() -> None:
     """
     Stop qwenvert servers.
 
     Gracefully stops the backend and adapter servers.
     """
     import subprocess
+
     from .config import ConfigManager
 
     console.print("\n[bold blue]Stopping Qwenvert[/bold blue]\n")
@@ -309,14 +311,15 @@ def stop():
 
 
 @cli.group()
-def models():
+def models() -> None:
     """Model management commands."""
-    pass
 
 
 @models.command("list")
-@click.option("--backend", type=click.Choice(["ollama", "llamacpp"]), help="Filter by backend")
-def list_models(backend):
+@click.option(
+    "--backend", type=click.Choice(["ollama", "llamacpp"]), help="Filter by backend"
+)
+def list_models(backend) -> None:
     """
     List available models.
 
@@ -328,14 +331,14 @@ def list_models(backend):
 
     registry = ModelRegistry()
     backend_filter = Backend(backend) if backend else None
-    all_models = registry.list_models(backend=backend_filter)
+    registry.list_models(backend=backend_filter)
 
     _list_models_table(registry, backend_filter)
 
     console.print()
 
 
-def _list_models_table(registry, backend_filter=None):
+def _list_models_table(registry, backend_filter=None) -> None:
     """Helper to display models table."""
     all_models = registry.list_models(backend=backend_filter)
 
@@ -363,7 +366,7 @@ def _list_models_table(registry, backend_filter=None):
 
 
 @cli.command()
-def hardware():
+def hardware() -> None:
     """
     Show detected hardware information.
 
@@ -386,10 +389,14 @@ def hardware():
     table.add_row("GPU Cores", str(hw.gpu_cores))
     table.add_row("Performance Cores", str(hw.cpu_cores_performance))
     table.add_row("Efficiency Cores", str(hw.cpu_cores_efficiency))
-    table.add_row("Cooling", "Active (fan)" if hw.has_active_cooling else "Passive (fanless)")
+    table.add_row(
+        "Cooling", "Active (fan)" if hw.has_active_cooling else "Passive (fanless)"
+    )
     table.add_row("Neural Engine Cores", str(hw.neural_engine_cores))
     table.add_row("Model Identifier", hw.model_identifier)
-    table.add_row("Recommended Context", f"{hw.recommended_context_length() // 1024}K tokens")
+    table.add_row(
+        "Recommended Context", f"{hw.recommended_context_length() // 1024}K tokens"
+    )
 
     console.print(table)
 
@@ -398,9 +405,13 @@ def hardware():
     if hw.is_memory_constrained():
         console.print("  • [yellow]Memory constrained[/yellow] - use Q4 quantization")
     if hw.is_thermally_constrained():
-        console.print("  • [yellow]Thermally constrained[/yellow] - enable thermal pacing")
+        console.print(
+            "  • [yellow]Thermally constrained[/yellow] - enable thermal pacing"
+        )
     if not hw.is_memory_constrained() and not hw.is_thermally_constrained():
-        console.print("  • [green]Good configuration[/green] - can handle larger models")
+        console.print(
+            "  • [green]Good configuration[/green] - can handle larger models"
+        )
 
     console.print()
 
@@ -417,7 +428,7 @@ def hardware():
     default=1.0,
     help="Dashboard refresh rate in seconds (default: 1.0)",
 )
-def monitor(adapter_url, refresh_rate):
+def monitor(adapter_url, refresh_rate) -> None:
     """
     Real-time monitoring dashboard.
 
@@ -425,6 +436,7 @@ def monitor(adapter_url, refresh_rate):
     in a beautiful terminal interface.
     """
     import asyncio
+
     from .config import ConfigManager
     from .dashboard import run_dashboard
 
@@ -437,7 +449,9 @@ def monitor(adapter_url, refresh_rate):
         console.print(f"Monitoring: [cyan]{adapter_url}[/cyan]")
     else:
         console.print(f"Monitoring: [cyan]{adapter_url}[/cyan]")
-        console.print("[yellow]Tip:[/yellow] Run [bold]qwenvert init[/bold] to configure\n")
+        console.print(
+            "[yellow]Tip:[/yellow] Run [bold]qwenvert init[/bold] to configure\n"
+        )
 
     console.print("Press [bold cyan]Ctrl+C[/bold cyan] to exit\n")
 
@@ -448,6 +462,7 @@ def monitor(adapter_url, refresh_rate):
     except Exception as e:
         console.print(f"\n[red]Error:[/red] {e}\n")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

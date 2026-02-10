@@ -5,19 +5,22 @@ Manages lifecycle of backend servers (Ollama, llama.cpp) and
 qwenvert adapter, including health checks and graceful shutdown.
 """
 
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import logging
 import shutil
 import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
 from .config import ConfigManager, QwenvertConfig
 from .models import Backend
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,13 +28,23 @@ logger = logging.getLogger(__name__)
 class ProcessHandle:
     """Handle for a managed process."""
 
-    def __init__(self, process: subprocess.Popen, name: str):
+    def __init__(
+        self, process: subprocess.Popen | None, name: str, is_unmanaged: bool = False
+    ) -> None:
         self.process = process
         self.name = name
-        self.pid = process.pid
+        self.pid = process.pid if process else None
+        self.is_unmanaged = is_unmanaged
+
+    @classmethod
+    def unmanaged(cls, name: str) -> ProcessHandle:
+        """Create an unmanaged process handle for externally-running processes."""
+        return cls(process=None, name=name, is_unmanaged=True)
 
     def is_running(self) -> bool:
         """Check if process is still running."""
+        if self.is_unmanaged or self.process is None:
+            return False
         return self.process.poll() is None
 
     def terminate(self, timeout: int = 10) -> bool:
@@ -44,6 +57,9 @@ class ProcessHandle:
         Returns:
             True if terminated successfully
         """
+        if self.is_unmanaged or self.process is None:
+            return True
+
         if not self.is_running():
             return True
 
@@ -70,7 +86,7 @@ class ServerLauncher:
     Manages backend and adapter server processes.
     """
 
-    def __init__(self, config: QwenvertConfig):
+    def __init__(self, config: QwenvertConfig) -> None:
         """
         Initialize server launcher.
 
@@ -78,8 +94,8 @@ class ServerLauncher:
             config: Qwenvert configuration
         """
         self.config = config
-        self.backend_process: Optional[ProcessHandle] = None
-        self.adapter_process: Optional[ProcessHandle] = None
+        self.backend_process: ProcessHandle | None = None
+        self.adapter_process: ProcessHandle | None = None
 
     async def start_backend(self) -> ProcessHandle:
         """
@@ -93,10 +109,9 @@ class ServerLauncher:
         """
         if self.config.backend == Backend.OLLAMA.value:
             return await self._start_ollama()
-        elif self.config.backend == Backend.LLAMACPP.value:
+        if self.config.backend == Backend.LLAMACPP.value:
             return await self._start_llamacpp()
-        else:
-            raise ValueError(f"Unknown backend: {self.config.backend}")
+        raise ValueError(f"Unknown backend: {self.config.backend}")
 
     async def _start_ollama(self) -> ProcessHandle:
         """Start Ollama server."""
@@ -104,18 +119,14 @@ class ServerLauncher:
 
         # Check if ollama is installed
         if not shutil.which("ollama"):
-            raise RuntimeError(
-                "Ollama not found. Install with: brew install ollama"
-            )
+            msg = "Ollama not found. Install with: brew install ollama"
+            raise RuntimeError(msg)
 
         # Check if server is already running
         if await self._check_health("http://localhost:11434"):
             logger.info("Ollama server already running")
-            # Return placeholder handle (we don't own this process)
-            return ProcessHandle(
-                subprocess.Popen(["echo"], stdout=subprocess.DEVNULL),
-                "ollama-existing"
-            )
+            # Return unmanaged handle (we don't own this process)
+            return ProcessHandle.unmanaged("ollama-existing")
 
         # Start Ollama server
         process = subprocess.Popen(
@@ -131,7 +142,8 @@ class ServerLauncher:
         # Wait for server to be ready
         if not await self._wait_for_health("http://localhost:11434", timeout=30):
             handle.terminate()
-            raise RuntimeError("Ollama server failed to start")
+            msg = "Ollama server failed to start"
+            raise RuntimeError(msg)
 
         # Ensure model is pulled
         await self._ensure_ollama_model()
@@ -152,9 +164,8 @@ class ServerLauncher:
                     llamacpp_path = Path(alt_path)
                     break
             else:
-                raise RuntimeError(
-                    "llama-server not found. Install llama.cpp first."
-                )
+                msg = "llama-server not found. Install llama.cpp first."
+                raise RuntimeError(msg)
 
         # Generate flags from config
         from .config import ConfigGenerator
@@ -165,20 +176,33 @@ class ServerLauncher:
         if not model:
             raise RuntimeError(f"Model {self.config.model_id} not found")
 
-        # Placeholder hardware (we don't have it here, but flags are mostly static)
-        from .hardware import HardwareProfile
-        hardware = HardwareProfile(
-            chip="M1", chip_family="M1", total_memory_gb=16,
-            gpu_cores=8, cpu_cores_performance=4, cpu_cores_efficiency=4,
-            has_active_cooling=True, neural_engine_cores=16,
-            model_identifier="Unknown"
-        )
+        # Detect actual hardware or use conservative fallback
+        from .hardware import HardwareDetector, HardwareProfile
+
+        try:
+            hardware = HardwareDetector.detect()
+        except Exception as e:
+            logger.warning(
+                f"Hardware detection failed: {e}, using conservative defaults"
+            )
+            # Conservative fallback for safety
+            hardware = HardwareProfile(
+                chip="Unknown",
+                chip_family="M1",
+                total_memory_gb=8,
+                gpu_cores=8,
+                cpu_cores_performance=4,
+                cpu_cores_efficiency=4,
+                has_active_cooling=False,
+                neural_engine_cores=16,
+                model_identifier="Unknown",
+            )
 
         config_gen = ConfigGenerator(model, hardware)
         flags = config_gen.generate_llamacpp_flags()
 
         # Start llama-server
-        cmd = [str(llamacpp_path)] + flags
+        cmd = [str(llamacpp_path), *flags]
         logger.info(f"Running: {' '.join(cmd)}")
 
         process = subprocess.Popen(
@@ -194,7 +218,8 @@ class ServerLauncher:
         # Wait for server to be ready
         if not await self._wait_for_health("http://localhost:8080/health", timeout=60):
             handle.terminate()
-            raise RuntimeError("llama.cpp server failed to start")
+            msg = "llama.cpp server failed to start"
+            raise RuntimeError(msg)
 
         logger.info("✓ llama.cpp server ready")
         return handle
@@ -231,8 +256,8 @@ class ServerLauncher:
 
         # Import adapter and router
         from .adapter import create_app
-        from .router import BackendRouter
         from .models import ModelRegistry
+        from .router import BackendRouter
 
         # Get model
         registry = ModelRegistry()
@@ -265,7 +290,8 @@ class ServerLauncher:
         # Wait for adapter to be ready
         adapter_url = f"http://{self.config.adapter_host}:{self.config.adapter_port}"
         if not await self._wait_for_health(f"{adapter_url}/health", timeout=10):
-            raise RuntimeError("Qwenvert adapter failed to start")
+            msg = "Qwenvert adapter failed to start"
+            raise RuntimeError(msg)
 
         logger.info(f"✓ Qwenvert adapter ready on {adapter_url}")
 
@@ -287,32 +313,16 @@ class ServerLauncher:
 
     def _print_startup_success(self) -> None:
         """Print startup success message with instructions."""
-        adapter_url = f"http://{self.config.adapter_host}:{self.config.adapter_port}"
-
-        print("\n" + "=" * 70)
-        print("✓ Qwenvert is running!")
-        print("=" * 70)
-        print(f"\nBackend:  {self.config.backend} on {self.config.backend_url}")
-        print(f"Adapter:  {adapter_url}")
-        print(f"Model:    {self.config.backend_model_id}")
-        print(f"\nConfigure Claude Code:\n")
-        print(f"  export ANTHROPIC_BASE_URL=\"{adapter_url}\"")
-        print(f"  export ANTHROPIC_API_KEY=\"local-qwen\"")
-        print(f"  export ANTHROPIC_MODEL=\"qwenvert-default\"")
-        print(f"\nThen run: claude\n")
-        print("=" * 70 + "\n")
 
     async def stop_all(self) -> None:
         """Stop all managed processes."""
         logger.info("Stopping qwenvert...")
 
         # Stop adapter
-        if hasattr(self, 'adapter_task'):
+        if hasattr(self, "adapter_task"):
             self.adapter_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.adapter_task
-            except asyncio.CancelledError:
-                pass
 
         # Stop backend
         if self.backend_process:
@@ -358,7 +368,7 @@ class ServerLauncher:
         return False
 
 
-async def start_qwenvert():
+async def start_qwenvert() -> None:
     """
     Main entry point for starting qwenvert.
 
@@ -366,7 +376,6 @@ async def start_qwenvert():
     """
     # Load config
     if not ConfigManager.exists():
-        print("Error: No configuration found. Run 'qwenvert init' first.")
         return
 
     config = ConfigManager.load()
@@ -375,12 +384,11 @@ async def start_qwenvert():
     launcher = ServerLauncher(config)
 
     # Setup signal handlers for graceful shutdown
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
-    def handle_shutdown(signum, frame):
-        print("\n\nShutting down...")
-        asyncio.create_task(launcher.stop_all())
-        loop.stop()
+    def handle_shutdown(signum, frame) -> None:
+        # Schedule shutdown coroutine in a thread-safe way
+        asyncio.run_coroutine_threadsafe(launcher.stop_all(), loop)
 
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
@@ -394,13 +402,13 @@ async def start_qwenvert():
             await asyncio.sleep(1)
 
     except KeyboardInterrupt:
-        pass
+        await launcher.stop_all()
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
         await launcher.stop_all()
         raise
 
 
-def start_qwenvert_sync():
+def start_qwenvert_sync() -> None:
     """Synchronous wrapper for CLI."""
     asyncio.run(start_qwenvert())

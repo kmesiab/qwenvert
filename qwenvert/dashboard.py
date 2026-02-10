@@ -9,13 +9,13 @@ Beautiful terminal UI showing:
 """
 
 import asyncio
-from datetime import datetime, timedelta
+import contextlib
+from datetime import timedelta
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 
@@ -34,7 +34,7 @@ class Dashboard:
         self,
         collector: MetricsCollector,
         adapter_url: str = "http://localhost:8088",
-    ):
+    ) -> None:
         """
         Initialize dashboard.
 
@@ -292,7 +292,11 @@ class Dashboard:
                 time_str,
                 str(req.tokens_generated),
                 Text(f"{req.latency_ms:.0f}ms", style=latency_style),
-                f"{req.tokens_per_second:.1f} t/s" if req.tokens_per_second > 0 else "-",
+                (
+                    f"{req.tokens_per_second:.1f} t/s"
+                    if req.tokens_per_second > 0
+                    else "-"
+                ),
                 status,
             )
 
@@ -311,7 +315,7 @@ class Dashboard:
 
         return Panel(text, style="dim")
 
-    async def run(self, refresh_rate: float = 1.0):
+    async def run(self, refresh_rate: float = 1.0) -> None:
         """
         Run the dashboard with live updates.
 
@@ -330,7 +334,9 @@ class Dashboard:
                     # Update layout
                     layout["header"].update(self.render_header())
                     layout["metrics"].update(self.render_metrics())
-                    layout["system"].update(self.render_system_with_metrics(system_metrics))
+                    layout["system"].update(
+                        self.render_system_with_metrics(system_metrics)
+                    )
                     layout["status"].update(self.render_status(is_healthy))
                     layout["requests"].update(self.render_requests())
                     layout["footer"].update(self.render_footer())
@@ -344,7 +350,7 @@ class Dashboard:
 async def run_dashboard(
     adapter_url: str = "http://localhost:8088",
     refresh_rate: float = 1.0,
-):
+) -> None:
     """
     Run the monitoring dashboard.
 
@@ -364,7 +370,5 @@ async def run_dashboard(
     finally:
         # Cleanup
         monitor_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await monitor_task
-        except asyncio.CancelledError:
-            pass

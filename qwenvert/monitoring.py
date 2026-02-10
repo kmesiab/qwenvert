@@ -11,7 +11,7 @@ import platform
 import subprocess
 import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Deque, Optional
 
@@ -165,7 +165,17 @@ class MetricsCollector:
         try:
             # Try powermetrics (requires sudo, but may work)
             result = subprocess.run(
-                ["sudo", "-n", "powermetrics", "--samplers", "smc", "-i", "1", "-n", "1"],
+                [
+                    "sudo",
+                    "-n",
+                    "powermetrics",
+                    "--samplers",
+                    "smc",
+                    "-i",
+                    "1",
+                    "-n",
+                    "1",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=2,
@@ -217,9 +227,7 @@ class MetricsCollector:
             PerformanceStats with aggregated metrics
         """
         if not self.request_history:
-            return PerformanceStats(
-                uptime_seconds=time.time() - self.start_time
-            )
+            return PerformanceStats(uptime_seconds=time.time() - self.start_time)
 
         total = len(self.request_history)
         successful = sum(1 for r in self.request_history if r.status == "success")
@@ -228,9 +236,7 @@ class MetricsCollector:
         total_tokens = sum(r.tokens_generated for r in self.request_history)
         latencies = [r.latency_ms for r in self.request_history]
         throughputs = [
-            r.tokens_per_second
-            for r in self.request_history
-            if r.tokens_per_second > 0
+            r.tokens_per_second for r in self.request_history if r.tokens_per_second > 0
         ]
 
         return PerformanceStats(

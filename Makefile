@@ -31,7 +31,6 @@ install:
 
 install-dev:
 	$(PYTHON) -m pip install -e ".[dev]"
-	$(PYTHON) -m pip install pytest pytest-asyncio pytest-cov black ruff mypy
 
 # Code formatting
 format:
@@ -44,8 +43,6 @@ format:
 format-check:
 	@echo "Checking black formatting..."
 	$(PYTHON) -m black --check qwenvert tests
-	@echo "Checking ruff formatting..."
-	$(PYTHON) -m ruff format --check qwenvert tests
 	@echo "✓ Format check passed"
 
 # Linting

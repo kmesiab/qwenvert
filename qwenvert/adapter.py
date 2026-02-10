@@ -8,11 +8,13 @@ Translates Anthropic Messages API requests to backend format.
 import asyncio
 import json
 import logging
-from typing import Any, AsyncIterator, Dict, List, Literal, Optional, Union
+from collections.abc import AsyncIterator
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,9 @@ class MessagesRequest(BaseModel):
     """
 
     model: str = Field(..., description="Model identifier")
-    messages: List[Message] = Field(..., min_length=1, description="Conversation messages")
+    messages: List[Message] = Field(
+        ..., min_length=1, description="Conversation messages"
+    )
     max_tokens: int = Field(
         1024, ge=1, le=4096, description="Maximum tokens to generate"
     )
@@ -152,9 +156,7 @@ def create_app() -> FastAPI:
         return {
             "status": "healthy",
             "adapter": "running",
-            "backend": "unknown"
-            if not app.state.backend_router
-            else "connected",
+            "backend": "unknown" if not app.state.backend_router else "connected",
         }
 
     @app.post("/v1/messages", response_model=MessagesResponse)
@@ -196,16 +198,15 @@ def create_app() -> FastAPI:
                     _stream_response(request, app.state.backend_router),
                     media_type="text/event-stream",
                 )
-            else:
-                # Non-streaming response
-                response = await _generate_response(request, app.state.backend_router)
-                return response
+            # Non-streaming response
+            response = await _generate_response(request, app.state.backend_router)
+            return response
 
         except Exception as e:
             logger.error(f"Error processing request: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
-                detail=f"Error processing request: {str(e)}",
+                detail=f"Error processing request: {e!s}",
             )
 
     return app
@@ -231,7 +232,9 @@ async def _generate_response(
     try:
         # Call backend router to generate response
         response = await backend_router.generate(request)
-        logger.debug(f"Backend returned response with {response.usage.output_tokens} output tokens")
+        logger.debug(
+            f"Backend returned response with {response.usage.output_tokens} output tokens"
+        )
         return response
 
     except Exception as e:
@@ -271,10 +274,7 @@ async def _stream_response(
         # Send error event
         error_event = {
             "type": "error",
-            "error": {
-                "type": "api_error",
-                "message": str(e)
-            }
+            "error": {"type": "api_error", "message": str(e)},
         }
         yield f"event: error\ndata: {json.dumps(error_event)}\n\n"
         raise
