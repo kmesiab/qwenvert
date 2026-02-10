@@ -9,6 +9,7 @@ Beautiful terminal UI showing:
 """
 
 import asyncio
+import contextlib
 from datetime import timedelta
 
 from rich.console import Console
@@ -33,7 +34,7 @@ class Dashboard:
         self,
         collector: MetricsCollector,
         adapter_url: str = "http://localhost:8088",
-    ):
+    ) -> None:
         """
         Initialize dashboard.
 
@@ -314,7 +315,7 @@ class Dashboard:
 
         return Panel(text, style="dim")
 
-    async def run(self, refresh_rate: float = 1.0):
+    async def run(self, refresh_rate: float = 1.0) -> None:
         """
         Run the dashboard with live updates.
 
@@ -349,7 +350,7 @@ class Dashboard:
 async def run_dashboard(
     adapter_url: str = "http://localhost:8088",
     refresh_rate: float = 1.0,
-):
+) -> None:
     """
     Run the monitoring dashboard.
 
@@ -369,7 +370,5 @@ async def run_dashboard(
     finally:
         # Cleanup
         monitor_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await monitor_task
-        except asyncio.CancelledError:
-            pass

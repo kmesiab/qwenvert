@@ -21,7 +21,7 @@ console = Console()
 
 @click.group()
 @click.version_option(version="0.1.0")
-def cli():
+def cli() -> None:
     """
     Qwenvert - One-click local LLM inference for Claude Code.
 
@@ -50,7 +50,7 @@ def cli():
     type=int,
     help="Maximum context length (default: hardware-dependent)",
 )
-def init(model, backend, adapter_port, context_length):
+def init(model, backend, adapter_port, context_length) -> None:
     """
     Initialize qwenvert configuration.
 
@@ -175,7 +175,7 @@ def init(model, backend, adapter_port, context_length):
 
 
 @cli.command()
-def start():
+def start() -> None:
     """
     Start qwenvert servers (backend + adapter).
 
@@ -199,7 +199,7 @@ def start():
 
 
 @cli.command()
-def status():
+def status() -> None:
     """
     Show qwenvert status.
 
@@ -264,7 +264,7 @@ def status():
 
 
 @cli.command()
-def stop():
+def stop() -> None:
     """
     Stop qwenvert servers.
 
@@ -311,7 +311,7 @@ def stop():
 
 
 @cli.group()
-def models():
+def models() -> None:
     """Model management commands."""
 
 
@@ -319,7 +319,7 @@ def models():
 @click.option(
     "--backend", type=click.Choice(["ollama", "llamacpp"]), help="Filter by backend"
 )
-def list_models(backend):
+def list_models(backend) -> None:
     """
     List available models.
 
@@ -331,14 +331,14 @@ def list_models(backend):
 
     registry = ModelRegistry()
     backend_filter = Backend(backend) if backend else None
-    all_models = registry.list_models(backend=backend_filter)
+    registry.list_models(backend=backend_filter)
 
     _list_models_table(registry, backend_filter)
 
     console.print()
 
 
-def _list_models_table(registry, backend_filter=None):
+def _list_models_table(registry, backend_filter=None) -> None:
     """Helper to display models table."""
     all_models = registry.list_models(backend=backend_filter)
 
@@ -366,7 +366,7 @@ def _list_models_table(registry, backend_filter=None):
 
 
 @cli.command()
-def hardware():
+def hardware() -> None:
     """
     Show detected hardware information.
 
@@ -428,7 +428,7 @@ def hardware():
     default=1.0,
     help="Dashboard refresh rate in seconds (default: 1.0)",
 )
-def monitor(adapter_url, refresh_rate):
+def monitor(adapter_url, refresh_rate) -> None:
     """
     Real-time monitoring dashboard.
 

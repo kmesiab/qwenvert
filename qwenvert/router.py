@@ -5,10 +5,11 @@ Translates Anthropic Messages API requests to backend-specific formats
 (Ollama, llama.cpp) and transforms responses back to Anthropic format.
 """
 
+from __future__ import annotations
+
 import logging
 import uuid
-from collections.abc import AsyncIterator
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -20,6 +21,10 @@ from .adapter import (
     Usage,
 )
 from .models import Backend, Model
+
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +39,7 @@ class BackendRouter:
     - llama.cpp (/completion, /v1/chat/completions)
     """
 
-    def __init__(self, model: Model, backend_url: str):
+    def __init__(self, model: Model, backend_url: str) -> None:
         """
         Initialize backend router.
 
@@ -69,7 +74,7 @@ class BackendRouter:
 
     async def generate_stream(
         self, request: MessagesRequest
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         Generate streaming response from backend.
 
@@ -137,7 +142,7 @@ class BackendRouter:
 
     async def _stream_ollama(
         self, request: MessagesRequest
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Stream response from Ollama backend."""
         ollama_messages = self._anthropic_to_ollama_messages(
             request.messages, request.system
@@ -191,8 +196,8 @@ class BackendRouter:
                         }
 
     def _anthropic_to_ollama_messages(
-        self, messages: List[Message], system: Optional[str] = None
-    ) -> List[Dict[str, str]]:
+        self, messages: list[Message], system: str | None = None
+    ) -> list[dict[str, str]]:
         """
         Convert Anthropic messages to Ollama chat format.
 
@@ -225,7 +230,7 @@ class BackendRouter:
         return ollama_messages
 
     def _ollama_to_anthropic_response(
-        self, ollama_response: Dict[str, Any], request: MessagesRequest
+        self, ollama_response: dict[str, Any], request: MessagesRequest
     ) -> MessagesResponse:
         """
         Transform Ollama response to Anthropic format.
@@ -302,7 +307,7 @@ class BackendRouter:
 
     async def _stream_llamacpp(
         self, request: MessagesRequest
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Stream response from llama.cpp backend."""
         prompt = self._anthropic_to_llamacpp_prompt(request.messages, request.system)
 
@@ -344,7 +349,7 @@ class BackendRouter:
                         }
 
     def _anthropic_to_llamacpp_prompt(
-        self, messages: List[Message], system: Optional[str] = None
+        self, messages: list[Message], system: str | None = None
     ) -> str:
         """
         Convert Anthropic messages to llama.cpp prompt format.
@@ -383,7 +388,7 @@ class BackendRouter:
         return "\n".join(prompt_parts)
 
     def _llamacpp_to_anthropic_response(
-        self, llamacpp_response: Dict[str, Any], request: MessagesRequest
+        self, llamacpp_response: dict[str, Any], request: MessagesRequest
     ) -> MessagesResponse:
         """
         Transform llama.cpp response to Anthropic format.
@@ -421,6 +426,6 @@ class BackendRouter:
             ),
         )
 
-    async def close(self):
+    async def close(self) -> None:
         """Close HTTP client."""
         await self.client.aclose()

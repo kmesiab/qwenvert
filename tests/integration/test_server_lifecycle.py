@@ -150,7 +150,7 @@ class TestServerLauncher:
                     if call_count >= 3:
                         return True
                     await asyncio.sleep(0.01)  # Small delay
-                    return False if call_count < 3 else True
+                    return not call_count < 3
 
                 # Mock the checks
                 with patch.object(launcher, "_check_health", return_value=False):

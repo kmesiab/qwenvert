@@ -51,12 +51,9 @@ async def check_ollama_available(ollama_backend_url):
                 tags = response.json()
                 models = [m["name"] for m in tags.get("models", [])]
                 # Check for qwen2.5-coder model
-                has_qwen = any(
-                    "qwen" in m.lower() and "coder" in m.lower() for m in models
-                )
-                return has_qwen
-    except Exception as e:
-        print(f"Ollama not available: {e}")
+                return any("qwen" in m.lower() and "coder" in m.lower() for m in models)
+    except Exception:
+        pass
     return False
 
 
@@ -105,7 +102,6 @@ class TestOllamaE2E:
             data = response.json()
             assert "models" in data
             assert len(data["models"]) > 0
-            print(f"\n✅ Ollama available with {len(data['models'])} models")
 
     @pytest.mark.asyncio
     async def test_backend_router_ollama_simple_request(
@@ -132,13 +128,9 @@ class TestOllamaE2E:
             max_tokens=20,
         )
 
-        print("\n🔄 Calling Ollama backend...")
         start_time = time.time()
         response = await router.generate(request)
-        elapsed = time.time() - start_time
-
-        print(f"✅ Response received in {elapsed:.2f}s")
-        print(f"📝 Response: {response.content[0].text[:100]}")
+        time.time() - start_time
 
         # Validate response structure
         assert response.type == "message"
@@ -176,7 +168,6 @@ class TestOllamaE2E:
             stream=True,
         )
 
-        print("\n🔄 Streaming from Ollama...")
         events = []
         tokens = []
 
@@ -186,9 +177,6 @@ class TestOllamaE2E:
                 delta = event.get("delta", {})
                 if "text" in delta:
                     tokens.append(delta["text"])
-                    print(f"Token: {delta['text']}", end="", flush=True)
-
-        print(f"\n✅ Received {len(events)} events, {len(tokens)} tokens")
 
         # Validate streaming events
         assert len(events) > 0
@@ -230,7 +218,6 @@ class TestOllamaE2E:
             assert health_data["backend"] == "connected"
 
             # Test /v1/messages endpoint
-            print("\n🔄 Testing full /v1/messages endpoint...")
             messages_response = await client.post(
                 "/v1/messages",
                 json={
@@ -248,8 +235,6 @@ class TestOllamaE2E:
 
             assert messages_response.status_code == 200
             data = messages_response.json()
-
-            print(f"✅ Full stack response: {data['content'][0]['text'][:100]}")
 
             # Validate Anthropic format
             assert data["type"] == "message"
@@ -277,12 +262,11 @@ class TestOllamaE2E:
 
         from httpx import ASGITransport, AsyncClient
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            print("\n🔄 Testing streaming endpoint...")
-
-            async with client.stream(
+        async with (
+            AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client,
+            client.stream(
                 "POST",
                 "/v1/messages",
                 json={
@@ -292,23 +276,22 @@ class TestOllamaE2E:
                     "stream": True,
                 },
                 headers={"x-api-key": "local-qwen"},
-            ) as response:
-                assert response.status_code == 200
-                assert "text/event-stream" in response.headers.get("content-type", "")
+            ) as response,
+        ):
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers.get("content-type", "")
 
-                events = []
-                async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        data_json = line[6:]  # Remove "data: " prefix
-                        try:
-                            event = json.loads(data_json)
-                            events.append(event)
-                            print(f"Event: {event.get('type')}")
-                        except json.JSONDecodeError:
-                            pass
+            events = []
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    data_json = line[6:]  # Remove "data: " prefix
+                    try:
+                        event = json.loads(data_json)
+                        events.append(event)
+                    except json.JSONDecodeError:
+                        pass
 
-                print(f"✅ Received {len(events)} streaming events")
-                assert len(events) > 0
+            assert len(events) > 0
 
 
 class TestErrorHandling:
@@ -330,11 +313,8 @@ class TestErrorHandling:
             max_tokens=10,
         )
 
-        print("\n🔄 Testing error handling (backend down)...")
         with pytest.raises(Exception):  # Should raise connection error
             await router.generate(request)
-
-        print("✅ Error properly raised for unavailable backend")
 
     @pytest.mark.asyncio
     async def test_adapter_without_router(self):
@@ -359,7 +339,6 @@ class TestErrorHandling:
 
             assert response.status_code == 503
             assert "not initialized" in response.json()["detail"].lower()
-            print("✅ Adapter correctly returns 503 when router not configured")
 
 
 class TestClaudeCodeCompatibility:
@@ -380,8 +359,6 @@ class TestClaudeCodeCompatibility:
         assert os.getenv("ANTHROPIC_BASE_URL") == "http://localhost:8088"
         assert os.getenv("ANTHROPIC_API_KEY") == "local-qwen"
         assert os.getenv("ANTHROPIC_MODEL") == "qwenvert-default"
-
-        print("✅ Claude Code environment variables set correctly")
 
 
 class TestPerformance:
@@ -408,21 +385,14 @@ class TestPerformance:
             max_tokens=50,
         )
 
-        print("\n⏱️ Measuring response time...")
         start = time.time()
         response = await router.generate(request)
         elapsed = time.time() - start
 
-        print(f"⏱️ Response time: {elapsed:.2f}s")
-        print(f"📊 Tokens generated: {response.usage.output_tokens}")
-
         tokens_per_second = response.usage.output_tokens / elapsed if elapsed > 0 else 0
-        print(f"📊 Speed: {tokens_per_second:.1f} tokens/second")
 
         # Basic performance check (should be faster than 10s for 50 tokens)
         assert elapsed < 10.0, f"Response too slow: {elapsed:.2f}s"
 
         # Reasonable performance (at least 5 tokens/second)
         assert tokens_per_second >= 5.0, f"Too slow: {tokens_per_second:.1f} tokens/s"
-
-        print("✅ Performance acceptable")

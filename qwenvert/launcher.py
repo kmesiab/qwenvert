@@ -5,14 +5,16 @@ Manages lifecycle of backend servers (Ollama, llama.cpp) and
 qwenvert adapter, including health checks and graceful shutdown.
 """
 
+from __future__ import annotations
+
 import asyncio
+import contextlib
 import logging
 import shutil
 import signal
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -26,7 +28,7 @@ logger = logging.getLogger(__name__)
 class ProcessHandle:
     """Handle for a managed process."""
 
-    def __init__(self, process: subprocess.Popen, name: str):
+    def __init__(self, process: subprocess.Popen, name: str) -> None:
         self.process = process
         self.name = name
         self.pid = process.pid
@@ -71,7 +73,7 @@ class ServerLauncher:
     Manages backend and adapter server processes.
     """
 
-    def __init__(self, config: QwenvertConfig):
+    def __init__(self, config: QwenvertConfig) -> None:
         """
         Initialize server launcher.
 
@@ -79,8 +81,8 @@ class ServerLauncher:
             config: Qwenvert configuration
         """
         self.config = config
-        self.backend_process: Optional[ProcessHandle] = None
-        self.adapter_process: Optional[ProcessHandle] = None
+        self.backend_process: ProcessHandle | None = None
+        self.adapter_process: ProcessHandle | None = None
 
     async def start_backend(self) -> ProcessHandle:
         """
@@ -104,7 +106,8 @@ class ServerLauncher:
 
         # Check if ollama is installed
         if not shutil.which("ollama"):
-            raise RuntimeError("Ollama not found. Install with: brew install ollama")
+            msg = "Ollama not found. Install with: brew install ollama"
+            raise RuntimeError(msg)
 
         # Check if server is already running
         if await self._check_health("http://localhost:11434"):
@@ -128,7 +131,8 @@ class ServerLauncher:
         # Wait for server to be ready
         if not await self._wait_for_health("http://localhost:11434", timeout=30):
             handle.terminate()
-            raise RuntimeError("Ollama server failed to start")
+            msg = "Ollama server failed to start"
+            raise RuntimeError(msg)
 
         # Ensure model is pulled
         await self._ensure_ollama_model()
@@ -149,7 +153,8 @@ class ServerLauncher:
                     llamacpp_path = Path(alt_path)
                     break
             else:
-                raise RuntimeError("llama-server not found. Install llama.cpp first.")
+                msg = "llama-server not found. Install llama.cpp first."
+                raise RuntimeError(msg)
 
         # Generate flags from config
         from .config import ConfigGenerator
@@ -179,7 +184,7 @@ class ServerLauncher:
         flags = config_gen.generate_llamacpp_flags()
 
         # Start llama-server
-        cmd = [str(llamacpp_path)] + flags
+        cmd = [str(llamacpp_path), *flags]
         logger.info(f"Running: {' '.join(cmd)}")
 
         process = subprocess.Popen(
@@ -195,7 +200,8 @@ class ServerLauncher:
         # Wait for server to be ready
         if not await self._wait_for_health("http://localhost:8080/health", timeout=60):
             handle.terminate()
-            raise RuntimeError("llama.cpp server failed to start")
+            msg = "llama.cpp server failed to start"
+            raise RuntimeError(msg)
 
         logger.info("✓ llama.cpp server ready")
         return handle
@@ -266,7 +272,8 @@ class ServerLauncher:
         # Wait for adapter to be ready
         adapter_url = f"http://{self.config.adapter_host}:{self.config.adapter_port}"
         if not await self._wait_for_health(f"{adapter_url}/health", timeout=10):
-            raise RuntimeError("Qwenvert adapter failed to start")
+            msg = "Qwenvert adapter failed to start"
+            raise RuntimeError(msg)
 
         logger.info(f"✓ Qwenvert adapter ready on {adapter_url}")
 
@@ -288,20 +295,6 @@ class ServerLauncher:
 
     def _print_startup_success(self) -> None:
         """Print startup success message with instructions."""
-        adapter_url = f"http://{self.config.adapter_host}:{self.config.adapter_port}"
-
-        print("\n" + "=" * 70)
-        print("✓ Qwenvert is running!")
-        print("=" * 70)
-        print(f"\nBackend:  {self.config.backend} on {self.config.backend_url}")
-        print(f"Adapter:  {adapter_url}")
-        print(f"Model:    {self.config.backend_model_id}")
-        print("\nConfigure Claude Code:\n")
-        print(f'  export ANTHROPIC_BASE_URL="{adapter_url}"')
-        print('  export ANTHROPIC_API_KEY="local-qwen"')
-        print('  export ANTHROPIC_MODEL="qwenvert-default"')
-        print("\nThen run: claude\n")
-        print("=" * 70 + "\n")
 
     async def stop_all(self) -> None:
         """Stop all managed processes."""
@@ -310,10 +303,8 @@ class ServerLauncher:
         # Stop adapter
         if hasattr(self, "adapter_task"):
             self.adapter_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.adapter_task
-            except asyncio.CancelledError:
-                pass
 
         # Stop backend
         if self.backend_process:
@@ -359,7 +350,7 @@ class ServerLauncher:
         return False
 
 
-async def start_qwenvert():
+async def start_qwenvert() -> None:
     """
     Main entry point for starting qwenvert.
 
@@ -367,7 +358,6 @@ async def start_qwenvert():
     """
     # Load config
     if not ConfigManager.exists():
-        print("Error: No configuration found. Run 'qwenvert init' first.")
         return
 
     config = ConfigManager.load()
@@ -378,8 +368,7 @@ async def start_qwenvert():
     # Setup signal handlers for graceful shutdown
     loop = asyncio.get_event_loop()
 
-    def handle_shutdown(signum, frame):
-        print("\n\nShutting down...")
+    def handle_shutdown(signum, frame) -> None:
         asyncio.create_task(launcher.stop_all())
         loop.stop()
 
@@ -402,6 +391,6 @@ async def start_qwenvert():
         raise
 
 
-def start_qwenvert_sync():
+def start_qwenvert_sync() -> None:
     """Synchronous wrapper for CLI."""
     asyncio.run(start_qwenvert())

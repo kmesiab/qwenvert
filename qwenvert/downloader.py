@@ -5,15 +5,19 @@ Downloads Qwen GGUF models from HuggingFace Hub with progress tracking,
 integrity verification, and resume support.
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from huggingface_hub import hf_hub_download
 
-from .models import Model
+
+if TYPE_CHECKING:
+    from .models import Model
 
 
 logger = logging.getLogger(__name__)
@@ -30,7 +34,7 @@ class ModelDownloader:
     - Organized storage in ~/.qwenvert/models/
     """
 
-    def __init__(self, models_dir: Optional[Path] = None):
+    def __init__(self, models_dir: Path | None = None) -> None:
         """
         Initialize model downloader.
 
@@ -167,7 +171,7 @@ class ModelDownloader:
     def verify_checksum(
         self,
         model_path: Path,
-        expected_checksum: Optional[str] = None,
+        expected_checksum: str | None = None,
     ) -> bool:
         """
         Verify model file integrity with SHA256 checksum.
@@ -213,7 +217,7 @@ class ModelDownloader:
 
         return sorted(self.models_dir.glob("*.gguf"))
 
-    def get_model_path(self, model: Model) -> Optional[Path]:
+    def get_model_path(self, model: Model) -> Path | None:
         """
         Get path to downloaded model if it exists.
 

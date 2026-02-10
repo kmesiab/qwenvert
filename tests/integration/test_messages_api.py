@@ -56,7 +56,7 @@ class TestMessagesEndpoint:
     @pytest.mark.asyncio
     async def test_simple_message_request(self, adapter_client):
         """Test basic non-streaming message request."""
-        client, mock_router = adapter_client
+        client, _mock_router = adapter_client
 
         response = await client.post(
             "/v1/messages",
@@ -82,7 +82,7 @@ class TestMessagesEndpoint:
     @pytest.mark.asyncio
     async def test_message_with_system_prompt(self, adapter_client):
         """Test message with system prompt."""
-        client, mock_router = adapter_client
+        client, _mock_router = adapter_client
 
         response = await client.post(
             "/v1/messages",
@@ -146,7 +146,7 @@ class TestMessagesEndpoint:
     @pytest.mark.asyncio
     async def test_multimodal_message(self, adapter_client):
         """Test message with multiple content blocks."""
-        client, mock_router = adapter_client
+        client, _mock_router = adapter_client
 
         response = await client.post(
             "/v1/messages",
