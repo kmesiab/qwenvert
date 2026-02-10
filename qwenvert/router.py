@@ -6,6 +6,8 @@ Translates Anthropic Messages API requests to backend-specific formats
 """
 from __future__ import annotations
 
+from __future__ import annotations
+
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any

@@ -4,7 +4,6 @@ Real-time monitoring and metrics for qwenvert.
 Collects performance metrics, thermal data, and request history
 for display in the monitor dashboard.
 """
-from __future__ import annotations
 
 import asyncio
 import logging
@@ -13,14 +12,11 @@ import subprocess
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import Deque, Optional
 
 import httpx
 import psutil
-
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -50,12 +46,12 @@ class SystemMetrics:
 
     # CPU
     cpu_percent: float
-    cpu_temp_celsius: float | None = None
+    cpu_temp_celsius: Optional[float] = None
 
     # Processes
-    qwenvert_memory_mb: float | None = None
-    backend_memory_mb: float | None = None
-    backend_process_name: str | None = None
+    qwenvert_memory_mb: Optional[float] = None
+    backend_memory_mb: Optional[float] = None
+    backend_process_name: Optional[str] = None
 
 
 @dataclass
@@ -87,7 +83,7 @@ class MetricsCollector:
         self,
         adapter_url: str = "http://localhost:8088",
         history_size: int = 100,
-    ) -> None:
+    ):
         """
         Initialize metrics collector.
 
@@ -96,7 +92,7 @@ class MetricsCollector:
             history_size: Number of requests to keep in history
         """
         self.adapter_url = adapter_url
-        self.request_history: deque[RequestMetrics] = deque(maxlen=history_size)
+        self.request_history: Deque[RequestMetrics] = deque(maxlen=history_size)
         self.start_time = time.time()
 
         # For tracking real-time requests
@@ -156,7 +152,7 @@ class MetricsCollector:
             backend_process_name=backend_name,
         )
 
-    def _get_cpu_temperature(self) -> float | None:
+    def _get_cpu_temperature(self) -> Optional[float]:
         """
         Get CPU temperature on macOS.
 
@@ -269,7 +265,7 @@ class MetricsCollector:
         """
         return list(self.request_history)[-count:]
 
-    async def monitor_loop(self, interval: float = 1.0) -> None:
+    async def monitor_loop(self, interval: float = 1.0):
         """
         Continuous monitoring loop.
 

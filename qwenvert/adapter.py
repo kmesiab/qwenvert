@@ -4,20 +4,16 @@ Anthropic Messages API HTTP adapter.
 FastAPI server implementing /v1/messages endpoint compatible with Claude Code.
 Translates Anthropic Messages API requests to backend format.
 """
-from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Literal
+from collections.abc import AsyncIterator
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
 
 
 logger = logging.getLogger(__name__)
@@ -30,7 +26,7 @@ class Message(BaseModel):
     """Single message in conversation."""
 
     role: Literal["user", "assistant", "system"]
-    content: str | list[dict[str, Any]]  # String or content blocks
+    content: Union[str, List[Dict[str, Any]]]  # String or content blocks
 
 
 class MessagesRequest(BaseModel):
@@ -42,35 +38,33 @@ class MessagesRequest(BaseModel):
     """
 
     model: str = Field(..., description="Model identifier")
-    messages: list[Message] = Field(
+    messages: List[Message] = Field(
         ..., min_length=1, description="Conversation messages"
     )
     max_tokens: int = Field(
         1024, ge=1, le=4096, description="Maximum tokens to generate"
     )
-    temperature: float | None = Field(
+    temperature: Optional[float] = Field(
         None, ge=0.0, le=2.0, description="Sampling temperature"
     )
-    top_p: float | None = Field(None, ge=0.0, le=1.0, description="Nucleus sampling")
-    top_k: int | None = Field(None, ge=0, description="Top-k sampling")
-    stop_sequences: list[str] | None = Field(
+    top_p: Optional[float] = Field(None, ge=0.0, le=1.0, description="Nucleus sampling")
+    top_k: Optional[int] = Field(None, ge=0, description="Top-k sampling")
+    stop_sequences: Optional[List[str]] = Field(
         None, max_length=4, description="Stop sequences"
     )
     stream: bool = Field(False, description="Enable streaming responses")
-    metadata: dict[str, Any] | None = Field(None, description="Request metadata")
-    system: str | None = Field(None, description="System prompt")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Request metadata")
+    system: Optional[str] = Field(None, description="System prompt")
 
     @field_validator("messages")
     @classmethod
-    def validate_messages(cls, messages: list[Message]) -> list[Message]:
+    def validate_messages(cls, messages: List[Message]) -> List[Message]:
         """Ensure messages alternate roles and first is user."""
         if not messages:
-            msg = "At least one message required"
-            raise ValueError(msg)
+            raise ValueError("At least one message required")
 
         if messages[0].role != "user":
-            msg = "First message must be from user"
-            raise ValueError(msg)
+            raise ValueError("First message must be from user")
 
         # Anthropic doesn't strictly require alternation, but it's good practice
         return messages
@@ -99,10 +93,10 @@ class MessagesResponse(BaseModel):
     id: str
     type: Literal["message"] = "message"
     role: Literal["assistant"] = "assistant"
-    content: list[ContentBlock]
+    content: List[ContentBlock]
     model: str
-    stop_reason: Literal["end_turn", "max_tokens", "stop_sequence"] | None = None
-    stop_sequence: str | None = None
+    stop_reason: Optional[Literal["end_turn", "max_tokens", "stop_sequence"]] = None
+    stop_sequence: Optional[str] = None
     usage: Usage
 
 
@@ -117,9 +111,9 @@ class MessageStreamEvent(BaseModel):
         "message_delta",
         "message_stop",
     ]
-    message: MessagesResponse | None = None
-    delta: dict[str, Any] | None = None
-    index: int | None = None
+    message: Optional[MessagesResponse] = None
+    delta: Optional[Dict[str, Any]] = None
+    index: Optional[int] = None
 
 
 # Error Models
@@ -129,7 +123,7 @@ class ErrorResponse(BaseModel):
     """Error response format."""
 
     type: Literal["error"] = "error"
-    error: dict[str, Any]
+    error: Dict[str, Any]
 
 
 # FastAPI Application
@@ -168,7 +162,7 @@ def create_app() -> FastAPI:
     @app.post("/v1/messages", response_model=MessagesResponse)
     async def create_message(
         request: MessagesRequest, http_request: Request
-    ) -> MessagesResponse | StreamingResponse:
+    ) -> Union[MessagesResponse, StreamingResponse]:
         """
         Create a message (Anthropic Messages API endpoint).
 
@@ -205,7 +199,8 @@ def create_app() -> FastAPI:
                     media_type="text/event-stream",
                 )
             # Non-streaming response
-            return await _generate_response(request, app.state.backend_router)
+            response = await _generate_response(request, app.state.backend_router)
+            return response
 
         except Exception as e:
             logger.error(f"Error processing request: {e}", exc_info=True)
@@ -285,7 +280,7 @@ async def _stream_response(
         raise
 
 
-def _estimate_tokens(messages: list[Message]) -> int:
+def _estimate_tokens(messages: List[Message]) -> int:
     """
     Rough estimate of token count for messages.
 
@@ -314,8 +309,8 @@ def _estimate_tokens(messages: list[Message]) -> int:
 async def run_server(
     host: str = "127.0.0.1",
     port: int = 8088,
-    backend_router: Any | None = None,
-) -> None:
+    backend_router: Optional[Any] = None,
+):
     """
     Run the FastAPI server.
 
@@ -354,8 +349,8 @@ async def run_server(
 def start_server_sync(
     host: str = "127.0.0.1",
     port: int = 8088,
-    backend_router: Any | None = None,
-) -> None:
+    backend_router: Optional[Any] = None,
+):
     """
     Synchronous wrapper for running server (for CLI commands).
 

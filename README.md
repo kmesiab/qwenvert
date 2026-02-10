@@ -94,6 +94,24 @@ claude
 
 **That's it!** Claude Code now uses your local model. Your code stays on your machine.
 
+### What Just Happened?
+
+**Without qwenvert (default):**
+```
+Claude Code → api.anthropic.com → Claude Sonnet/Opus
+              (internet)           (cloud)
+              💰 Costs money      ☁️ Code leaves machine
+```
+
+**With qwenvert (configured):**
+```
+Claude Code → localhost:8088 → Ollama → Qwen Model
+              (no internet)     (local)  (your Mac)
+              💰 Free            🔒 Code stays local
+```
+
+Claude Code doesn't know the difference - it just uses whatever `ANTHROPIC_BASE_URL` points to!
+
 ---
 
 ## 📖 How to Use
@@ -128,6 +146,42 @@ export ANTHROPIC_MODEL=qwenvert-default
 Then reload: `source ~/.zshrc`
 
 Now `claude` will automatically use qwenvert!
+
+### Verify Claude Code is Using Qwenvert
+
+After setting environment variables, verify the setup:
+
+```bash
+# Check environment variables are set
+echo $ANTHROPIC_BASE_URL
+# Should show: http://localhost:8088
+
+echo $ANTHROPIC_API_KEY
+# Should show: local-qwen
+
+echo $ANTHROPIC_MODEL
+# Should show: qwenvert-default
+
+# Make sure qwenvert is running
+curl http://localhost:8088/health
+# Should return: {"status":"healthy","backend":"connected"}
+
+# Test with Claude Code
+claude
+# In Claude Code, ask: "What model are you?"
+# It should respond as Qwen2.5-Coder (though it might say Claude)
+```
+
+**How to tell it's working:**
+- ✅ Claude Code starts without asking for an API key
+- ✅ Responses come quickly (no network delay)
+- ✅ `qwenvert monitor` shows requests appearing
+- ✅ Works offline (disconnect wifi and try)
+
+**If it's NOT working:**
+- ❌ "Invalid API key" error → Check `ANTHROPIC_API_KEY=local-qwen`
+- ❌ "Connection refused" → Check `ANTHROPIC_BASE_URL` and qwenvert is running
+- ❌ "Model not found" → Check `ANTHROPIC_MODEL=qwenvert-default`
 
 ---
 
@@ -392,7 +446,7 @@ source ~/.zshrc
 
 1. **Localhost-only binding** - Adapter listens on `127.0.0.1` only (not accessible from network)
 2. **No external calls** - Code explicitly blocks external connections
-3. **Test-proven** - 31+ security tests verify isolation
+3. **Test-proven** - 3 dedicated security tests verify isolation
 4. **Transparent code** - Full source available for audit
 
 **Perfect for:**
@@ -552,6 +606,50 @@ Qwenvert provides:
 
 ---
 
+## 📊 Performance Benchmarks
+
+Measure qwenvert performance on your Mac:
+
+```bash
+# Start qwenvert
+qwenvert start
+
+# Run benchmarks (separate terminal)
+make benchmark
+```
+
+**What it tests:**
+- Different prompt lengths (short, medium, long)
+- Streaming vs non-streaming
+- Different token limits (50, 100, 200)
+- Code generation tasks
+
+**Metrics:**
+- Latency (ms)
+- Throughput (tokens/sec)
+- Time to first token (TTFT)
+- Success rate
+
+**Example output:**
+```
+┌────────────────┬─────────┬──────┬─────────┬────────┬─────────┬────────┐
+│ Benchmark      │ Backend │ Quant│ Latency │ Tokens │ Speed   │ Status │
+├────────────────┼─────────┼──────┼─────────┼────────┼─────────┼────────┤
+│ prompt_short   │ ollama  │ Q4_K │ 1234ms  │ 5      │ 4.1 t/s │   ✓    │
+│ prompt_medium  │ ollama  │ Q4_K │ 2456ms  │ 89     │ 36.2t/s │   ✓    │
+└────────────────┴─────────┴──────┴─────────┴────────┴─────────┴────────┘
+
+Summary:
+  Average latency: 1845ms
+  Average throughput: 32.4 tokens/sec
+```
+
+Results saved to `benchmarks/results/` for tracking over time.
+
+See [benchmarks/README.md](./benchmarks/README.md) for details.
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Areas where help is needed:
@@ -571,7 +669,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System design and component details
 - **[SIMPLIFIED_ARCHITECTURE.md](./docs/SIMPLIFIED_ARCHITECTURE.md)** - Beginner-friendly architecture overview
 - **[TASKS.md](./TASKS.md)** - Development roadmap and task tracking
-- **[tests/](./tests/)** - Test suite (31+ tests proving security guarantees)
+- **[tests/](./tests/)** - Test suite with 3 dedicated security tests
 
 ---
 

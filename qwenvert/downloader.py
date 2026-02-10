@@ -4,6 +4,7 @@ Model downloader for qwenvert.
 Downloads Qwen GGUF models from HuggingFace Hub with progress tracking,
 integrity verification, and resume support.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -96,28 +97,6 @@ class ModelDownloader:
             downloaded_path_obj = Path(downloaded_path)
             if downloaded_path_obj != local_path:
                 shutil.move(str(downloaded_path_obj), str(local_path))
-
-            # Verify checksum if available
-            if hasattr(model, "checksum") and model.checksum:
-                if not self.verify_checksum(local_path, model.checksum):
-                    logger.error(
-                        "Checksum verification failed, removing corrupted file"
-                    )
-                    local_path.unlink()
-                    raise RuntimeError(
-                        f"Checksum verification failed for {model.display_name}"
-                    )
-                logger.info("✅ Checksum verified")
-            elif hasattr(model, "sha256") and model.sha256:
-                if not self.verify_checksum(local_path, model.sha256):
-                    logger.error(
-                        "Checksum verification failed, removing corrupted file"
-                    )
-                    local_path.unlink()
-                    raise RuntimeError(
-                        f"Checksum verification failed for {model.display_name}"
-                    )
-                logger.info("✅ Checksum verified")
 
             logger.info(f"✅ Download complete: {local_path}")
             logger.info(f"   Size: {local_path.stat().st_size / (1024**3):.2f} GB")

@@ -51,9 +51,7 @@ async def check_ollama_available(ollama_backend_url):
                 tags = response.json()
                 models = [m["name"] for m in tags.get("models", [])]
                 # Check for qwen2.5-coder model
-                return any(
-                    "qwen" in m.lower() and "coder" in m.lower() for m in models
-                )
+                return any("qwen" in m.lower() and "coder" in m.lower() for m in models)
     except Exception:
         pass
     return False
@@ -95,7 +93,7 @@ class TestOllamaE2E:
         self, ollama_backend_url, check_ollama_available
     ):
         """Test Ollama server is running and responsive."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available or qwen model not installed")
 
         async with httpx.AsyncClient() as client:
@@ -110,7 +108,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test BackendRouter with real Ollama backend."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         router = BackendRouter(
@@ -130,10 +128,7 @@ class TestOllamaE2E:
             max_tokens=20,
         )
 
-        start_time = time.time()
         response = await router.generate(request)
-        time.time() - start_time
-
 
         # Validate response structure
         assert response.type == "message"
@@ -154,7 +149,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test streaming with real Ollama backend."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         router = BackendRouter(
@@ -181,7 +176,6 @@ class TestOllamaE2E:
                 if "text" in delta:
                     tokens.append(delta["text"])
 
-
         # Validate streaming events
         assert len(events) > 0
         assert any(e.get("type") == "message_start" for e in events)
@@ -198,7 +192,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test complete adapter stack with Ollama backend."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         # Create adapter app with backend router
@@ -240,7 +234,6 @@ class TestOllamaE2E:
             assert messages_response.status_code == 200
             data = messages_response.json()
 
-
             # Validate Anthropic format
             assert data["type"] == "message"
             assert data["role"] == "assistant"
@@ -256,7 +249,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test adapter streaming endpoint with Ollama."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         app = create_app()
@@ -267,19 +260,22 @@ class TestOllamaE2E:
 
         from httpx import ASGITransport, AsyncClient
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client, client.stream(
-            "POST",
-            "/v1/messages",
-            json={
-                "model": "qwenvert-default",
-                "messages": [{"role": "user", "content": "Say hello"}],
-                "max_tokens": 20,
-                "stream": True,
-            },
-            headers={"x-api-key": "local-qwen"},
-        ) as response:
+        async with (
+            AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client,
+            client.stream(
+                "POST",
+                "/v1/messages",
+                json={
+                    "model": "qwenvert-default",
+                    "messages": [{"role": "user", "content": "Say hello"}],
+                    "max_tokens": 20,
+                    "stream": True,
+                },
+                headers={"x-api-key": "local-qwen"},
+            ) as response,
+        ):
             assert response.status_code == 200
             assert "text/event-stream" in response.headers.get("content-type", "")
 
@@ -318,7 +314,6 @@ class TestErrorHandling:
         with pytest.raises(Exception):  # Should raise connection error
             await router.generate(request)
 
-
     @pytest.mark.asyncio
     async def test_adapter_without_router(self):
         """Test adapter returns 503 when router not configured."""
@@ -350,7 +345,7 @@ class TestClaudeCodeCompatibility:
     @pytest.mark.asyncio
     async def test_environment_variable_setup(self, check_ollama_available):
         """Test that environment variables work correctly."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         # Simulate Claude Code environment
@@ -364,7 +359,6 @@ class TestClaudeCodeCompatibility:
         assert os.getenv("ANTHROPIC_MODEL") == "qwenvert-default"
 
 
-
 class TestPerformance:
     """Basic performance validation."""
 
@@ -373,7 +367,7 @@ class TestPerformance:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test that response time is acceptable (<5s for 50 tokens)."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         router = BackendRouter(
@@ -393,7 +387,6 @@ class TestPerformance:
         response = await router.generate(request)
         elapsed = time.time() - start
 
-
         tokens_per_second = response.usage.output_tokens / elapsed if elapsed > 0 else 0
 
         # Basic performance check (should be faster than 10s for 50 tokens)
@@ -401,4 +394,3 @@ class TestPerformance:
 
         # Reasonable performance (at least 5 tokens/second)
         assert tokens_per_second >= 5.0, f"Too slow: {tokens_per_second:.1f} tokens/s"
-

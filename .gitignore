@@ -156,3 +156,4 @@ models/
 .qwenvert/
 logs/
 *.pid
+benchmarks/results/*.json
