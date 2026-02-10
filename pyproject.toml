@@ -34,6 +34,14 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.9.0",
+    "psutil>=5.9.0",
+    # OpenTelemetry
+    "opentelemetry-api>=1.27.0",
+    "opentelemetry-sdk>=1.27.0",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "opentelemetry-instrumentation-httpx>=0.48b0",
+    "opentelemetry-exporter-otlp>=1.27.0",
+    "opentelemetry-exporter-prometheus>=0.48b0",
 ]
 
 # Development dependencies
@@ -281,6 +289,7 @@ module = [
     "prometheus_client.*",
     "huggingface_hub.*",
     "tqdm.*",
+    "opentelemetry.*",
 ]
 ignore_missing_imports = true
 

@@ -221,6 +221,16 @@ Shows a live dashboard with:
 - System resources (CPU, memory, temp)
 - Recent request history
 
+**OpenTelemetry Support**: The monitor now uses OpenTelemetry-compliant metrics. Enable OTLP export for integration with observability platforms:
+
+```bash
+# Enable with local OTLP collector (secure)
+export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+qwenvert monitor --enable-otel
+```
+
+See [TELEMETRY_SECURITY.md](./TELEMETRY_SECURITY.md) for complete security details.
+
 Press `Ctrl+C` to exit.
 
 ### List Available Models
@@ -446,8 +456,9 @@ source ~/.zshrc
 
 1. **Localhost-only binding** - Adapter listens on `127.0.0.1` only (not accessible from network)
 2. **No external calls** - Code explicitly blocks external connections
-3. **Test-proven** - 3 dedicated security tests verify isolation
-4. **Transparent code** - Full source available for audit
+3. **Telemetry security** - All telemetry exporters disabled by default; OTLP endpoints validated to be localhost-only (see [TELEMETRY_SECURITY.md](./TELEMETRY_SECURITY.md))
+4. **Test-proven** - 23 dedicated security tests verify isolation and telemetry safety
+5. **Transparent code** - Full source available for audit
 
 **Perfect for:**
 - HIPAA/SOC2 compliance
@@ -667,9 +678,11 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 ## 📚 More Documentation
 
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System design and component details
+- **[TELEMETRY_SECURITY.md](./TELEMETRY_SECURITY.md)** - OpenTelemetry security guarantees and configuration
 - **[SIMPLIFIED_ARCHITECTURE.md](./docs/SIMPLIFIED_ARCHITECTURE.md)** - Beginner-friendly architecture overview
+- **[AGENTS.md](./AGENTS.md)** - AI agents for development and security auditing
 - **[TASKS.md](./TASKS.md)** - Development roadmap and task tracking
-- **[tests/](./tests/)** - Test suite with 3 dedicated security tests
+- **[tests/](./tests/)** - Test suite with 23 dedicated security tests
 
 ---
 

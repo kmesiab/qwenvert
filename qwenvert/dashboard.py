@@ -350,6 +350,7 @@ class Dashboard:
 async def run_dashboard(
     adapter_url: str = "http://localhost:8088",
     refresh_rate: float = 1.0,
+    enable_otel: bool = False,
 ) -> None:
     """
     Run the monitoring dashboard.
@@ -357,8 +358,9 @@ async def run_dashboard(
     Args:
         adapter_url: URL of qwenvert adapter
         refresh_rate: Update interval in seconds
+        enable_otel: Enable OpenTelemetry metrics (default: False)
     """
-    collector = MetricsCollector(adapter_url=adapter_url)
+    collector = MetricsCollector(adapter_url=adapter_url, enable_otel=enable_otel)
     dashboard = Dashboard(collector, adapter_url=adapter_url)
 
     # Start monitoring loop in background
