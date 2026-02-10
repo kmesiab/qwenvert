@@ -527,7 +527,7 @@ class TestStartLlamaCpp:
                 mock_registry.get_model.return_value = None  # Model not found
                 mock_registry_cls.return_value = mock_registry
 
-                with pytest.raises(RuntimeError, match="Model .* not found"):
+                with pytest.raises(RuntimeError, match=r"Model .* not found"):
                     await launcher._start_llamacpp()
 
     @pytest.mark.asyncio
@@ -564,7 +564,7 @@ class TestStartLlamaCpp:
 
                                 with pytest.raises(
                                     RuntimeError,
-                                    match="llama.cpp server failed to start",
+                                    match=r"llama\.cpp server failed to start",
                                 ):
                                     await launcher._start_llamacpp()
 
@@ -801,7 +801,7 @@ class TestStartAdapter:
             mock_registry.get_model.return_value = None  # Model not found
             mock_registry_cls.return_value = mock_registry
 
-            with pytest.raises(RuntimeError, match="Model .* not found"):
+            with pytest.raises(RuntimeError, match=r"Model .* not found"):
                 await launcher.start_adapter(backend_handle)
 
     @pytest.mark.asyncio

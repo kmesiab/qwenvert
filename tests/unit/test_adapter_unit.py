@@ -689,7 +689,7 @@ class TestStreamResponse:
         async def mock_backend_stream_error(request):
             yield {"type": "message_start", "message": {"id": "msg_1"}}
             msg = "Stream error"
-            raise Exception(msg)
+            raise RuntimeError(msg)
 
         mock_router = AsyncMock()
         mock_router.generate_stream = mock_backend_stream_error
