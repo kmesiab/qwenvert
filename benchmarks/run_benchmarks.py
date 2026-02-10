@@ -18,7 +18,7 @@ import asyncio
 import json
 import time
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
@@ -128,7 +128,7 @@ class BenchmarkRunner:
             prompt_tokens=len(config.prompt.split()),  # Rough estimate
             max_tokens=config.max_tokens,
             streaming=config.streaming,
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
         try:
@@ -318,7 +318,7 @@ class BenchmarkRunner:
         """Save results to JSON file."""
 
         if filename is None:
-            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             filename = f"benchmark_results_{timestamp}.json"
 
         output_path = self.output_dir / filename
