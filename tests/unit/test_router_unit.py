@@ -239,7 +239,10 @@ class TestStreamingGeneration:
             assert len(chunks) > 0
             # Should contain message_start, deltas, and message_stop events
             types = [chunk.get("type") for chunk in chunks]
-            assert "message_start" in types or "content_block_delta" in types or chunks
+            assert any(
+                event_type in types
+                for event_type in ["message_start", "content_block_delta", "message_stop"]
+            ), f"Expected streaming event types not found. Got: {types}"
 
 
 class TestErrorHandling:
