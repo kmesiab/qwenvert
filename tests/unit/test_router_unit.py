@@ -288,7 +288,7 @@ class TestErrorHandling:
         with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
             mock_post.return_value = mock_response
 
-            with pytest.raises((httpx.HTTPStatusError, Exception)):
+            with pytest.raises(httpx.HTTPStatusError):
                 await router.generate(sample_request)
 
 
