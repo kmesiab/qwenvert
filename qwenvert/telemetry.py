@@ -3,6 +3,58 @@ OpenTelemetry instrumentation and configuration for qwenvert.
 
 Provides OpenTelemetry-compliant metrics, tracing, and exporters
 following semantic conventions for HTTP, system, and gen_ai.
+
+Security-First Design:
+    - All exporters disabled by default
+    - OTLP endpoints validated as localhost-only
+    - No sensitive data (prompts/responses) captured
+    - No network ports opened automatically
+
+Example usage:
+    Basic initialization (all exporters disabled):
+        >>> from qwenvert.telemetry import init_telemetry
+        >>> init_telemetry(service_name="qwenvert")
+
+    Enable OTLP export to local collector:
+        >>> init_telemetry(
+        ...     service_name="qwenvert",
+        ...     enable_otlp=True,
+        ...     otlp_endpoint="localhost:4317"
+        ... )
+
+    Enable console exporter for debugging:
+        >>> init_telemetry(
+        ...     service_name="qwenvert",
+        ...     enable_console=True
+        ... )
+
+    Initialize from environment variables:
+        >>> import os
+        >>> os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "localhost:4317"
+        >>> from qwenvert.telemetry import init_from_env
+        >>> init_from_env()
+
+    Get meter for custom metrics:
+        >>> from qwenvert.telemetry import get_meter
+        >>> meter = get_meter("my.component")
+        >>> counter = meter.create_counter("my.metric")
+        >>> counter.add(1)
+
+    Get tracer for custom spans:
+        >>> from qwenvert.telemetry import get_tracer
+        >>> tracer = get_tracer("my.component")
+        >>> with tracer.start_as_current_span("my.operation"):
+        ...     # Your code here
+        ...     pass
+
+    Graceful shutdown (flushes all metrics/traces):
+        >>> from qwenvert.telemetry import shutdown_telemetry
+        >>> shutdown_telemetry()
+
+See also:
+    - TELEMETRY_SECURITY.md for security guarantees
+    - OpenTelemetry semantic conventions:
+      https://opentelemetry.io/docs/specs/semconv/
 """
 
 import logging
@@ -89,6 +141,11 @@ def init_telemetry(
     """
     Initialize OpenTelemetry SDK with metrics and tracing.
 
+    Security:
+        - All exporters disabled by default (zero network exposure)
+        - OTLP endpoints validated as localhost-only
+        - External endpoints raise ValueError
+
     Args:
         service_name: Service name for telemetry
         service_version: Service version
@@ -97,6 +154,26 @@ def init_telemetry(
         enable_prometheus: Enable Prometheus exporter
         otlp_endpoint: OTLP collector endpoint (default: localhost:4317)
         prometheus_port: Prometheus metrics port (default: 9464)
+
+    Raises:
+        ValueError: If otlp_endpoint is not localhost
+
+    Example:
+        Basic initialization (no exporters):
+            >>> init_telemetry(service_name="my-service")
+
+        Enable OTLP export to local collector:
+            >>> init_telemetry(
+            ...     service_name="my-service",
+            ...     enable_otlp=True,
+            ...     otlp_endpoint="localhost:4317"
+            ... )
+
+        Debug mode with console output:
+            >>> init_telemetry(
+            ...     service_name="my-service",
+            ...     enable_console=True
+            ... )
     """
     global _initialized, _meter_provider, _tracer_provider
 
@@ -242,11 +319,43 @@ def get_meter(name: str = "qwenvert") -> metrics.Meter:
     """
     Get OpenTelemetry meter for creating metrics.
 
+    Returns a no-op meter if telemetry not initialized.
+
     Args:
         name: Meter name (typically module or component name)
 
     Returns:
-        OpenTelemetry Meter instance
+        OpenTelemetry Meter instance (no-op if not initialized)
+
+    Example:
+        Create a counter:
+            >>> meter = get_meter("my.component")
+            >>> request_counter = meter.create_counter(
+            ...     name="http.server.requests",
+            ...     description="Total HTTP requests",
+            ...     unit="request"
+            ... )
+            >>> request_counter.add(1, {"method": "GET", "status": 200})
+
+        Create a histogram:
+            >>> latency_histogram = meter.create_histogram(
+            ...     name="http.server.request.duration",
+            ...     description="Request duration",
+            ...     unit="ms"
+            ... )
+            >>> latency_histogram.record(150.5, {"method": "POST"})
+
+        Create an observable gauge:
+            >>> def observe_memory():
+            ...     import psutil
+            ...     return [Observation(value=psutil.virtual_memory().percent)]
+            >>>
+            >>> meter.create_observable_gauge(
+            ...     name="system.memory.utilization",
+            ...     description="Memory usage",
+            ...     unit="1",
+            ...     callbacks=[observe_memory]
+            ... )
     """
     if not _initialized:
         logger.warning("Telemetry not initialized, returning no-op meter")
@@ -258,11 +367,42 @@ def get_tracer(name: str = "qwenvert") -> trace.Tracer:
     """
     Get OpenTelemetry tracer for creating spans.
 
+    Returns a no-op tracer if telemetry not initialized.
+
     Args:
         name: Tracer name (typically module or component name)
 
     Returns:
-        OpenTelemetry Tracer instance
+        OpenTelemetry Tracer instance (no-op if not initialized)
+
+    Example:
+        Basic span:
+            >>> tracer = get_tracer("my.component")
+            >>> with tracer.start_as_current_span("my.operation") as span:
+            ...     span.set_attribute("key", "value")
+            ...     # Your code here
+            ...     pass
+
+        Nested spans:
+            >>> with tracer.start_as_current_span("outer") as outer:
+            ...     outer.set_attribute("operation", "process_request")
+            ...     with tracer.start_as_current_span("inner") as inner:
+            ...         inner.set_attribute("sub_operation", "fetch_data")
+            ...         # Inner operation
+            ...         pass
+            ...     # Outer operation continues
+            ...     pass
+
+        Error handling:
+            >>> from opentelemetry.trace import Status, StatusCode
+            >>> with tracer.start_as_current_span("risky_operation") as span:
+            ...     try:
+            ...         # Your code
+            ...         pass
+            ...     except Exception as e:
+            ...         span.set_status(Status(StatusCode.ERROR, str(e)))
+            ...         span.record_exception(e)
+            ...         raise
     """
     if not _initialized:
         logger.warning("Telemetry not initialized, returning no-op tracer")
@@ -271,7 +411,44 @@ def get_tracer(name: str = "qwenvert") -> trace.Tracer:
 
 
 def shutdown_telemetry() -> None:
-    """Shutdown telemetry and flush any pending data."""
+    """
+    Shutdown telemetry and flush any pending data.
+
+    This function is idempotent - safe to call multiple times.
+    Always call before application exit to ensure all metrics
+    and traces are flushed to exporters.
+
+    Example:
+        Graceful shutdown:
+            >>> from qwenvert.telemetry import init_telemetry, shutdown_telemetry
+            >>> init_telemetry(service_name="my-service")
+            >>> # ... application code ...
+            >>> shutdown_telemetry()
+
+        With signal handling:
+            >>> import signal
+            >>> import sys
+            >>>
+            >>> def signal_handler(sig, frame):
+            ...     print("Shutting down...")
+            ...     shutdown_telemetry()
+            ...     sys.exit(0)
+            >>>
+            >>> signal.signal(signal.SIGINT, signal_handler)
+            >>> signal.signal(signal.SIGTERM, signal_handler)
+
+        Context manager pattern:
+            >>> class TelemetryContext:
+            ...     def __enter__(self):
+            ...         init_telemetry(service_name="my-service")
+            ...         return self
+            ...     def __exit__(self, *args):
+            ...         shutdown_telemetry()
+            >>>
+            >>> with TelemetryContext():
+            ...     # Application code
+            ...     pass
+    """
     global _initialized, _meter_provider, _tracer_provider
 
     if not _initialized:
@@ -295,14 +472,45 @@ def init_from_env() -> None:
     """
     Initialize telemetry from environment variables.
 
+    Follows 12-factor app configuration pattern. If OTEL_EXPORTER_OTLP_ENDPOINT
+    is set, OTLP export is automatically enabled.
+
     Environment variables:
-    - OTEL_SERVICE_NAME: Service name (default: qwenvert)
-    - OTEL_SERVICE_VERSION: Service version (default: 0.1.0)
-    - OTEL_EXPORTER_CONSOLE: Enable console exporter (default: false)
-    - OTEL_EXPORTER_OTLP_ENDPOINT: OTLP endpoint (default: localhost:4317)
-    - OTEL_EXPORTER_PROMETHEUS_PORT: Prometheus port (default: 9464)
-    - OTEL_METRICS_ENABLED: Enable metrics (default: true)
-    - OTEL_TRACES_ENABLED: Enable traces (default: true)
+        OTEL_SERVICE_NAME: Service name (default: qwenvert)
+        OTEL_SERVICE_VERSION: Service version (default: 0.1.0)
+        OTEL_EXPORTER_CONSOLE: Enable console exporter (default: false)
+        OTEL_EXPORTER_OTLP_ENDPOINT: OTLP endpoint (enables OTLP if set)
+        OTEL_EXPORTER_PROMETHEUS: Enable Prometheus (default: false)
+        OTEL_EXPORTER_PROMETHEUS_PORT: Prometheus port (default: 9464)
+
+    Security:
+        OTLP endpoints are validated as localhost-only.
+        External endpoints raise ValueError.
+
+    Example:
+        Basic usage:
+            >>> import os
+            >>> os.environ["OTEL_SERVICE_NAME"] = "my-service"
+            >>> init_from_env()
+
+        Enable OTLP export:
+            >>> import os
+            >>> os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "localhost:4317"
+            >>> init_from_env()  # OTLP automatically enabled
+
+        Enable console debugging:
+            >>> import os
+            >>> os.environ["OTEL_EXPORTER_CONSOLE"] = "true"
+            >>> init_from_env()
+
+        Docker/Kubernetes deployment:
+            In docker-compose.yml:
+                environment:
+                  - OTEL_SERVICE_NAME=qwenvert
+                  - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+
+            In application:
+                >>> init_from_env()  # Reads from environment
     """
     service_name = os.getenv("OTEL_SERVICE_NAME", "qwenvert")
     service_version = os.getenv("OTEL_SERVICE_VERSION", "0.1.0")
