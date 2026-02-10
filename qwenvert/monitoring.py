@@ -256,9 +256,8 @@ class MetricsCollector:
         for proc in psutil.process_iter(["pid", "name", "memory_info"]):
             try:
                 name = proc.info["name"].lower()
-                mem_info = proc.info["memory_info"]
+                mem_info = proc.info.get("memory_info")
 
-                # Skip if memory info not available
                 if mem_info is None:
                     continue
 
