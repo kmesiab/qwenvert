@@ -331,7 +331,6 @@ def list_models(backend) -> None:
 
     registry = ModelRegistry()
     backend_filter = Backend(backend) if backend else None
-    registry.list_models(backend=backend_filter)
 
     _list_models_table(registry, backend_filter)
 
