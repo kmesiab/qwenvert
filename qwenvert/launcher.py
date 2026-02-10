@@ -335,6 +335,21 @@ class ServerLauncher:
 
     def _print_startup_success(self) -> None:
         """Print startup success message with instructions."""
+        adapter_url = f"http://{self.config.adapter_host}:{self.config.adapter_port}"
+        backend_url = self.config.backend_url
+        model_name = self.config.backend_model_id
+
+        print("\n" + "=" * 70)
+        print("🚀 Qwenvert is running!")
+        print("=" * 70)
+        print(f"\n📡 Adapter:  {adapter_url}")
+        print(f"🔧 Backend:  {backend_url}")
+        print(f"🤖 Model:    {model_name}")
+        print("\n💡 Configure Claude Code:")
+        print(f"   export ANTHROPIC_BASE_URL={adapter_url}")
+        print(f"   export ANTHROPIC_API_KEY=local-qwen")
+        print(f"   export ANTHROPIC_MODEL=qwenvert-default")
+        print("\n" + "=" * 70 + "\n")
 
     async def stop_all(self) -> None:
         """Stop all managed processes and shutdown telemetry."""
