@@ -177,12 +177,16 @@ class TestPrometheusExporterSecurity:
 
         reader = PrometheusMetricReader()
 
-        # PrometheusMetricReader doesn't have a server attribute
-        assert not hasattr(reader, "server")
-        assert not hasattr(reader, "http_server")
+        try:
+            # PrometheusMetricReader doesn't have a server attribute
+            assert not hasattr(reader, "server")
+            assert not hasattr(reader, "http_server")
 
-        # It only provides a collect() method for metrics
-        assert hasattr(reader, "collect")
+            # It only provides a collect() method for metrics
+            assert hasattr(reader, "collect")
+        finally:
+            # Clean up resources
+            reader.shutdown()
 
 
 class TestTelemetryLifecycle:
