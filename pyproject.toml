@@ -35,6 +35,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "pydantic>=2.9.0",
     "psutil>=5.9.0",
+    "huggingface-hub>=0.19.0",
     # OpenTelemetry
     "opentelemetry-api>=1.27.0",
     "opentelemetry-sdk>=1.27.0",
@@ -233,6 +234,7 @@ ignore = [
 ]
 "qwenvert/launcher.py" = [
     "ANN001",  # Signal handlers have standard signatures
+    "T201",    # print() is allowed for user-facing startup messages
 ]
 "qwenvert/models.py" = [
     "PLR0911", # Model selection logic has multiple returns

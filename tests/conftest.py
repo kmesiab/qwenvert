@@ -108,3 +108,20 @@ def temp_config_dir(tmp_path):
     config_dir = tmp_path / ".config" / "qwenvert"
     config_dir.mkdir(parents=True)
     return config_dir
+
+
+@pytest.fixture
+def mock_qwenvert_config(sample_model_7b_q4):
+    """Mock QwenvertConfig for testing."""
+    from qwenvert.config import QwenvertConfig
+
+    return QwenvertConfig(
+        backend="ollama",
+        backend_url="http://localhost:11434",
+        model_id=sample_model_7b_q4.id,
+        backend_model_id=sample_model_7b_q4.backend_model_id,
+        context_length=32768,
+        adapter_host="127.0.0.1",
+        adapter_port=8088,
+        thermal_pacing=False,
+    )
