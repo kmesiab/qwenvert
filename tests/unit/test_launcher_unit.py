@@ -6,9 +6,9 @@ Tests cover:
 - ProcessHandle lifecycle (start, stop, is_running)
 - Ollama backend launching and health checks
 - llama.cpp backend launching and health checks
-- Health check retry logic with exponential backoff
+- Health check retry logic (simple 1-second asyncio.sleep between attempts)
 - Graceful shutdown and force kill scenarios
-- PID file management
+- Adapter server lifecycle and FastAPI integration
 - Error handling and edge cases
 """
 
