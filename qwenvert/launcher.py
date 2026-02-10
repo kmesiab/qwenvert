@@ -28,13 +28,23 @@ logger = logging.getLogger(__name__)
 class ProcessHandle:
     """Handle for a managed process."""
 
-    def __init__(self, process: subprocess.Popen, name: str) -> None:
+    def __init__(
+        self, process: subprocess.Popen | None, name: str, unmanaged: bool = False
+    ) -> None:
         self.process = process
         self.name = name
-        self.pid = process.pid
+        self.pid = process.pid if process else None
+        self.unmanaged = unmanaged
+
+    @classmethod
+    def unmanaged(cls, name: str) -> "ProcessHandle":
+        """Create an unmanaged process handle for externally-running processes."""
+        return cls(process=None, name=name, unmanaged=True)
 
     def is_running(self) -> bool:
         """Check if process is still running."""
+        if self.unmanaged or self.process is None:
+            return False
         return self.process.poll() is None
 
     def terminate(self, timeout: int = 10) -> bool:
@@ -47,6 +57,9 @@ class ProcessHandle:
         Returns:
             True if terminated successfully
         """
+        if self.unmanaged or self.process is None:
+            return True
+
         if not self.is_running():
             return True
 
@@ -112,10 +125,8 @@ class ServerLauncher:
         # Check if server is already running
         if await self._check_health("http://localhost:11434"):
             logger.info("Ollama server already running")
-            # Return placeholder handle (we don't own this process)
-            return ProcessHandle(
-                subprocess.Popen(["echo"], stdout=subprocess.DEVNULL), "ollama-existing"
-            )
+            # Return unmanaged handle (we don't own this process)
+            return ProcessHandle.unmanaged("ollama-existing")
 
         # Start Ollama server
         process = subprocess.Popen(
@@ -165,20 +176,25 @@ class ServerLauncher:
         if not model:
             raise RuntimeError(f"Model {self.config.model_id} not found")
 
-        # Placeholder hardware (we don't have it here, but flags are mostly static)
-        from .hardware import HardwareProfile
+        # Detect actual hardware or use conservative fallback
+        from .hardware import HardwareDetector, HardwareProfile
 
-        hardware = HardwareProfile(
-            chip="M1",
-            chip_family="M1",
-            total_memory_gb=16,
-            gpu_cores=8,
-            cpu_cores_performance=4,
-            cpu_cores_efficiency=4,
-            has_active_cooling=True,
-            neural_engine_cores=16,
-            model_identifier="Unknown",
-        )
+        try:
+            hardware = HardwareDetector.detect()
+        except Exception as e:
+            logger.warning(f"Hardware detection failed: {e}, using conservative defaults")
+            # Conservative fallback for safety
+            hardware = HardwareProfile(
+                chip="Unknown",
+                chip_family="M1",
+                total_memory_gb=8,
+                gpu_cores=8,
+                cpu_cores_performance=4,
+                cpu_cores_efficiency=4,
+                has_active_cooling=False,
+                neural_engine_cores=16,
+                model_identifier="Unknown",
+            )
 
         config_gen = ConfigGenerator(model, hardware)
         flags = config_gen.generate_llamacpp_flags()
@@ -366,11 +382,11 @@ async def start_qwenvert() -> None:
     launcher = ServerLauncher(config)
 
     # Setup signal handlers for graceful shutdown
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def handle_shutdown(signum, frame) -> None:
-        asyncio.create_task(launcher.stop_all())
-        loop.stop()
+        # Schedule shutdown coroutine in a thread-safe way
+        asyncio.run_coroutine_threadsafe(launcher.stop_all(), loop)
 
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
@@ -384,7 +400,7 @@ async def start_qwenvert() -> None:
             await asyncio.sleep(1)
 
     except KeyboardInterrupt:
-        pass
+        await launcher.stop_all()
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
         await launcher.stop_all()

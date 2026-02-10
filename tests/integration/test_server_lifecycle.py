@@ -140,19 +140,7 @@ class TestServerLauncher:
                 mock_process.poll.return_value = None
                 mock_popen.return_value = mock_process
 
-                # Mock _wait_for_health to simulate retries
-                call_count = 0
-
-                async def mock_wait_with_retries(url, timeout=30):
-                    nonlocal call_count
-                    # Simulate 2 failed checks, then success
-                    call_count += 1
-                    if call_count >= 3:
-                        return True
-                    await asyncio.sleep(0.01)  # Small delay
-                    return not call_count < 3
-
-                # Mock the checks
+                # Mock the checks - simpler approach without custom retry logic
                 with patch.object(launcher, "_check_health", return_value=False):
                     with patch.object(launcher, "_wait_for_health", return_value=True):
                         with patch.object(
@@ -177,24 +165,24 @@ class TestServerLauncher:
             adapter_port=8088,
         )
 
-        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
-            mock_process = MagicMock()
-            mock_process.pid = 12348
-            mock_process.returncode = None
-            mock_subprocess.return_value = mock_process
+        with patch("shutil.which") as mock_which:
+            mock_which.return_value = "/usr/local/bin/ollama"
 
-            launcher = ServerLauncher(config=config)
+            with patch("subprocess.Popen") as mock_popen:
+                mock_process = MagicMock()
+                mock_process.pid = 12348
+                mock_process.returncode = None
+                mock_process.poll.return_value = None
+                mock_popen.return_value = mock_process
 
-            # Mock health check always failing
-            with (
-                patch(
-                    "httpx.AsyncClient.get",
-                    side_effect=httpx.ConnectError("Connection refused"),
-                ),
-                pytest.raises((TimeoutError, RuntimeError, Exception)),
-            ):
-                # Should timeout after max retries
-                await launcher.start_backend()
+                launcher = ServerLauncher(config=config)
+
+                # Mock health check always failing and wait returning False
+                with patch.object(launcher, "_check_health", return_value=False):
+                    with patch.object(launcher, "_wait_for_health", return_value=False):
+                        with pytest.raises(RuntimeError, match="failed to start"):
+                            # Should raise RuntimeError when health check times out
+                            await launcher.start_backend()
 
     @pytest.mark.asyncio
     async def test_graceful_shutdown(self, sample_model_7b_q4):

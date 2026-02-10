@@ -93,7 +93,7 @@ class TestOllamaE2E:
         self, ollama_backend_url, check_ollama_available
     ):
         """Test Ollama server is running and responsive."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available or qwen model not installed")
 
         async with httpx.AsyncClient() as client:
@@ -108,7 +108,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test BackendRouter with real Ollama backend."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         router = BackendRouter(
@@ -128,9 +128,7 @@ class TestOllamaE2E:
             max_tokens=20,
         )
 
-        start_time = time.time()
         response = await router.generate(request)
-        time.time() - start_time
 
         # Validate response structure
         assert response.type == "message"
@@ -151,7 +149,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test streaming with real Ollama backend."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         router = BackendRouter(
@@ -194,7 +192,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test complete adapter stack with Ollama backend."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         # Create adapter app with backend router
@@ -251,7 +249,7 @@ class TestOllamaE2E:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test adapter streaming endpoint with Ollama."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         app = create_app()
@@ -347,7 +345,7 @@ class TestClaudeCodeCompatibility:
     @pytest.mark.asyncio
     async def test_environment_variable_setup(self, check_ollama_available):
         """Test that environment variables work correctly."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         # Simulate Claude Code environment
@@ -369,7 +367,7 @@ class TestPerformance:
         self, qwen_model_ollama, ollama_backend_url, check_ollama_available
     ):
         """Test that response time is acceptable (<5s for 50 tokens)."""
-        if not await check_ollama_available:
+        if not check_ollama_available:
             pytest.skip("Ollama not available")
 
         router = BackendRouter(
