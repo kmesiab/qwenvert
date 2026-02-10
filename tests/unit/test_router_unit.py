@@ -197,18 +197,28 @@ class TestStreamingGeneration:
         """Test Ollama streaming generation."""
         router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
 
-        async def mock_stream():
-            """Mock streaming response."""
-            yield b'{"message":{"content":"Hello"},"done":false}\n'
-            yield b'{"message":{"content":" world"},"done":false}\n'
-            yield b'{"message":{"content":"!"},"done":true,"prompt_eval_count":10,"eval_count":3}\n'
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.aiter_lines = mock_stream
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Hello"},"done":false}'
+                yield '{"message":{"content":" world"},"done":false}'
+                yield '{"message":{"content":"!"},"done":true,"prompt_eval_count":10,"eval_count":3}'
 
-        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value = mock_response
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
 
             chunks = []
             async for chunk in router.generate_stream(sample_request):
@@ -310,8 +320,8 @@ class TestRequestTransformation:
                 Message(
                     role="user",
                     content=[
-                        ContentBlock(type="text", text="First part"),
-                        ContentBlock(type="text", text="Second part"),
+                        {"type": "text", "text": "First part"},
+                        {"type": "text", "text": "Second part"},
                     ]
                 )
             ],
@@ -336,3 +346,682 @@ class TestRequestTransformation:
 
             assert response.role == "assistant"
             mock_post.assert_called_once()
+
+
+class TestRouterClose:
+    """Test router cleanup."""
+
+    @pytest.mark.asyncio
+    async def test_close_client(self, ollama_model):
+        """Test that close properly closes the HTTP client."""
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        with patch.object(router.client, "aclose", new_callable=AsyncMock) as mock_close:
+            await router.close()
+            mock_close.assert_called_once()
+
+
+class TestOllamaParameterMapping:
+    """Test Ollama parameter mapping."""
+
+    @pytest.mark.asyncio
+    async def test_temperature_parameter(self, ollama_model):
+        """Test temperature parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            temperature=0.7,
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "Response"},
+            "done": True,
+            "prompt_eval_count": 5,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert "options" in request_json
+            assert request_json["options"]["temperature"] == 0.7
+
+    @pytest.mark.asyncio
+    async def test_top_p_parameter(self, ollama_model):
+        """Test top_p parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            top_p=0.9,
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "Response"},
+            "done": True,
+            "prompt_eval_count": 5,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert request_json["options"]["top_p"] == 0.9
+
+    @pytest.mark.asyncio
+    async def test_top_k_parameter(self, ollama_model):
+        """Test top_k parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            top_k=40,
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "Response"},
+            "done": True,
+            "prompt_eval_count": 5,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert request_json["options"]["top_k"] == 40
+
+    @pytest.mark.asyncio
+    async def test_stop_sequences_parameter(self, ollama_model):
+        """Test stop_sequences parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            stop_sequences=["###", "STOP"],
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "Response"},
+            "done": True,
+            "prompt_eval_count": 5,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert request_json["options"]["stop"] == ["###", "STOP"]
+
+
+class TestLlamaCppParameterMapping:
+    """Test llama.cpp parameter mapping."""
+
+    @pytest.mark.asyncio
+    async def test_temperature_parameter(self, llamacpp_model):
+        """Test temperature parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            temperature=0.7,
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert request_json["temperature"] == 0.7
+
+    @pytest.mark.asyncio
+    async def test_top_p_parameter(self, llamacpp_model):
+        """Test top_p parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            top_p=0.9,
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert request_json["top_p"] == 0.9
+
+    @pytest.mark.asyncio
+    async def test_top_k_parameter(self, llamacpp_model):
+        """Test top_k parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            top_k=40,
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert request_json["top_k"] == 40
+
+    @pytest.mark.asyncio
+    async def test_stop_sequences_parameter(self, llamacpp_model):
+        """Test stop_sequences parameter is properly mapped."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            stop_sequences=["###", "STOP"],
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            await router.generate(request)
+
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            assert request_json["stop"] == ["###", "STOP"]
+
+
+class TestOllamaStopReasons:
+    """Test Ollama stop reason mapping."""
+
+    @pytest.mark.asyncio
+    async def test_stop_reason_end_turn(self, ollama_model, sample_request):
+        """Test stop reason mapping for normal completion."""
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "Response"},
+            "done": True,
+            "done_reason": "stop",
+            "prompt_eval_count": 5,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(sample_request)
+            assert response.stop_reason == "end_turn"
+
+    @pytest.mark.asyncio
+    async def test_stop_reason_max_tokens(self, ollama_model, sample_request):
+        """Test stop reason mapping for length limit."""
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "Response"},
+            "done": True,
+            "done_reason": "length",
+            "prompt_eval_count": 5,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(sample_request)
+            assert response.stop_reason == "max_tokens"
+
+
+class TestLlamaCppStopReasons:
+    """Test llama.cpp stop reason mapping."""
+
+    @pytest.mark.asyncio
+    async def test_stop_reason_max_tokens(self, llamacpp_model, sample_request):
+        """Test stop reason for max tokens."""
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "stopped_limit": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(sample_request)
+            assert response.stop_reason == "max_tokens"
+
+    @pytest.mark.asyncio
+    async def test_stop_reason_stop_sequence(self, llamacpp_model, sample_request):
+        """Test stop reason for stop sequence."""
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "stopped_word": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(sample_request)
+            assert response.stop_reason == "stop_sequence"
+
+    @pytest.mark.asyncio
+    async def test_stop_reason_end_turn(self, llamacpp_model, sample_request):
+        """Test stop reason for normal completion."""
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": False,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(sample_request)
+            assert response.stop_reason == "end_turn"
+
+
+class TestOllamaStreaming:
+    """Test Ollama streaming functionality."""
+
+    @pytest.mark.asyncio
+    async def test_stream_with_parameters(self, ollama_model):
+        """Test Ollama streaming with all parameters."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            temperature=0.7,
+            top_p=0.9,
+            top_k=40,
+            stop_sequences=["###"],
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        # Mock streaming response
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Hello"},"done":false}'
+                yield '{"message":{"content":" world"},"done":false}'
+                yield '{"message":{"content":"!"},"done":true,"prompt_eval_count":10,"eval_count":3}'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            assert len(chunks) > 0
+            # Should have content deltas and message stop
+            has_delta = any(c.get("type") == "content_block_delta" for c in chunks)
+            has_stop = any(c.get("type") == "message_stop" for c in chunks)
+            assert has_delta or has_stop
+
+    @pytest.mark.asyncio
+    async def test_stream_with_system_message(self, ollama_model):
+        """Test Ollama streaming with system message."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            system="You are a helpful assistant.",
+            max_tokens=100,
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Response"},"done":true,"prompt_eval_count":10,"eval_count":3}'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            assert len(chunks) > 0
+
+
+class TestLlamaCppStreaming:
+    """Test llama.cpp streaming functionality."""
+
+    @pytest.mark.asyncio
+    async def test_stream_with_parameters(self, llamacpp_model):
+        """Test llama.cpp streaming with all parameters."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            temperature=0.7,
+            top_p=0.9,
+            top_k=40,
+            stop_sequences=["###"],
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello"}'
+                yield 'data: {"content":" world"}'
+                yield 'data: [DONE]'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            assert len(chunks) > 0
+            has_delta = any(c.get("type") == "content_block_delta" for c in chunks)
+            has_stop = any(c.get("type") == "message_stop" for c in chunks)
+            assert has_delta or has_stop
+
+    @pytest.mark.asyncio
+    async def test_stream_unknown_backend(self, ollama_model):
+        """Test streaming with unknown backend."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+        router.model.backend = "invalid_backend"
+
+        with pytest.raises(NotImplementedError):
+            async for _ in router.generate_stream(request):
+                pass
+
+
+class TestMessageTransformation:
+    """Test message transformation logic."""
+
+    @pytest.mark.asyncio
+    async def test_multi_turn_conversation_ollama(self, ollama_model):
+        """Test multi-turn conversation with Ollama."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[
+                Message(role="user", content="Hello"),
+                Message(role="assistant", content="Hi there!"),
+                Message(role="user", content="How are you?"),
+            ],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "I'm doing well!"},
+            "done": True,
+            "prompt_eval_count": 15,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(request)
+            assert response.role == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_multi_turn_conversation_llamacpp(self, llamacpp_model):
+        """Test multi-turn conversation with llama.cpp."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[
+                Message(role="user", content="Hello"),
+                Message(role="assistant", content="Hi there!"),
+                Message(role="user", content="How are you?"),
+            ],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "I'm doing well!",
+            "stop": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 15,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(request)
+            assert response.role == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_system_message_llamacpp(self, llamacpp_model):
+        """Test system message formatting with llama.cpp."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            system="You are a helpful assistant.",
+            max_tokens=100,
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 10,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(request)
+
+            # Verify system message was included in prompt
+            call_kwargs = mock_post.call_args.kwargs
+            request_json = call_kwargs.get("json", {})
+            prompt = request_json.get("prompt", "")
+            assert "system" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_content_blocks_ollama(self, ollama_model):
+        """Test content block extraction for Ollama."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[
+                Message(
+                    role="user",
+                    content=[
+                        {"type": "text", "text": "Part 1"},
+                        {"type": "text", "text": "Part 2"},
+                    ]
+                )
+            ],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "message": {"role": "assistant", "content": "Response"},
+            "done": True,
+            "prompt_eval_count": 10,
+            "eval_count": 5,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(request)
+            assert response.role == "assistant"
+
+    @pytest.mark.asyncio
+    async def test_content_blocks_llamacpp(self, llamacpp_model):
+        """Test content block extraction for llama.cpp."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[
+                Message(
+                    role="user",
+                    content=[
+                        {"type": "text", "text": "Part 1"},
+                        {"type": "text", "text": "Part 2"},
+                    ]
+                )
+            ],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(model=llamacpp_model, backend_url="http://localhost:8080")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "content": "Response",
+            "stop": True,
+            "tokens_predicted": 5,
+            "tokens_evaluated": 10,
+        }
+
+        with patch.object(router.client, "post", new_callable=AsyncMock) as mock_post:
+            mock_post.return_value = mock_response
+            response = await router.generate(request)
+            assert response.role == "assistant"
