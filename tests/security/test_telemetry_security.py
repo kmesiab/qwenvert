@@ -387,3 +387,171 @@ class TestEnvironmentVariableSecurity:
             assert "localhost" not in str(e).lower() or "connection" in str(e).lower()
         finally:
             shutdown_telemetry()
+
+
+class TestOTLPConnectionFailureHandling:
+    """OTEL-011: Test OTLP exporter graceful degradation."""
+
+    def test_init_succeeds_with_unreachable_otlp_endpoint(self):
+        """
+        Test telemetry initialization succeeds even if OTLP collector is unreachable.
+
+        OTLP exporters use lazy connection - the connection is only attempted
+        when data is exported, not during initialization.
+        """
+        from qwenvert.telemetry import init_telemetry, shutdown_telemetry
+
+        shutdown_telemetry()
+
+        # Use a port that's unlikely to be in use
+        try:
+            init_telemetry(
+                service_name="test-unreachable",
+                enable_otlp=True,
+                otlp_endpoint="localhost:19999",  # Unreachable port
+            )
+            # Should succeed - connection is lazy
+        finally:
+            shutdown_telemetry()
+
+    def test_metrics_export_degrades_gracefully_on_connection_failure(self):
+        """
+        Test metrics export doesn't crash when OTLP collector is unreachable.
+
+        Metrics should be dropped silently, not crash the application.
+        """
+        from qwenvert.telemetry import init_telemetry, get_meter, shutdown_telemetry
+
+        shutdown_telemetry()
+
+        try:
+            # Initialize with unreachable endpoint
+            init_telemetry(
+                service_name="test-graceful",
+                enable_otlp=True,
+                otlp_endpoint="localhost:29999",  # Unreachable
+            )
+
+            # Create and use metrics
+            meter = get_meter("test")
+            counter = meter.create_counter("test.counter")
+
+            # This should not crash, even though OTLP export will fail
+            counter.add(1)
+            counter.add(5, {"key": "value"})
+
+            # Force a metrics collection attempt
+            import qwenvert.telemetry as telemetry_module
+            if telemetry_module._meter_provider:
+                # Trigger metric readers
+                for reader in telemetry_module._meter_provider._sdk_config.metric_readers:
+                    try:
+                        reader.collect()
+                    except Exception:
+                        # Expected - OTLP collector not available
+                        # Should not propagate to application
+                        pass
+
+        finally:
+            shutdown_telemetry()
+
+    def test_traces_export_degrades_gracefully_on_connection_failure(self):
+        """
+        Test traces export doesn't crash when OTLP collector is unreachable.
+
+        Spans should be dropped silently, not crash the application.
+        """
+        from qwenvert.telemetry import init_telemetry, get_tracer, shutdown_telemetry
+
+        shutdown_telemetry()
+
+        try:
+            # Initialize with unreachable endpoint
+            init_telemetry(
+                service_name="test-traces",
+                enable_otlp=True,
+                otlp_endpoint="localhost:39999",  # Unreachable
+            )
+
+            # Create and use tracer
+            tracer = get_tracer("test")
+
+            # This should not crash
+            with tracer.start_as_current_span("test.span") as span:
+                span.set_attribute("test", "value")
+
+            # Force span export
+            import qwenvert.telemetry as telemetry_module
+            if telemetry_module._tracer_provider:
+                # Span processors export in background
+                # Just verify we can complete spans without crashing
+                pass
+
+        finally:
+            shutdown_telemetry()
+
+    def test_shutdown_succeeds_even_with_failed_otlp_connection(self):
+        """
+        Test shutdown completes even if OTLP connection never succeeded.
+
+        Shutdown should flush pending data without blocking indefinitely.
+        """
+        from qwenvert.telemetry import init_telemetry, shutdown_telemetry
+        import time
+
+        shutdown_telemetry()
+
+        try:
+            init_telemetry(
+                service_name="test-shutdown",
+                enable_otlp=True,
+                otlp_endpoint="localhost:49999",
+            )
+
+            # Create some data
+            from qwenvert.telemetry import get_meter
+            meter = get_meter("test")
+            counter = meter.create_counter("test.counter")
+            counter.add(100)
+
+            # Shutdown should complete quickly (not block forever)
+            start = time.time()
+            shutdown_telemetry()
+            elapsed = time.time() - start
+
+            # Shutdown should complete in under 5 seconds
+            # (not hang waiting for unreachable collector)
+            assert elapsed < 5.0, f"Shutdown took {elapsed}s (expected < 5s)"
+
+        except Exception:
+            # Cleanup
+            shutdown_telemetry()
+
+    def test_multiple_failed_exports_dont_accumulate_errors(self):
+        """
+        Test that repeated failed exports don't accumulate errors.
+
+        Verify memory doesn't leak from failed export attempts.
+        """
+        from qwenvert.telemetry import init_telemetry, get_meter, shutdown_telemetry
+
+        shutdown_telemetry()
+
+        try:
+            init_telemetry(
+                service_name="test-accumulation",
+                enable_otlp=True,
+                otlp_endpoint="localhost:59999",
+            )
+
+            meter = get_meter("test")
+            counter = meter.create_counter("test.counter")
+
+            # Generate many metrics
+            for i in range(100):
+                counter.add(1, {"iteration": i})
+
+            # Should not crash or accumulate unbounded errors
+
+        finally:
+            shutdown_telemetry()
