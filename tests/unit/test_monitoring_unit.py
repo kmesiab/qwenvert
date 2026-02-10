@@ -7,7 +7,7 @@ Tests MetricsCollector, RequestMetrics, SystemMetrics, and PerformanceStats.
 import asyncio
 import contextlib
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -28,7 +28,7 @@ class TestDataClasses:
     def test_request_metrics_creation(self):
         """Test RequestMetrics dataclass."""
         metric = RequestMetrics(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
             model="qwen2.5:7b",
             tokens_generated=100,
             latency_ms=250.5,
@@ -95,7 +95,7 @@ class TestMetricsCollectorInit:
         # Add 5 metrics, only last 3 should remain
         for i in range(5):
             metric = RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model=f"model-{i}",
                 tokens_generated=100,
                 latency_ms=100.0,
@@ -387,7 +387,7 @@ class TestRequestMetrics:
         collector = MetricsCollector()
 
         metric = RequestMetrics(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
             model="qwen2.5:7b",
             tokens_generated=100,
             latency_ms=250.5,
@@ -421,7 +421,7 @@ class TestRequestMetrics:
         # Add successful requests
         for i in range(3):
             metric = RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model="qwen2.5:7b",
                 tokens_generated=100,
                 latency_ms=200.0 + i * 50,  # 200, 250, 300
@@ -433,7 +433,7 @@ class TestRequestMetrics:
 
         # Add failed request
         failed_metric = RequestMetrics(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
             model="qwen2.5:7b",
             tokens_generated=0,
             latency_ms=100.0,
@@ -459,7 +459,7 @@ class TestRequestMetrics:
         collector = MetricsCollector()
 
         metric = RequestMetrics(
-            timestamp=datetime.now(),
+            timestamp=datetime.now(tz=timezone.utc),
             model="qwen2.5:7b",
             tokens_generated=0,
             latency_ms=100.0,
@@ -480,7 +480,7 @@ class TestRequestMetrics:
         # Add 15 requests
         for i in range(15):
             metric = RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model=f"model-{i}",
                 tokens_generated=100,
                 latency_ms=200.0,
@@ -504,7 +504,7 @@ class TestRequestMetrics:
         # Add only 3 requests
         for i in range(3):
             metric = RequestMetrics(
-                timestamp=datetime.now(),
+                timestamp=datetime.now(tz=timezone.utc),
                 model=f"model-{i}",
                 tokens_generated=100,
                 latency_ms=200.0,
@@ -560,7 +560,7 @@ class TestMonitorLoop:
             call_count += 1
             if call_count == 1:
                 msg = "Test error"
-                raise Exception(msg)
+                raise RuntimeError(msg)
             return SystemMetrics(
                 memory_used_gb=8.0,
                 memory_total_gb=16.0,
