@@ -266,7 +266,7 @@ class TestStartOllama:
                 await launcher._start_ollama()
 
     @pytest.mark.asyncio
-    async def test_start_ollama_already_running(self, ollama_config, mock_process):
+    async def test_start_ollama_already_running(self, ollama_config):
         """Test when Ollama server is already running."""
         launcher = ServerLauncher(ollama_config)
 
@@ -276,15 +276,12 @@ class TestStartOllama:
             ) as mock_health:
                 mock_health.return_value = True
 
-                with patch("qwenvert.launcher.subprocess.Popen") as mock_popen:
-                    mock_popen.return_value = mock_process
+                # When already running, should return unmanaged handle
+                handle = await launcher._start_ollama()
 
-                    handle = await launcher._start_ollama()
-
-                    assert handle.name == "ollama-existing"
-                    mock_popen.assert_called_once_with(
-                        ["echo"], stdout=subprocess.DEVNULL
-                    )
+                assert handle.name == "ollama-existing"
+                assert handle.pid is None  # Unmanaged handle has no PID
+                mock_health.assert_called_once_with("http://localhost:11434")
 
     @pytest.mark.asyncio
     async def test_start_ollama_success(self, ollama_config, mock_process):
@@ -440,7 +437,21 @@ class TestStartLlamaCpp:
                     ]
                     mock_config_gen_cls.return_value = mock_config_gen
 
-                    with patch("qwenvert.hardware.HardwareProfile"):
+                    # Mock hardware detection to prevent subprocess call
+                    with patch("qwenvert.hardware.HardwareDetector.detect") as mock_detect:
+                        from qwenvert.hardware import HardwareProfile
+                        mock_detect.return_value = HardwareProfile(
+                            chip="Apple M1",
+                            chip_family="M1",
+                            total_memory_gb=16,
+                            gpu_cores=8,
+                            cpu_cores_performance=4,
+                            cpu_cores_efficiency=4,
+                            has_active_cooling=False,
+                            neural_engine_cores=16,
+                            model_identifier="MacBookPro18,1",
+                        )
+
                         with patch.object(
                             launcher, "_wait_for_health", new_callable=AsyncMock
                         ) as mock_wait:
