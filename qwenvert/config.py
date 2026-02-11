@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import yaml
 
 from .models import Backend, Model
+from .security import validate_adapter_host, validate_localhost_url
 
 
 if TYPE_CHECKING:
@@ -55,6 +56,19 @@ class QwenvertConfig:
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / "config.yaml"
 
+    def validate(self) -> None:
+        """
+        Validate configuration for security.
+
+        Raises:
+            SecurityValidationError: If configuration violates security requirements
+        """
+        # Validate adapter host is localhost-only
+        validate_adapter_host(self.adapter_host)
+
+        # Validate backend URL is localhost-only
+        validate_localhost_url(self.backend_url)
+
     def save(self, path: Path | None = None) -> Path:
         """
         Save configuration to YAML file.
@@ -88,6 +102,7 @@ class QwenvertConfig:
 
         Raises:
             FileNotFoundError: If config file doesn't exist
+            SecurityValidationError: If config violates security requirements
         """
         if path is None:
             path = cls.default_config_path()
@@ -95,7 +110,12 @@ class QwenvertConfig:
         with open(path) as f:
             data = yaml.safe_load(f)
 
-        return cls(**data)
+        config = cls(**data)
+
+        # SECURITY: Validate loaded config
+        config.validate()
+
+        return config
 
 
 class ConfigGenerator:

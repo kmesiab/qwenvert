@@ -21,6 +21,7 @@ from .adapter import (
     Usage,
 )
 from .models import Backend, Model
+from .security import validate_localhost_url
 
 
 if TYPE_CHECKING:
@@ -46,7 +47,14 @@ class BackendRouter:
         Args:
             model: Model configuration
             backend_url: Base URL for backend server (e.g., http://localhost:11434)
+
+        Raises:
+            SecurityValidationError: If backend_url is not localhost
         """
+        # SECURITY: Validate backend URL is localhost-only
+        validate_localhost_url(backend_url)
+        logger.info(f"Router initialized with validated backend: {backend_url}")
+
         self.model = model
         self.backend_url = backend_url.rstrip("/")
         self.client = httpx.AsyncClient(
