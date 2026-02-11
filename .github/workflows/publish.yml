@@ -14,9 +14,12 @@ on:
 jobs:
   build-and-publish:
     runs-on: macos-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/qwenvert/
     permissions:
       contents: read
-      id-token: write  # For trusted publishing
+      id-token: write  # REQUIRED: For trusted publishing (OIDC)
 
     steps:
       - name: Checkout code
@@ -65,21 +68,16 @@ jobs:
 
       - name: Publish to TestPyPI
         if: inputs.test_pypi == true
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-        run: |
-          python -m twine upload --repository testpypi dist/*
-          echo "✅ Published to TestPyPI: https://test.pypi.org/project/qwenvert/"
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
 
       - name: Publish to PyPI
         if: github.event_name == 'release' && inputs.test_pypi != true
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: |
-          python -m twine upload dist/*
-          echo "✅ Published to PyPI: https://pypi.org/project/qwenvert/"
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
 
       - name: Upload artifacts to release
         if: github.event_name == 'release'
@@ -91,8 +89,9 @@ jobs:
       - name: Verify installation
         if: github.event_name == 'release'
         run: |
-          # Wait for PyPI to update
-          sleep 60
+          # Wait for PyPI CDN to update
+          echo "⏳ Waiting 90 seconds for PyPI to propagate..."
+          sleep 90
 
           # Test installation in clean environment
           python -m venv test_env

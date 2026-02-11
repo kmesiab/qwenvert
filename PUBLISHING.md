@@ -7,20 +7,21 @@ This guide covers publishing qwenvert to PyPI and Homebrew so users can install 
 ## Prerequisites
 
 ### PyPI Account Setup
-1. Create accounts on:
-   - [PyPI](https://pypi.org/account/register/) (production)
-   - [TestPyPI](https://test.pypi.org/account/register/) (testing)
 
-2. Set up 2FA (required for PyPI)
+**Option 1: OIDC Trusted Publisher (Recommended)**
 
-3. Create API tokens:
-   - PyPI: https://pypi.org/manage/account/token/
-   - TestPyPI: https://test.pypi.org/manage/account/token/
+No API tokens needed! PyPI trusts GitHub Actions directly.
 
-4. Add tokens to GitHub Secrets:
-   - Go to: https://github.com/kmesiab/qwenvert/settings/secrets/actions
-   - Add: `PYPI_API_TOKEN` (for production releases)
-   - Add: `TEST_PYPI_API_TOKEN` (for test releases)
+1. Create PyPI account: https://pypi.org/account/register/
+2. Set up 2FA (required)
+3. Follow the **[PYPI_OIDC_SETUP.md](PYPI_OIDC_SETUP.md)** guide
+
+**Option 2: API Tokens (Fallback)**
+
+Only needed for TestPyPI or manual publishing.
+
+1. Get TestPyPI token: https://test.pypi.org/manage/account/token/
+2. Add to GitHub Secrets: `TEST_PYPI_API_TOKEN`
 
 ### Required Tools
 ```bash
@@ -33,31 +34,32 @@ brew install gh
 
 ## Publishing to PyPI
 
-### Option 1: Automated (Recommended)
-The GitHub Actions workflow automatically publishes when you create a release:
+### Option 1: Automated with OIDC (Recommended)
+
+**First time only:** Configure PyPI trusted publisher (see [PYPI_OIDC_SETUP.md](PYPI_OIDC_SETUP.md))
+
+Then for every release:
 
 ```bash
 # 1. Update version in pyproject.toml
 vim pyproject.toml  # Change version = "0.1.0" to "0.1.1"
 
-# 2. Commit and tag
-git add pyproject.toml
-git commit -m "Bump version to 0.1.1"
-git tag v0.1.1
-git push origin main --tags
+# 2. Create release
+make release
 
-# 3. Create GitHub release (triggers PyPI publish)
-gh release create v0.1.1 \
-  --title "qwenvert v0.1.1" \
-  --notes "Release notes here" \
-  --draft  # Remove --draft when ready to publish
+# This will:
+#   - Create git tag
+#   - Create GitHub release (draft)
+#   - You review and publish the release
+#   - Workflow automatically publishes to PyPI (no tokens needed!)
 ```
 
 The workflow will:
 - Run all tests
 - Build the package
-- Publish to PyPI
+- Publish to PyPI via OIDC (secure, no tokens!)
 - Create release artifacts
+- Verify installation
 
 ### Option 2: Manual Publishing
 For testing or one-off releases:

@@ -2,29 +2,34 @@
 
 ## 🚀 Fast Track to PyPI
 
-### One-Time Setup (5 minutes)
+### One-Time Setup (3 minutes)
 
-1. **Create PyPI accounts:**
+**No API tokens needed with OIDC!**
+
+1. **Create PyPI account:**
    - https://pypi.org/account/register/
-   - https://test.pypi.org/account/register/
+   - Enable 2FA (required)
 
-2. **Generate API tokens:**
-   - PyPI: https://pypi.org/manage/account/token/
-   - TestPyPI: https://test.pypi.org/manage/account/token/
+2. **Create GitHub environment:**
+   - Go to: https://github.com/kmesiab/qwenvert/settings/environments
+   - Create environment named: `pypi`
 
-3. **Add tokens to GitHub:**
-   ```bash
-   # Go to: https://github.com/kmesiab/qwenvert/settings/secrets/actions
-   # Add secrets:
-   #   PYPI_API_TOKEN
-   #   TEST_PYPI_API_TOKEN
-   ```
+3. **Configure PyPI Trusted Publisher:**
+   - Go to: https://pypi.org/manage/account/publishing/
+   - Add pending publisher:
+     - Project: `qwenvert`
+     - Owner: `kmesiab`
+     - Repo: `qwenvert`
+     - Workflow: `publish.yml`
+     - Environment: `pypi`
 
 4. **Install tools:**
    ```bash
    pip install build twine
    brew install gh  # GitHub CLI
    ```
+
+See [PYPI_OIDC_SETUP.md](PYPI_OIDC_SETUP.md) for detailed instructions.
 
 ### Publishing Your First Release
 
