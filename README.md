@@ -45,6 +45,25 @@ cd qwenvert
 pip install -e .
 ```
 
+> **macOS Users (Python 3.11+):** If you see an "externally-managed-environment" error, you have two options:
+>
+> **Option 1 (Recommended for development):**
+> ```bash
+> git clone https://github.com/kmesiab/qwenvert.git
+> cd qwenvert
+> make venv           # Creates .venv virtual environment
+> source .venv/bin/activate
+> make install-dev    # Installs qwenvert + dev dependencies
+> ```
+>
+> **Option 2 (Recommended for end users):**
+> ```bash
+> pipx install qwenvert  # Installs in isolated environment
+> # Install pipx first if needed: brew install pipx
+> ```
+>
+> This is due to [PEP 668](https://peps.python.org/pep-0668/) which protects system Python on modern macOS.
+
 ### 2. Setup (One Command)
 
 ```bash
@@ -449,6 +468,49 @@ export ANTHROPIC_MODEL=qwenvert-default
 # Save and reload
 source ~/.zshrc
 ```
+
+---
+
+### "externally-managed-environment" error on install
+
+**Problem:** `pip install` fails with error about externally managed environment
+
+**macOS Python 3.11+ Context:** Apple now protects system Python to prevent breaking macOS tools. This is [PEP 668](https://peps.python.org/pep-0668/) in action.
+
+**Solution 1 - Virtual Environment (Recommended for development):**
+```bash
+# Clone the repository
+git clone https://github.com/kmesiab/qwenvert.git
+cd qwenvert
+
+# Create and activate virtual environment
+make venv
+source .venv/bin/activate
+
+# Install
+make install-dev
+```
+
+**Solution 2 - pipx (Recommended for end users):**
+```bash
+# Install pipx if needed
+brew install pipx
+
+# Install qwenvert in isolated environment
+pipx install qwenvert
+```
+
+**Solution 3 - Disable protection (NOT recommended):**
+```bash
+# This breaks the system protection - avoid unless you know what you're doing
+pip install qwenvert --break-system-packages
+```
+
+**Why virtual environments?**
+- Isolated dependencies (won't conflict with other projects)
+- Easy to delete and recreate if something breaks
+- Standard Python best practice
+- Doesn't require disabling system protections
 
 ---
 

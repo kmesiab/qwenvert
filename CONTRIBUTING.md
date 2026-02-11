@@ -70,17 +70,43 @@ git remote add upstream https://github.com/kmesiab/qwenvert.git
 
 ### 2. Set Up Development Environment
 
+**macOS Python 3.11+ Users:** Modern macOS uses system-protected Python (PEP 668). Always use a virtual environment for development.
+
+#### Quick Setup (Recommended)
+
 ```bash
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+# Create and activate virtual environment
+make venv
+source .venv/bin/activate
 
-# Install in development mode
-pip install -e .
+# Install qwenvert in editable mode + dev dependencies
+make install-dev
 
-# Install development dependencies
-pip install pytest pytest-asyncio httpx black isort mypy
+# Verify installation
+qwenvert --version
 ```
+
+#### Manual Setup (Alternative)
+
+```bash
+# Create virtual environment manually
+python3 -m venv .venv
+source .venv/bin/activate  # macOS/Linux
+
+# Install development dependencies (includes qwenvert)
+pip install -e ".[dev]"
+```
+
+**Verify your environment:**
+```bash
+# Should show .venv Python, not system Python
+which python3
+
+# Should show "pip" from .venv
+which pip
+```
+
+**Note:** The virtual environment is gitignored (`.venv/` in `.gitignore`).
 
 ### 3. Create a Feature Branch
 
