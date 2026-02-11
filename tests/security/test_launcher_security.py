@@ -104,7 +104,7 @@ class TestLauncherBackendUrlValidation:
         mock_backend = MagicMock()
 
         # Mock model registry to return a valid model
-        from qwenvert.models import Backend, Model
+        from qwenvert.models import Model
 
         mock_model = Model(
             id="test",
@@ -135,9 +135,8 @@ class TestLauncherHealthCheckValidation:
     @pytest.mark.asyncio
     async def test_check_health_accepts_localhost(self, launcher):
         """Should accept localhost URL for health checks."""
-        # Should not raise
-        result = await launcher._check_health("http://localhost:11434/health")
-        # Result will be False since no server is running, but validation passed
+        # Should not raise - validation passes even though no server is running
+        await launcher._check_health("http://localhost:11434/health")
 
     @pytest.mark.asyncio
     async def test_check_health_rejects_external_url(self, launcher):

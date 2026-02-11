@@ -10,10 +10,6 @@ Enforces core security guarantees:
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 
 # Valid localhost patterns
@@ -34,8 +30,6 @@ FORBIDDEN_PATTERNS = [
 
 class SecurityValidationError(ValueError):
     """Raised when security validation fails."""
-
-    pass
 
 
 def is_localhost_url(url: str) -> bool:
@@ -90,11 +84,7 @@ def is_forbidden_host(host: str) -> bool:
         return False
 
     # Check forbidden patterns
-    for pattern in FORBIDDEN_PATTERNS:
-        if re.match(pattern, host):
-            return True
-
-    return False
+    return any(re.match(pattern, host) for pattern in FORBIDDEN_PATTERNS)
 
 
 def validate_localhost_url(url: str) -> None:
