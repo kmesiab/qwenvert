@@ -75,4 +75,4 @@ class TestCLIErrors:
         """Test version flag."""
         result = runner.invoke(cli, ["--version"])
         assert result.exit_code == 0
-        assert "0.1.0" in result.output or "version" in result.output.lower()
+        assert "0.2.1" in result.output or "version" in result.output.lower()
