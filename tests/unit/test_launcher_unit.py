@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from qwenvert.dependencies import DependencyError
 from qwenvert.config import QwenvertConfig
 from qwenvert.launcher import (
     ProcessHandle,
@@ -261,8 +262,15 @@ class TestStartOllama:
         """Test error when Ollama is not installed."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch("qwenvert.launcher.shutil.which", return_value=None):
-            with pytest.raises(RuntimeError, match="Ollama not found"):
+        with patch("qwenvert.launcher.check_ollama") as mock_check:
+            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+            mock_result = DependencyCheckResult(
+                name="Ollama",
+                status=DependencyStatus.MISSING,
+                error_message="Ollama is not installed",
+            )
+            mock_check.return_value = mock_result
+            with pytest.raises(DependencyError):
                 await launcher._start_ollama()
 
     @pytest.mark.asyncio
@@ -270,7 +278,14 @@ class TestStartOllama:
         """Test when Ollama server is already running."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
+        with patch("qwenvert.launcher.check_ollama") as mock_check:
+            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+            mock_result = DependencyCheckResult(
+                name="Ollama",
+                status=DependencyStatus.INSTALLED,
+                path="/usr/bin/ollama",
+            )
+            mock_check.return_value = mock_result
             with patch.object(
                 launcher, "_check_health", new_callable=AsyncMock
             ) as mock_health:
@@ -288,7 +303,14 @@ class TestStartOllama:
         """Test successfully starting Ollama server."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
+        with patch("qwenvert.launcher.check_ollama") as mock_check:
+            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+            mock_result = DependencyCheckResult(
+                name="Ollama",
+                status=DependencyStatus.INSTALLED,
+                path="/usr/bin/ollama",
+            )
+            mock_check.return_value = mock_result
             with patch.object(
                 launcher, "_check_health", new_callable=AsyncMock
             ) as mock_health:
@@ -321,7 +343,14 @@ class TestStartOllama:
         """Test Ollama startup failure due to health check timeout."""
         launcher = ServerLauncher(ollama_config)
 
-        with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
+        with patch("qwenvert.launcher.check_ollama") as mock_check:
+            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+            mock_result = DependencyCheckResult(
+                name="Ollama",
+                status=DependencyStatus.INSTALLED,
+                path="/usr/bin/ollama",
+            )
+            mock_check.return_value = mock_result
             with patch.object(
                 launcher, "_check_health", new_callable=AsyncMock
             ) as mock_health:
@@ -406,8 +435,15 @@ class TestStartLlamaCpp:
         """Test error when llama-server is not found."""
         launcher = ServerLauncher(llamacpp_config)
 
-        with patch("pathlib.Path.exists", return_value=False):
-            with pytest.raises(RuntimeError, match="llama-server not found"):
+        with patch("qwenvert.launcher.check_llamacpp") as mock_check:
+            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+            mock_result = DependencyCheckResult(
+                name="llama.cpp",
+                status=DependencyStatus.MISSING,
+                error_message="llama.cpp is not installed",
+            )
+            mock_check.return_value = mock_result
+            with pytest.raises(DependencyError):
                 await launcher._start_llamacpp()
 
     @pytest.mark.asyncio
@@ -417,8 +453,16 @@ class TestStartLlamaCpp:
         """Test successfully starting llama.cpp server."""
         launcher = ServerLauncher(llamacpp_config)
 
-        # Mock Path.exists to return True for llama-server path
-        with patch("pathlib.Path.exists", return_value=True):
+        with patch("qwenvert.launcher.check_llamacpp") as mock_check:
+            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+            mock_result = DependencyCheckResult(
+                name="llama.cpp",
+                status=DependencyStatus.INSTALLED,
+                path="/usr/local/bin/llama-server",
+            )
+            mock_check.return_value = mock_result
+            # Mock Path.exists to return True for llama-server path
+            with patch("pathlib.Path.exists", return_value=True):
             # Mock the imports that happen inside the method
             with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
                 mock_registry = MagicMock()
@@ -1150,7 +1194,14 @@ class TestEdgeCases:
         """Test switching between backends."""
         # First Ollama
         launcher1 = ServerLauncher(ollama_config)
-        with patch("qwenvert.launcher.shutil.which", return_value="/usr/bin/ollama"):
+        with patch("qwenvert.launcher.check_ollama") as mock_check:
+            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+            mock_result = DependencyCheckResult(
+                name="Ollama",
+                status=DependencyStatus.INSTALLED,
+                path="/usr/bin/ollama",
+            )
+            mock_check.return_value = mock_result
             with patch.object(
                 launcher1, "_check_health", new_callable=AsyncMock, return_value=False
             ):

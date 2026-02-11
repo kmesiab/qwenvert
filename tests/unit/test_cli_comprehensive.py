@@ -79,10 +79,15 @@ def mock_config():
 class TestInitCommand:
     """Test 'qwenvert init' command."""
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_auto_select_model(
-        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init command with automatic model selection."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         # Mock all the dependencies
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -135,10 +140,15 @@ class TestInitCommand:
                                     or "Detected" in result.output
                                 )
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_with_specified_model(
-        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init command with user-specified model."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
             mock_detector.detect.return_value = mock_hardware
@@ -179,7 +189,8 @@ class TestInitCommand:
                                 "qwen2.5-coder-7b-q4-ollama"
                             )
 
-    def test_init_model_not_found(self, runner, mock_hardware):
+    @patch("qwenvert.dependencies.check_backend_dependencies")
+    def test_init_model_not_found(self, mock_check_deps, runner, mock_hardware):
         """Test init with invalid model ID."""
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -197,10 +208,15 @@ class TestInitCommand:
                 assert result.exit_code == 1
                 assert "not found" in result.output or "Error" in result.output
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_model_insufficient_ram_user_declines(
-        self, runner, mock_hardware, mock_model, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_model, tmp_path
     ):
         """Test init when model doesn't fit hardware and user declines."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         # Make the model require more RAM than available
         large_model = Model(
             id="qwen2.5-coder-32b-q8-ollama",
@@ -234,7 +250,8 @@ class TestInitCommand:
                 assert result.exit_code == 1
                 assert "Warning" in result.output or "may not fit" in result.output
 
-    def test_init_no_compatible_model(self, runner, mock_hardware):
+    @patch("qwenvert.dependencies.check_backend_dependencies")
+    def test_init_no_compatible_model(self, mock_check_deps, runner, mock_hardware):
         """Test init when no compatible model found for hardware."""
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
@@ -260,10 +277,15 @@ class TestInitCommand:
                         or "Error" in result.output
                     )
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_model_download_needed(
-        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init when model needs to be downloaded."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
             mock_detector.detect.return_value = mock_hardware
@@ -316,10 +338,15 @@ class TestInitCommand:
                                     or "Downloading" in result.output
                                 )
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_model_no_huggingface_repo_user_continues(
-        self, runner, mock_hardware, mock_config, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_config, tmp_path
     ):
         """Test init when model has no HuggingFace repo but user continues."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         model_no_hf = Model(
             id="custom-model",
             display_name="Custom Model",
@@ -382,10 +409,15 @@ class TestInitCommand:
                                     or "manually download" in result.output
                                 )
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_download_error_user_continues(
-        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init when download fails but user continues."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
             mock_detector.detect.return_value = mock_hardware
@@ -437,10 +469,15 @@ class TestInitCommand:
                                     or "manually download" in result.output
                                 )
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_with_context_length(
-        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init with custom context length."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
             mock_detector.detect.return_value = mock_hardware
@@ -490,10 +527,15 @@ class TestInitCommand:
                                 # Verify context length was set
                                 assert mock_config.context_length == 65536
 
+    @patch("qwenvert.dependencies.check_backend_dependencies")
     def test_init_ollama_backend_generates_modelfile(
-        self, runner, mock_hardware, mock_model, mock_config, tmp_path
+        self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init with Ollama backend generates Modelfile."""
+        # Mock dependency check to pass
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check_deps.return_value = mock_result
         with patch("qwenvert.hardware.HardwareDetector") as mock_detector_cls:
             mock_detector = MagicMock()
             mock_detector.detect.return_value = mock_hardware
