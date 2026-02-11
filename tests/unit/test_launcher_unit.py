@@ -264,6 +264,7 @@ class TestStartOllama:
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
             from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.MISSING,
@@ -280,6 +281,7 @@ class TestStartOllama:
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
             from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,
@@ -305,6 +307,7 @@ class TestStartOllama:
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
             from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,
@@ -345,6 +348,7 @@ class TestStartOllama:
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
             from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,
@@ -437,6 +441,7 @@ class TestStartLlamaCpp:
 
         with patch("qwenvert.launcher.check_llamacpp") as mock_check:
             from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+
             mock_result = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.MISSING,
@@ -455,6 +460,7 @@ class TestStartLlamaCpp:
 
         with patch("qwenvert.launcher.check_llamacpp") as mock_check:
             from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+
             mock_result = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.INSTALLED,
@@ -463,46 +469,48 @@ class TestStartLlamaCpp:
             mock_check.return_value = mock_result
             # Mock Path.exists to return True for llama-server path
             with patch("pathlib.Path.exists", return_value=True):
-            # Mock the imports that happen inside the method
-            with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
-                mock_registry = MagicMock()
-                mock_registry.get_model.return_value = mock_model
-                mock_registry_cls.return_value = mock_registry
+                # Mock the imports that happen inside the method
+                with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
+                    mock_registry = MagicMock()
+                    mock_registry.get_model.return_value = mock_model
+                    mock_registry_cls.return_value = mock_registry
 
-                with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
-                    mock_config_gen = MagicMock()
-                    mock_config_gen.generate_llamacpp_flags.return_value = [
-                        "--model",
-                        "/path/to/model.gguf",
-                        "--host",
-                        "127.0.0.1",
-                        "--port",
-                        "8080",
-                    ]
-                    mock_config_gen_cls.return_value = mock_config_gen
-
-                    # Mock hardware detection to prevent subprocess call
                     with patch(
-                        "qwenvert.hardware.HardwareDetector.detect"
-                    ) as mock_detect:
-                        from qwenvert.hardware import HardwareProfile
+                        "qwenvert.config.ConfigGenerator"
+                    ) as mock_config_gen_cls:
+                        mock_config_gen = MagicMock()
+                        mock_config_gen.generate_llamacpp_flags.return_value = [
+                            "--model",
+                            "/path/to/model.gguf",
+                            "--host",
+                            "127.0.0.1",
+                            "--port",
+                            "8080",
+                        ]
+                        mock_config_gen_cls.return_value = mock_config_gen
 
-                        mock_detect.return_value = HardwareProfile(
-                            chip="Apple M1",
-                            chip_family="M1",
-                            total_memory_gb=16,
-                            gpu_cores=8,
-                            cpu_cores_performance=4,
-                            cpu_cores_efficiency=4,
-                            has_active_cooling=False,
-                            neural_engine_cores=16,
-                            model_identifier="MacBookPro18,1",
-                        )
+                        # Mock hardware detection to prevent subprocess call
+                        with patch(
+                            "qwenvert.hardware.HardwareDetector.detect"
+                        ) as mock_detect:
+                            from qwenvert.hardware import HardwareProfile
 
-                        with patch.object(
-                            launcher, "_wait_for_health", new_callable=AsyncMock
-                        ) as mock_wait:
-                            mock_wait.return_value = True
+                            mock_detect.return_value = HardwareProfile(
+                                chip="Apple M1",
+                                chip_family="M1",
+                                total_memory_gb=16,
+                                gpu_cores=8,
+                                cpu_cores_performance=4,
+                                cpu_cores_efficiency=4,
+                                has_active_cooling=False,
+                                neural_engine_cores=16,
+                                model_identifier="MacBookPro18,1",
+                            )
+
+                            with patch.object(
+                                launcher, "_wait_for_health", new_callable=AsyncMock
+                            ) as mock_wait:
+                                mock_wait.return_value = True
 
                             with patch(
                                 "qwenvert.launcher.subprocess.Popen"
@@ -1196,6 +1204,7 @@ class TestEdgeCases:
         launcher1 = ServerLauncher(ollama_config)
         with patch("qwenvert.launcher.check_ollama") as mock_check:
             from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
+
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,

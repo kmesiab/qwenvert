@@ -75,7 +75,9 @@ def init(model, backend, adapter_port, context_length) -> None:
 
         if not click.confirm("\nContinue with configuration anyway?", default=False):
             console.print("\n[yellow]Initialization cancelled.[/yellow]")
-            console.print(f"\n[dim]Tip: After installing {dep_check.name}, run 'qwenvert init' again.[/dim]")
+            console.print(
+                f"\n[dim]Tip: After installing {dep_check.name}, run 'qwenvert init' again.[/dim]"
+            )
             sys.exit(1)
 
         console.print("\n[yellow]Continuing without dependencies...[/yellow]\n")
@@ -215,7 +217,9 @@ def start() -> None:
         if isinstance(e, DependencyError):
             console.print("\n[red]Dependency Error:[/red]\n")
             console.print(format_missing_dependency_message(e.result))
-            console.print("[dim]Tip: After installing dependencies, run 'qwenvert start' again.[/dim]")
+            console.print(
+                "[dim]Tip: After installing dependencies, run 'qwenvert start' again.[/dim]"
+            )
             sys.exit(1)
 
         # For other errors, show the full error
