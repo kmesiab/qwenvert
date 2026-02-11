@@ -45,6 +45,10 @@ dependencies = [
     "opentelemetry-exporter-prometheus>=0.48b0",
 ]
 
+# CLI entry point
+[project.scripts]
+qwenvert = "qwenvert.cli:cli"
+
 # Development dependencies
 [project.optional-dependencies]
 dev = [
