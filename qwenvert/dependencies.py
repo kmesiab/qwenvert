@@ -154,7 +154,6 @@ def check_llamacpp() -> DependencyCheckResult:
     possible_paths = [
         shutil.which("llama-server"),
         shutil.which("llama.cpp"),
-        shutil.which("server"),
     ]
 
     for path in possible_paths:
@@ -205,16 +204,23 @@ Learn more: https://github.com/ggerganov/llama.cpp"""
     )
 
 
-def check_backend_dependencies(backend: str) -> DependencyCheckResult:
+def check_backend_dependencies(backend: str | None) -> DependencyCheckResult:
     """
     Check dependencies for a specific backend.
 
     Args:
-        backend: Backend name ('ollama' or 'llamacpp')
+        backend: Backend name ('ollama' or 'llamacpp') or None
 
     Returns:
         DependencyCheckResult for the backend
     """
+    if backend is None:
+        return DependencyCheckResult(
+            name="",
+            status=DependencyStatus.UNKNOWN,
+            error_message="No backend specified",
+        )
+
     if backend == "ollama":
         return check_ollama()
     if backend == "llamacpp":
