@@ -23,12 +23,12 @@ ALLOWED_HOSTS = [
     "::1",  # IPv6 localhost
 ]
 
-# Patterns that should be rejected
+# Patterns that should be rejected (properly anchored and escaped)
 FORBIDDEN_PATTERNS = [
-    "0.0.0.0",  # Binds to all interfaces
-    r"192\.168\.\d+\.\d+",  # LAN IPs
-    r"10\.\d+\.\d+\.\d+",  # LAN IPs
-    r"172\.(1[6-9]|2[0-9]|3[01])\.\d+\.\d+",  # LAN IPs
+    r"^0\.0\.0\.0$",  # Binds to all interfaces
+    r"^192\.168\.\d+\.\d+$",  # LAN IPs (192.168.0.0/16)
+    r"^10\.\d+\.\d+\.\d+$",  # LAN IPs (10.0.0.0/8)
+    r"^172\.(1[6-9]|2[0-9]|3[01])\.\d+\.\d+$",  # LAN IPs (172.16.0.0/12)
 ]
 
 
@@ -42,6 +42,10 @@ def is_localhost_url(url: str) -> bool:
     """
     Check if URL points to localhost.
 
+    Uses proper URL parsing to prevent bypass attacks like:
+    - http://localhost.evil.com (subdomain attack)
+    - http://evil.com?redirect=http://localhost (query string attack)
+
     Args:
         url: URL to check (e.g., "http://localhost:8088")
 
@@ -51,18 +55,25 @@ def is_localhost_url(url: str) -> bool:
     if not url:
         return False
 
-    url_lower = url.lower()
+    # Use proper URL parsing to extract hostname
+    from urllib.parse import urlparse
 
-    # Check for allowed hosts
-    for host in ALLOWED_HOSTS:
-        if f"://{host}" in url_lower or url_lower.startswith(host):
-            return True
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname  # Automatically strips brackets from IPv6
 
-    # Check for IPv6 localhost with brackets [::1]
-    if "://[::1]" in url_lower:
-        return True
+        if not hostname:
+            return False
 
-    return False
+        # Normalize to lowercase for comparison
+        hostname_lower = hostname.lower()
+
+        # Check against allowed hosts (exact match only)
+        return hostname_lower in [h.lower() for h in ALLOWED_HOSTS]
+
+    except Exception:
+        # Invalid URL format
+        return False
 
 
 def is_forbidden_host(host: str) -> bool:

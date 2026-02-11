@@ -65,6 +65,22 @@ class TestIsLocalhostUrl:
         assert is_localhost_url("http://LOCALHOST:8088")
         assert is_localhost_url("HTTP://localhost:8088")
 
+    def test_rejects_localhost_subdomain(self):
+        """Should reject localhost as subdomain (bypass attack)."""
+        # This would bypass substring matching: "localhost" appears in URL
+        # but actual host is "localhost.evil.com"
+        assert not is_localhost_url("http://localhost.evil.com:8088")
+        assert not is_localhost_url("https://localhost.attacker.com/")
+        assert not is_localhost_url("http://mylocalhost.com")
+
+    def test_rejects_localhost_in_query_string(self):
+        """Should reject localhost in query string (bypass attack)."""
+        # This would bypass substring matching: "localhost" appears in URL
+        # but actual host is "evil.com"
+        assert not is_localhost_url("http://evil.com?redirect=http://localhost")
+        assert not is_localhost_url("http://evil.com?url=localhost:8088")
+        assert not is_localhost_url("http://attacker.com#localhost")
+
 
 class TestIsForbiddenHost:
     """Test is_forbidden_host() helper function."""
