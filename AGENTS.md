@@ -10,7 +10,7 @@ Privacy-focused HTTP adapter for Claude Code → local Qwen models. **All infere
 - `validate_adapter_host(host)` - Blocks 0.0.0.0 binding
 
 **Before modifying security.py, router.py, launcher.py, adapter.py, telemetry.py:**
-1. Run `pytest tests/security/ -v` (92 tests must pass)
+1. Run `pytest tests/security/ -v` (93 tests must pass)
 2. Use qwenvert-security-auditor agent for review
 3. Never use substring matching for URLs - always use urllib.parse
 
@@ -18,7 +18,7 @@ Privacy-focused HTTP adapter for Claude Code → local Qwen models. **All infere
 
 | File | Requirements |
 |------|-------------|
-| security.py | Security review + all 92 security tests pass |
+| security.py | Security review + all 93 security tests pass |
 | router.py, launcher.py, adapter.py | Security tests + unit tests |
 | config.py | Config validation tests (validates on load) |
 | telemetry.py, monitoring.py | Security review (can leak data) |
@@ -36,7 +36,7 @@ Privacy-focused HTTP adapter for Claude Code → local Qwen models. **All infere
 ## Key Files
 
 1. `qwenvert/security.py` - Localhost validation (100% coverage)
-2. `tests/security/` - 92 security tests
+2. `tests/security/` - 93 security tests
 3. `qwenvert/router.py` - Backend routing (validates backend_url)
 4. `qwenvert/launcher.py` - Server lifecycle (validates adapter_host)
 5. `qwenvert/config.py` - Config management (validates on load)
