@@ -138,8 +138,8 @@ class ModelDownloader:
         # Format size as integer if whole number, else keep decimal
         size = int(model.size_b) if model.size_b == int(model.size_b) else model.size_b
 
-        # Keep quantization format as-is (e.g., Q4_K_M)
-        quant = model.quantization
+        # Lowercase quantization to match HuggingFace filenames (e.g., q4_k_m)
+        quant = model.quantization.lower()
 
         filename = f"{family}-{size}b-instruct-{quant}.gguf"
         logger.debug(f"Constructed filename: {filename}")
