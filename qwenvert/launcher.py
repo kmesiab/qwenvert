@@ -20,6 +20,13 @@ import httpx
 from .config import ConfigManager, QwenvertConfig
 from .models import Backend
 from .security import validate_adapter_host, validate_localhost_url
+from .dependencies import (
+    DependencyError,
+    check_ollama,
+    check_llamacpp,
+    format_missing_dependency_message,
+)
+
 
 
 logger = logging.getLogger(__name__)
@@ -118,12 +125,6 @@ class ServerLauncher:
         logger.info("Starting Ollama server...")
 
         # Check if ollama is installed
-        from .dependencies import (
-            DependencyError,
-            check_ollama,
-            format_missing_dependency_message,
-        )
-
         ollama_check = check_ollama()
         if not ollama_check.is_available:
             error_msg = format_missing_dependency_message(ollama_check)
@@ -164,12 +165,6 @@ class ServerLauncher:
         logger.info("Starting llama.cpp server...")
 
         # Check if llama-server is available
-        from .dependencies import (
-            DependencyError,
-            check_llamacpp,
-            format_missing_dependency_message,
-        )
-
         llamacpp_check = check_llamacpp()
         if not llamacpp_check.is_available:
             error_msg = format_missing_dependency_message(llamacpp_check)
