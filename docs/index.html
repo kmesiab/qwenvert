@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwenvert - Privacy-First Local AI for Claude Code</title>
+    <meta name="description" content="Use Claude Code CLI with local Qwen models on your Mac. No cloud, no API fees, complete privacy.">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="logo">🔒</span>
+                <span class="brand-name">Qwenvert</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#quickstart">Quick Start</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#docs">Docs</a>
+                <a href="https://github.com/kmesiab/qwenvert" target="_blank" class="github-link">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Use Claude Code with<br>
+                    <span class="gradient-text">Local AI Models</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Privacy-first adapter that runs Qwen models locally on your Mac M1/M2/M3.<br>
+                    No cloud, no API fees, your code never leaves your machine.
+                </p>
+                <div class="hero-cta">
+                    <a href="#quickstart" class="btn btn-primary">Get Started →</a>
+                    <a href="#how-it-works" class="btn btn-secondary">Learn More</a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <div class="stat-value">100%</div>
+                        <div class="stat-label">Private</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">$0</div>
+                        <div class="stat-label">API Fees</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">93</div>
+                        <div class="stat-label">Security Tests</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Why Qwenvert?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Privacy First</h3>
+                    <p>All inference happens locally. Localhost-only binding with 93 security tests ensures your code never leaves your machine.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💰</div>
+                    <h3>Zero API Costs</h3>
+                    <p>No subscription fees, no pay-per-token. Use your Mac's hardware for unlimited AI assistance.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Apple Silicon Optimized</h3>
+                    <p>Hardware-aware configuration for M1/M2/M3 Macs with Metal acceleration and thermal management.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Full API Compatibility</h3>
+                    <p>Drop-in replacement for Claude Code. Works with existing workflows, just point to localhost.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Multiple Backends</h3>
+                    <p>Choose between Ollama or llama.cpp. Switch backends without changing your setup.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Built-in Monitoring</h3>
+                    <p>Real-time dashboard tracks performance, thermal behavior, and token throughput.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="quickstart" class="quickstart">
+        <div class="container">
+            <h2 class="section-title">Get Started in 3 Minutes</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Install Qwenvert</h3>
+                        <div class="code-block">
+                            <code>pip install qwenvert</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Initialize & Start</h3>
+                        <div class="code-block">
+                            <code>qwenvert init    # Detects hardware, downloads model</code>
+                            <code>qwenvert start   # Starts adapter + backend</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Configure Claude Code</h3>
+                        <div class="code-block">
+                            <code>export ANTHROPIC_BASE_URL=http://localhost:8088</code>
+                            <code>export ANTHROPIC_API_KEY=local-qwen</code>
+                            <code>export ANTHROPIC_MODEL=qwenvert-default</code>
+                            <code>claude  # Start coding!</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="quickstart-note">
+                <strong>Note:</strong> First run downloads a 4-10GB model (one-time). Requires Python 3.9-3.12 and Mac M1/M2/M3.
+            </div>
+        </div>
+    </section>
+
+    <section id="how-it-works" class="how-it-works">
+        <div class="container">
+            <h2 class="section-title">How It Works</h2>
+            <div class="architecture">
+                <div class="arch-diagram">
+                    <div class="arch-box claude">
+                        <strong>Claude Code CLI</strong>
+                        <small>Your IDE</small>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+                    <div class="arch-box adapter">
+                        <strong>Qwenvert Adapter</strong>
+                        <small>localhost:8088</small>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+                    <div class="arch-box backend">
+                        <strong>Backend</strong>
+                        <small>Ollama or llama.cpp</small>
+                    </div>
+                    <div class="arch-arrow">↓</div>
+                    <div class="arch-box model">
+                        <strong>Qwen Model</strong>
+                        <small>Local inference</small>
+                    </div>
+                </div>
+                <div class="arch-explanation">
+                    <h3>What Qwenvert Does</h3>
+                    <ul>
+                        <li><strong>Translates APIs:</strong> Converts Anthropic Messages API → Ollama/llama.cpp format</li>
+                        <li><strong>Validates Security:</strong> All URLs/hosts checked for localhost-only access</li>
+                        <li><strong>Manages Backends:</strong> Launches and monitors Ollama or llama.cpp servers</li>
+                        <li><strong>Streams Responses:</strong> Server-Sent Events for real-time token streaming</li>
+                        <li><strong>Optimizes Hardware:</strong> Auto-configures for your Mac's specs and thermal profile</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="docs" class="documentation">
+        <div class="container">
+            <h2 class="section-title">Documentation</h2>
+            <div class="docs-grid">
+                <a href="https://github.com/kmesiab/qwenvert/blob/main/README.md" class="doc-card">
+                    <h3>📘 Complete Guide</h3>
+                    <p>Full README with detailed setup, configuration, and troubleshooting.</p>
+                </a>
+                <a href="https://github.com/kmesiab/qwenvert/blob/main/ARCHITECTURE.md" class="doc-card">
+                    <h3>🏗️ Architecture</h3>
+                    <p>Deep dive into system design, components, and data flow.</p>
+                </a>
+                <a href="https://github.com/kmesiab/qwenvert/blob/main/AGENTS.md" class="doc-card">
+                    <h3>🤖 AI Agents</h3>
+                    <p>Specialized agents for development, security, and performance.</p>
+                </a>
+                <a href="https://github.com/kmesiab/qwenvert/blob/main/TELEMETRY_SECURITY.md" class="doc-card">
+                    <h3>🔐 Security</h3>
+                    <p>OpenTelemetry security model and localhost-only guarantees.</p>
+                </a>
+                <a href="https://github.com/kmesiab/qwenvert/tree/main/benchmarks" class="doc-card">
+                    <h3>⚡ Benchmarks</h3>
+                    <p>Performance testing suite and optimization guidelines.</p>
+                </a>
+                <a href="https://github.com/kmesiab/qwenvert/blob/main/CONTRIBUTING.md" class="doc-card">
+                    <h3>🤝 Contributing</h3>
+                    <p>How to contribute to qwenvert development.</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="faq">
+        <div class="container">
+            <h2 class="section-title">Frequently Asked Questions</h2>
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <h3>Is this better than using Claude directly?</h3>
+                    <p>No - Claude Opus/Sonnet are more capable. Qwenvert is for when you want privacy, zero API costs, or offline coding. Think of it as a privacy-focused alternative, not a replacement.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What are the hardware requirements?</h3>
+                    <p>Mac M1/M2/M3 with at least 8GB RAM (16GB recommended). Python 3.9-3.12. 10-20GB free disk space for models.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Does it work on Intel Macs or Windows?</h3>
+                    <p>Not currently - qwenvert is optimized for Apple Silicon's unified memory and Metal acceleration. Intel/Windows support would require significant changes.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>How is security guaranteed?</h3>
+                    <p>93 security tests validate localhost-only operation. All URLs are checked with proper parsing (no substring matching). Config tampering is detected on load. See TELEMETRY_SECURITY.md for details.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Which Qwen model should I use?</h3>
+                    <p>Start with qwen2.5-coder:7b (4GB, balanced). For better quality: 14b/32b models if you have 16GB+ RAM. For speed: 1.5b/3b models on lower-end hardware.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Can I use other models besides Qwen?</h3>
+                    <p>Technically yes - any Ollama/llama.cpp model works. But qwenvert is tuned for Qwen2.5-Coder's instruction format and code generation strengths.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo">🔒</span>
+                    <span class="brand-name">Qwenvert</span>
+                    <p>Privacy-first local AI for Claude Code</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-section">
+                        <h4>Resources</h4>
+                        <a href="https://github.com/kmesiab/qwenvert">GitHub</a>
+                        <a href="https://github.com/kmesiab/qwenvert/blob/main/README.md">Documentation</a>
+                        <a href="https://github.com/kmesiab/qwenvert/issues">Issues</a>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Research</h4>
+                        <a href="https://arxiv.org/abs/2601.20404">AGENTS.md Research</a>
+                        <a href="https://qwenlm.github.io/">Qwen Models</a>
+                        <a href="https://github.com/ggerganov/llama.cpp">llama.cpp</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>Apache 2.0 License • Not affiliated with Anthropic • Built for the Mac M1 community 🚀</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
