@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark build publish-test publish release
+.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark build publish-test publish release venv check-venv
 
 PYTHON ?= python3
 
@@ -7,8 +7,9 @@ help:
 	@echo "qwenvert - Development Commands"
 	@echo ""
 	@echo "Setup:"
+	@echo "  make venv             Create virtual environment at .venv/"
 	@echo "  make install          Install production dependencies"
-	@echo "  make install-dev      Install development dependencies"
+	@echo "  make install-dev      Install development dependencies (requires venv)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make format           Format code with black and ruff"
@@ -38,8 +39,40 @@ help:
 install:
 	$(PYTHON) -m pip install -e .
 
-install-dev:
+install-dev: check-venv
 	$(PYTHON) -m pip install -e ".[dev]"
+
+# Virtual environment helpers
+venv:
+	@echo "Creating virtual environment..."
+	$(PYTHON) -m venv .venv
+	@echo "✓ Virtual environment created at .venv/"
+	@echo ""
+	@echo "Activate it with:"
+	@echo "  source .venv/bin/activate      # bash/zsh"
+	@echo "  source .venv/bin/activate.fish # fish"
+	@echo ""
+	@echo "Then install dependencies:"
+	@echo "  make install-dev"
+
+check-venv:
+	@if [ -n "$$CI" ]; then \
+		: ; \
+	elif $(PYTHON) -c "import sys; exit(0 if sys.prefix != sys.base_prefix else 1)" 2>/dev/null; then \
+		: ; \
+	else \
+		echo "⚠️  Warning: Not in a virtual environment!"; \
+		echo ""; \
+		echo "Create one with:"; \
+		echo "  make venv"; \
+		echo ""; \
+		echo "Or use conda/poetry if preferred."; \
+		echo ""; \
+		echo "Then activate and retry:"; \
+		echo "  source .venv/bin/activate"; \
+		echo "  make install-dev"; \
+		exit 1; \
+	fi
 
 # Code formatting
 format:
