@@ -266,7 +266,7 @@ class BenchmarkRunner:
         """Run a suite of benchmarks."""
 
         console.print(
-            "\n[bold blue]Qwenvert Performance Benchmark Suite" "[/bold blue]\n"
+            "\n[bold blue]Qwenvert Performance Benchmark Suite[/bold blue]\n"
         )
 
         # Check adapter health
