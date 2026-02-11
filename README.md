@@ -718,6 +718,33 @@ Qwenvert is an independent project and is not affiliated with, endorsed by, or s
 
 ---
 
+## 📖 Research & Methodology
+
+This project implements research-backed development practices for AI agent collaboration:
+
+### Repository-Level Instructions
+
+Our [AGENTS.md](./AGENTS.md) file follows findings from:
+
+> **"Repository-Level Instructions Enhance AI Assistant Completion and Efficiency"**
+> Li et al., 2025. arXiv:2601.20404
+> https://arxiv.org/abs/2601.20404
+
+**Key findings from the research:**
+- **28.64% reduction** in AI agent task completion time
+- **16.58% reduction** in token usage
+- Repository-level instructions significantly improve code generation accuracy
+
+**How we apply it:**
+- Structured project conventions in [AGENTS.md](./AGENTS.md)
+- Security-critical rules documented upfront
+- File modification requirements clearly specified
+- Specialized agent catalog with use cases
+
+This approach makes qwenvert development more efficient and maintainable when working with AI coding assistants like Claude Code.
+
+---
+
 **Questions? Issues? Feedback?**
 
 Open an issue: https://github.com/kmesiab/qwenvert/issues
