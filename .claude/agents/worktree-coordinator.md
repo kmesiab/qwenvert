@@ -14,7 +14,8 @@ You help agents set up and coordinate parallel work using git worktrees.
 1. **One agent = one worktree** - Never share directories
 2. **Check first** - Always run `git worktree list` to see occupied spaces
 3. **Claim space** - Create new worktree if needed: `git worktree add ../qwenvert-agent{N} -b {branch}`
-4. **Clean up** - Remove worktree after merging: `git worktree remove {path}`
+4. **Sync immediately** - After creating worktree: `git merge origin/main --no-edit`
+5. **Clean up** - Remove worktree after merging: `git worktree remove {path}`
 
 ## Setup Protocol
 
@@ -27,7 +28,13 @@ git worktree add ../qwenvert-agent{N} -b feature/{task-name}
 
 # Switch to worktree
 cd ../qwenvert-agent{N}
+
+# CRITICAL: Immediately sync with main
+git fetch origin
+git merge origin/main --no-edit
 ```
+
+**⚠️ ALWAYS sync with main after creating worktree!** This prevents conflicts when PRs have merged to main while you were working elsewhere.
 
 ## Branch Naming
 
