@@ -554,7 +554,9 @@ class TestStartLlamaCpp:
                     mock_registry.get_model.return_value = mock_model
                     mock_registry_cls.return_value = mock_registry
 
-                    with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
+                    with patch(
+                        "qwenvert.config.ConfigGenerator"
+                    ) as mock_config_gen_cls:
                         mock_config_gen = MagicMock()
                         mock_config_gen.generate_llamacpp_flags.return_value = [
                             "--model",
@@ -622,7 +624,9 @@ class TestStartLlamaCpp:
                     mock_registry.get_model.return_value = mock_model
                     mock_registry_cls.return_value = mock_registry
 
-                    with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
+                    with patch(
+                        "qwenvert.config.ConfigGenerator"
+                    ) as mock_config_gen_cls:
                         mock_config_gen = MagicMock()
                         mock_config_gen.generate_llamacpp_flags.return_value = [
                             "--model",
@@ -1275,7 +1279,9 @@ class TestEdgeCases:
                     mock_registry.get_model.return_value = mock_model
                     mock_registry_cls.return_value = mock_registry
 
-                    with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
+                    with patch(
+                        "qwenvert.config.ConfigGenerator"
+                    ) as mock_config_gen_cls:
                         mock_config_gen = MagicMock()
                         mock_config_gen.generate_llamacpp_flags.return_value = [
                             "--model",
