@@ -33,17 +33,10 @@ jobs:
       - name: Run tests
         run: make test
 
-  build-and-publish:
-    name: Build and Publish
+  build:
+    name: Build Package
     needs: test
     runs-on: ubuntu-latest  # PyPI publish action requires Linux
-    environment:
-      name: pypi
-      url: https://pypi.org/project/qwenvert/
-    permissions:
-      contents: read
-      id-token: write  # REQUIRED: For trusted publishing (OIDC)
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -84,45 +77,71 @@ jobs:
         run: |
           python -m twine check dist/*
 
-      - name: Publish to TestPyPI
-        if: inputs.test_pypi == true
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          print-hash: true
-
-      - name: Publish to PyPI
-        if: github.event_name == 'release' && inputs.test_pypi != true
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          print-hash: true
-
-      - name: Upload artifacts to release
-        if: github.event_name == 'release'
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
 
-      - name: Verify installation
-        if: github.event_name == 'release'
-        run: |
-          # Wait for PyPI CDN to update
-          echo "⏳ Waiting 90 seconds for PyPI to propagate..."
-          sleep 90
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build
+    if: inputs.test_pypi == true
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/qwenvert/
+    permissions:
+      contents: read
+      id-token: write  # REQUIRED: For trusted publishing (OIDC)
 
-          # Test installation in clean environment
-          python -m venv test_env
-          source test_env/bin/activate
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
 
-          pip install qwenvert
-          qwenvert --version
-          qwenvert --help
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
 
-          echo "✅ Installation verified"
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: github.event_name == 'release' && inputs.test_pypi != true
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/qwenvert/
+    permissions:
+      contents: read
+      id-token: write  # REQUIRED: For trusted publishing (OIDC)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+
+      - name: Upload artifacts to release
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
 
       - name: Create release summary
-        if: github.event_name == 'release'
         run: |
           VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])")
 
@@ -144,3 +163,27 @@ jobs:
           - Announce release
           - Close milestone
           EOF
+
+  verify-macos:
+    name: Verify macOS Installation
+    needs: [publish-testpypi, publish-pypi]
+    if: always() && (needs.publish-testpypi.result == 'success' || needs.publish-pypi.result == 'success')
+    runs-on: macos-latest
+
+    steps:
+      - name: Wait for PyPI CDN to propagate
+        run: |
+          echo "⏳ Waiting 90 seconds for PyPI to propagate..."
+          sleep 90
+
+      - name: Test installation on macOS
+        run: |
+          # Test installation in clean environment
+          python -m venv test_env
+          source test_env/bin/activate
+
+          pip install qwenvert
+          qwenvert --version
+          qwenvert --help
+
+          echo "✅ macOS installation verified"
