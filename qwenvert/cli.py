@@ -63,24 +63,29 @@ def init(model, backend, adapter_port, context_length) -> None:
     console.print("\n[bold blue]Qwenvert Initialization[/bold blue]\n")
 
     # Step 0: Check dependencies early (before expensive operations)
-    from .dependencies import (
-        check_backend_dependencies,
-        format_missing_dependency_message,
-    )
+    if backend is not None:
+        from .dependencies import (
+            check_backend_dependencies,
+            format_missing_dependency_message,
+        )
 
-    dep_check = check_backend_dependencies(backend)
-    if not dep_check.is_available:
-        console.print(f"[yellow]Warning:[/yellow] {dep_check.name} is not installed\n")
-        console.print(format_missing_dependency_message(dep_check))
-
-        if not click.confirm("\nContinue with configuration anyway?", default=False):
-            console.print("\n[yellow]Initialization cancelled.[/yellow]")
+        dep_check = check_backend_dependencies(backend)
+        if not dep_check.is_available:
             console.print(
-                f"\n[dim]Tip: After installing {dep_check.name}, run 'qwenvert init' again.[/dim]"
+                f"[yellow]Warning:[/yellow] {dep_check.name} is not installed\n"
             )
-            sys.exit(1)
+            console.print(format_missing_dependency_message(dep_check))
 
-        console.print("\n[yellow]Continuing without dependencies...[/yellow]\n")
+            if not click.confirm(
+                "\nContinue with configuration anyway?", default=False
+            ):
+                console.print("\n[yellow]Initialization cancelled.[/yellow]")
+                console.print(
+                    f"\n[dim]Tip: After installing {dep_check.name}, run 'qwenvert init' again.[/dim]"
+                )
+                sys.exit(1)
+
+            console.print("\n[yellow]Continuing without dependencies...[/yellow]\n")
 
     # Step 1: Detect hardware
     with console.status("[cyan]Detecting hardware...", spinner="dots"):
