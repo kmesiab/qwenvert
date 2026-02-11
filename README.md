@@ -2,6 +2,7 @@
 
 **Run Claude Code with a local LLM on your Mac. Keep your code private.**
 
+[![PyPI version](https://badge.fury.io/py/qwenvert.svg)](https://badge.fury.io/py/qwenvert)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
 
@@ -23,12 +24,24 @@ Qwenvert lets you use Claude Code CLI with a completely local LLM (Qwen2.5-Coder
 
 ### 1. Install
 
-You need:
+**Requirements:**
 - Mac with M1/M2/M3 chip (8GB RAM minimum)
 - Python 3.9-3.12 (check: `python3 --version`)
+- [Ollama](https://ollama.ai) or llama.cpp
 
+**Install from PyPI:**
 ```bash
-# Clone and install
+pip install qwenvert
+```
+
+**Or with Homebrew (coming soon):**
+```bash
+brew tap kmesiab/qwenvert
+brew install qwenvert
+```
+
+**Or install from source:**
+```bash
 git clone https://github.com/kmesiab/qwenvert.git
 cd qwenvert
 pip install -e .
