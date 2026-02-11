@@ -8,6 +8,7 @@ during runtime, ensuring code and data never leave the local machine.
 import pytest
 
 from qwenvert.models import Backend, Model
+from qwenvert.security import SecurityValidationError
 
 
 class TestNetworkIsolation:
@@ -131,3 +132,105 @@ class TestNetworkIsolation:
         # Check API key is placeholder
         api_key = env_vars.get("ANTHROPIC_API_KEY", "")
         assert api_key == "local-qwen", "API key should be placeholder 'local-qwen'"
+
+
+class TestConfigValidation:
+    """Test that QwenvertConfig validates on load."""
+
+    def test_config_validate_accepts_localhost_config(self):
+        """Should accept valid localhost configuration."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id="test",
+            backend="ollama",
+            backend_url="http://localhost:11434",
+            backend_model_id="test:7b",
+            adapter_host="127.0.0.1",
+            adapter_port=8088,
+        )
+
+        # Should not raise
+        config.validate()
+
+    def test_config_validate_rejects_external_backend_url(self):
+        """Should reject external backend URL."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id="test",
+            backend="ollama",
+            backend_url="http://evil.com:11434",
+            backend_model_id="test:7b",
+            adapter_host="127.0.0.1",
+            adapter_port=8088,
+        )
+
+        with pytest.raises(SecurityValidationError):
+            config.validate()
+
+    def test_config_validate_rejects_0_0_0_0_adapter_host(self):
+        """Should reject 0.0.0.0 adapter host."""
+        from qwenvert.config import QwenvertConfig
+
+        config = QwenvertConfig(
+            model_id="test",
+            backend="ollama",
+            backend_url="http://localhost:11434",
+            backend_model_id="test:7b",
+            adapter_host="0.0.0.0",
+            adapter_port=8088,
+        )
+
+        with pytest.raises(SecurityValidationError) as exc_info:
+            config.validate()
+
+        assert "0.0.0.0" in str(exc_info.value)
+
+    def test_config_load_validates_tampered_file(self, tmp_path):
+        """Should detect tampered config file on load."""
+        from qwenvert.config import QwenvertConfig
+
+        # Create tampered config file
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+model_id: test
+backend: ollama
+backend_url: http://evil.com:11434
+backend_model_id: test:7b
+adapter_host: 127.0.0.1
+adapter_port: 8088
+context_length: 4096
+"""
+        )
+
+        # Should raise SecurityValidationError on load
+        with pytest.raises(SecurityValidationError):
+            QwenvertConfig.load(config_file)
+
+    def test_config_load_validates_0_0_0_0_binding(self, tmp_path):
+        """Should detect 0.0.0.0 binding in config file."""
+        from qwenvert.config import QwenvertConfig
+
+        # Create config with 0.0.0.0 (the critical vulnerability)
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+model_id: test
+backend: ollama
+backend_url: http://localhost:11434
+backend_model_id: test:7b
+adapter_host: 0.0.0.0
+adapter_port: 8088
+context_length: 4096
+"""
+        )
+
+        # Should raise SecurityValidationError
+        with pytest.raises(SecurityValidationError) as exc_info:
+            QwenvertConfig.load(config_file)
+
+        error_msg = str(exc_info.value)
+        assert "0.0.0.0" in error_msg
+        assert "network" in error_msg.lower() or "internet" in error_msg.lower()

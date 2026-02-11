@@ -20,6 +20,7 @@ import httpx
 
 from .config import ConfigManager, QwenvertConfig
 from .models import Backend
+from .security import validate_adapter_host, validate_localhost_url
 
 
 logger = logging.getLogger(__name__)
@@ -251,8 +252,17 @@ class ServerLauncher:
 
         Args:
             backend_handle: Handle to backend server process
+
+        Raises:
+            SecurityValidationError: If adapter_host or backend_url is not localhost
         """
         logger.info("Starting qwenvert adapter...")
+
+        # SECURITY: Validate adapter host is localhost-only
+        validate_adapter_host(self.config.adapter_host)
+        logger.info(
+            f"Security: Validated adapter host '{self.config.adapter_host}' is localhost"
+        )
 
         # Initialize OpenTelemetry
         from .telemetry import init_telemetry, instrument_fastapi
@@ -281,7 +291,7 @@ class ServerLauncher:
         if not model:
             raise RuntimeError(f"Model {self.config.model_id} not found")
 
-        # Create router
+        # Create router (validates backend_url)
         router = BackendRouter(model, self.config.backend_url)
 
         # Create and configure app
@@ -381,7 +391,13 @@ class ServerLauncher:
 
         Returns:
             True if server is healthy
+
+        Raises:
+            SecurityValidationError: If URL is not localhost
         """
+        # SECURITY: Validate URL before making HTTP request
+        validate_localhost_url(url)
+
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, timeout=2.0)
