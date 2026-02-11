@@ -1,6 +1,17 @@
-.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark build publish-test publish release venv check-venv
+.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark build publish-test publish release venv check-venv check-python
 
-PYTHON ?= python3
+# Auto-detect compatible Python version (3.9-3.12)
+# Try specific versions first, fall back to python3
+PYTHON ?= $(shell \
+	for py in python3.12 python3.11 python3.10 python3.9 python3; do \
+		if command -v $$py >/dev/null 2>&1; then \
+			version=$$($$py -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null); \
+			if [ "$$version" = "3.9" ] || [ "$$version" = "3.10" ] || [ "$$version" = "3.11" ] || [ "$$version" = "3.12" ]; then \
+				echo $$py; \
+				break; \
+			fi; \
+		fi; \
+	done)
 
 # Default target
 help:
@@ -42,8 +53,27 @@ install:
 install-dev: check-venv
 	$(PYTHON) -m pip install -e ".[dev]"
 
+# Python version check
+check-python:
+	@if [ -z "$(PYTHON)" ]; then \
+		echo "❌ Error: No compatible Python found!"; \
+		echo ""; \
+		echo "Qwenvert requires Python 3.9-3.12"; \
+		echo ""; \
+		echo "Your system Python:"; \
+		python3 --version 2>/dev/null || echo "  python3 not found"; \
+		echo ""; \
+		echo "Install a compatible version:"; \
+		echo "  brew install python@3.12"; \
+		echo ""; \
+		echo "Or specify manually:"; \
+		echo "  make PYTHON=python3.12 venv"; \
+		exit 1; \
+	fi
+	@echo "Using Python: $(PYTHON) ($$($(PYTHON) --version))"
+
 # Virtual environment helpers
-venv:
+venv: check-python
 	@echo "Creating virtual environment..."
 	$(PYTHON) -m venv .venv
 	@echo "✓ Virtual environment created at .venv/"
