@@ -76,6 +76,16 @@ def mock_config():
     )
 
 
+@pytest.fixture(autouse=True)
+def mock_backend_dependencies():
+    """Auto-mock backend dependency checks for all tests."""
+    with patch("qwenvert.dependencies.check_backend_dependencies") as mock_check:
+        mock_result = MagicMock()
+        mock_result.is_available = True
+        mock_check.return_value = mock_result
+        yield mock_check
+
+
 class TestInitCommand:
     """Test 'qwenvert init' command."""
 

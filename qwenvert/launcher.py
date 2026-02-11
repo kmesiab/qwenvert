@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import shutil
 import signal
 import subprocess
 import time
@@ -19,6 +18,12 @@ from pathlib import Path
 import httpx
 
 from .config import ConfigManager, QwenvertConfig
+from .dependencies import (
+    DependencyError,
+    check_llamacpp,
+    check_ollama,
+    format_missing_dependency_message,
+)
 from .models import Backend
 from .security import validate_adapter_host, validate_localhost_url
 
@@ -119,9 +124,11 @@ class ServerLauncher:
         logger.info("Starting Ollama server...")
 
         # Check if ollama is installed
-        if not shutil.which("ollama"):
-            msg = "Ollama not found. Install with: brew install ollama"
-            raise RuntimeError(msg)
+        ollama_check = check_ollama()
+        if not ollama_check.is_available:
+            error_msg = format_missing_dependency_message(ollama_check)
+            logger.error(error_msg)
+            raise DependencyError(ollama_check)
 
         # Check if server is already running
         if await self._check_health("http://localhost:11434"):
@@ -157,16 +164,16 @@ class ServerLauncher:
         logger.info("Starting llama.cpp server...")
 
         # Check if llama-server is available
-        llamacpp_path = Path.home() / ".local" / "bin" / "llama-server"
-        if not llamacpp_path.exists():
-            # Try common locations
-            for alt_path in ["/usr/local/bin/llama-server", "./llama-server"]:
-                if Path(alt_path).exists():
-                    llamacpp_path = Path(alt_path)
-                    break
-            else:
-                msg = "llama-server not found. Install llama.cpp first."
-                raise RuntimeError(msg)
+        llamacpp_check = check_llamacpp()
+        if not llamacpp_check.is_available:
+            error_msg = format_missing_dependency_message(llamacpp_check)
+            logger.error(error_msg)
+            raise DependencyError(llamacpp_check)
+
+        if not llamacpp_check.path:
+            raise RuntimeError("llama-server path is not available")
+
+        llamacpp_path = Path(llamacpp_check.path)
 
         # Generate flags from config
         from .config import ConfigGenerator

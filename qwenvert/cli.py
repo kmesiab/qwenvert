@@ -62,6 +62,31 @@ def init(model, backend, adapter_port, context_length) -> None:
 
     console.print("\n[bold blue]Qwenvert Initialization[/bold blue]\n")
 
+    # Step 0: Check dependencies early (before expensive operations)
+    if backend is not None:
+        from .dependencies import (
+            check_backend_dependencies,
+            format_missing_dependency_message,
+        )
+
+        dep_check = check_backend_dependencies(backend)
+        if not dep_check.is_available:
+            console.print(
+                f"[yellow]Warning:[/yellow] {dep_check.name} is not installed\n"
+            )
+            console.print(format_missing_dependency_message(dep_check))
+
+            if not click.confirm(
+                "\nContinue with configuration anyway?", default=False
+            ):
+                console.print("\n[yellow]Initialization cancelled.[/yellow]")
+                console.print(
+                    f"\n[dim]Tip: After installing {dep_check.name}, run 'qwenvert init' again.[/dim]"
+                )
+                sys.exit(1)
+
+            console.print("\n[yellow]Continuing without dependencies...[/yellow]\n")
+
     # Step 1: Detect hardware
     with console.status("[cyan]Detecting hardware...", spinner="dots"):
         detector = HardwareDetector()
@@ -191,6 +216,18 @@ def start() -> None:
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted by user[/yellow]")
     except Exception as e:
+        # Check if it's a dependency error
+        from .dependencies import DependencyError, format_missing_dependency_message
+
+        if isinstance(e, DependencyError):
+            console.print("\n[red]Dependency Error:[/red]\n")
+            console.print(format_missing_dependency_message(e.result))
+            console.print(
+                "[dim]Tip: After installing dependencies, run 'qwenvert start' again.[/dim]"
+            )
+            sys.exit(1)
+
+        # For other errors, show the full error
         console.print(f"\n[red]Error:[/red] {e}")
         import traceback
 
