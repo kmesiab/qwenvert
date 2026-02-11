@@ -12,8 +12,31 @@ on:
         type: boolean
 
 jobs:
+  test:
+    name: Test on macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: make test
+
   build-and-publish:
-    runs-on: macos-latest  # Mac-only app - needs macOS for hardware detection tests
+    name: Build and Publish
+    needs: test
+    runs-on: ubuntu-latest  # PyPI publish action requires Linux
     environment:
       name: pypi
       url: https://pypi.org/project/qwenvert/
@@ -60,11 +83,6 @@ jobs:
       - name: Check package metadata
         run: |
           python -m twine check dist/*
-
-      - name: Run tests before publishing
-        run: |
-          pip install -e ".[dev]"
-          make test
 
       - name: Publish to TestPyPI
         if: inputs.test_pypi == true
