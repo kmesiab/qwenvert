@@ -236,8 +236,6 @@ class ModelDownloader:
         Returns:
             Dictionary with total_gb and available_gb
         """
-        import shutil
-
         if not self.models_dir.exists():
             return {"total_gb": 0.0, "available_gb": 0.0}
 

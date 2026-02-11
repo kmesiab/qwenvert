@@ -179,17 +179,13 @@ class BenchmarkRunner:
 
         # Extract metrics
         result.latency_ms = (end_time - start_time) * 1000
-        result.tokens_generated = (
-            data.get("usage", {}).get("output_tokens", 0)
-        )
+        result.tokens_generated = data.get("usage", {}).get("output_tokens", 0)
 
         if result.tokens_generated > 0:
             result.tokens_per_second = result.tokens_generated / (
                 result.latency_ms / 1000
             )
-            result.time_per_token_ms = (
-                result.latency_ms / result.tokens_generated
-            )
+            result.time_per_token_ms = result.latency_ms / result.tokens_generated
 
         console.print(
             f"  [green]✓[/green] {result.latency_ms:.0f}ms | "
@@ -253,15 +249,9 @@ class BenchmarkRunner:
             result.tokens_per_second = result.tokens_generated / (
                 result.latency_ms / 1000
             )
-            result.time_per_token_ms = (
-                result.latency_ms / result.tokens_generated
-            )
+            result.time_per_token_ms = result.latency_ms / result.tokens_generated
 
-        ttft = (
-            f"{result.first_token_ms:.0f}ms"
-            if result.first_token_ms
-            else "N/A"
-        )
+        ttft = f"{result.first_token_ms:.0f}ms" if result.first_token_ms else "N/A"
         console.print(
             f"  [green]✓[/green] {result.latency_ms:.0f}ms | "
             f"TTFT: {ttft} | "
@@ -276,19 +266,14 @@ class BenchmarkRunner:
         """Run a suite of benchmarks."""
 
         console.print(
-            "\n[bold blue]Qwenvert Performance Benchmark Suite"
-            "[/bold blue]\n"
+            "\n[bold blue]Qwenvert Performance Benchmark Suite[/bold blue]\n"
         )
 
         # Check adapter health
         console.print("Checking adapter health...")
         if not await self.check_adapter_health():
-            console.print(
-                f"[red]✗ Adapter not running at {self.adapter_url}[/red]"
-            )
-            console.print(
-                "Start qwenvert first: [cyan]qwenvert start[/cyan]\n"
-            )
+            console.print(f"[red]✗ Adapter not running at {self.adapter_url}[/red]")
+            console.print("Start qwenvert first: [cyan]qwenvert start[/cyan]\n")
             return []
 
         console.print("[green]✓ Adapter running[/green]\n")
@@ -370,24 +355,17 @@ class BenchmarkRunner:
         # Summary stats
         successful = [r for r in self.results if r.success]
         if successful:
-            avg_latency = (
-                sum(r.latency_ms for r in successful) / len(successful)
-            )
-            avg_throughput = (
-                sum(r.tokens_per_second for r in successful)
-                / len(successful)
+            avg_latency = sum(r.latency_ms for r in successful) / len(successful)
+            avg_throughput = sum(r.tokens_per_second for r in successful) / len(
+                successful
             )
             success_rate = len(successful) / len(self.results) * 100
 
             console.print("\n[bold]Summary:[/bold]")
             console.print(f"  Total benchmarks: {len(self.results)}")
-            console.print(
-                f"  Successful: {len(successful)} ({success_rate:.1f}%)"
-            )
+            console.print(f"  Successful: {len(successful)} ({success_rate:.1f}%)")
             console.print(f"  Average latency: {avg_latency:.0f}ms")
-            console.print(
-                f"  Average throughput: {avg_throughput:.1f} tokens/sec"
-            )
+            console.print(f"  Average throughput: {avg_throughput:.1f} tokens/sec")
 
 
 def get_default_benchmarks() -> list[BenchmarkConfig]:
@@ -395,9 +373,7 @@ def get_default_benchmarks() -> list[BenchmarkConfig]:
 
     prompts = {
         "short": "What is 2+2?",
-        "medium": (
-            "Explain how Python list comprehensions work with examples."
-        ),
+        "medium": ("Explain how Python list comprehensions work with examples."),
         "long": (
             "Write a Python function that implements a binary search "
             "tree with the following methods:\n"
@@ -483,9 +459,7 @@ async def main() -> None:
         # Save results
         runner.save_results()
 
-        console.print(
-            "\n[bold green]✓ Benchmark suite complete![/bold green]\n"
-        )
+        console.print("\n[bold green]✓ Benchmark suite complete![/bold green]\n")
     else:
         console.print("\n[red]No benchmarks run[/red]\n")
 
