@@ -412,7 +412,7 @@ class TestRequestMetrics:
         assert stats.failed_requests == 0
         assert stats.total_tokens == 0
         assert stats.avg_latency_ms == 0.0
-        assert stats.uptime_seconds > 0
+        assert stats.uptime_seconds >= 0  # Can be 0.0 in fast CI runs
 
     def test_get_performance_stats_with_requests(self):
         """Test performance stats with request history."""
