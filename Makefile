@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark
+.PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark build publish-test publish release
 
 PYTHON ?= python3
 
@@ -24,6 +24,12 @@ help:
 	@echo ""
 	@echo "Performance:"
 	@echo "  make benchmark        Run performance benchmarks"
+	@echo ""
+	@echo "Publishing:"
+	@echo "  make build            Build distribution packages"
+	@echo "  make publish-test     Publish to TestPyPI"
+	@echo "  make publish          Publish to PyPI (requires version tag)"
+	@echo "  make release          Create GitHub release and publish to PyPI"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean            Remove build artifacts and cache"
@@ -91,6 +97,59 @@ benchmark:
 	@echo "Make sure qwenvert is running (qwenvert start)"
 	$(PYTHON) benchmarks/run_benchmarks.py
 	@echo "✓ Benchmarks complete"
+
+# Publishing
+build: clean
+	@echo "Building distribution packages..."
+	$(PYTHON) -m pip install --upgrade build twine
+	$(PYTHON) -m build
+	@echo "Checking package metadata..."
+	$(PYTHON) -m twine check dist/*
+	@echo "✓ Build complete"
+	@echo ""
+	@echo "Built packages:"
+	@ls -lh dist/
+
+publish-test: build
+	@echo "Publishing to TestPyPI..."
+	@echo "⚠️  Make sure TEST_PYPI_API_TOKEN is set in environment or ~/.pypirc"
+	$(PYTHON) -m twine upload --repository testpypi dist/*
+	@echo "✓ Published to TestPyPI: https://test.pypi.org/project/qwenvert/"
+	@echo ""
+	@echo "Test installation with:"
+	@echo "  pip install --index-url https://test.pypi.org/simple/ qwenvert"
+
+publish: build check-all
+	@echo "Publishing to PyPI..."
+	@echo "⚠️  This will publish to PRODUCTION PyPI!"
+	@echo "⚠️  Make sure PYPI_API_TOKEN is set in environment or ~/.pypirc"
+	@echo ""
+	@read -p "Are you sure? Type 'yes' to continue: " confirm && [ "$$confirm" = "yes" ]
+	$(PYTHON) -m twine upload dist/*
+	@echo "✓ Published to PyPI: https://pypi.org/project/qwenvert/"
+	@echo ""
+	@echo "Verify installation with:"
+	@echo "  pip install --upgrade qwenvert"
+	@echo "  qwenvert --version"
+
+release:
+	@echo "Creating release..."
+	@echo ""
+	@# Get version from pyproject.toml
+	@VERSION=$$($(PYTHON) -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])"); \
+	echo "Version: $$VERSION"; \
+	echo "Tag: v$$VERSION"; \
+	echo ""; \
+	read -p "Create release v$$VERSION? Type 'yes' to continue: " confirm && [ "$$confirm" = "yes" ]; \
+	git tag -a "v$$VERSION" -m "Release v$$VERSION"; \
+	git push origin "v$$VERSION"; \
+	gh release create "v$$VERSION" \
+	  --title "qwenvert v$$VERSION" \
+	  --generate-notes \
+	  --draft
+	@echo ""
+	@echo "✓ Draft release created on GitHub"
+	@echo "📝 Edit the release notes, then publish to trigger PyPI upload"
 
 # Cleanup
 clean:
