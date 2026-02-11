@@ -18,14 +18,14 @@ from pathlib import Path
 import httpx
 
 from .config import ConfigManager, QwenvertConfig
-from .models import Backend
-from .security import validate_adapter_host, validate_localhost_url
 from .dependencies import (
     DependencyError,
-    check_ollama,
     check_llamacpp,
+    check_ollama,
     format_missing_dependency_message,
 )
+from .models import Backend
+from .security import validate_adapter_host, validate_localhost_url
 
 
 logger = logging.getLogger(__name__)

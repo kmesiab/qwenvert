@@ -80,7 +80,7 @@ class TestInitCommand:
     """Test 'qwenvert init' command."""
 
     @patch("qwenvert.dependencies.check_backend_dependencies")
-    def test_init_auto_select_model(
+    def test_init_auto_select_model(  # noqa: PLR0913
         self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init command with automatic model selection."""
@@ -141,7 +141,7 @@ class TestInitCommand:
                                 )
 
     @patch("qwenvert.dependencies.check_backend_dependencies")
-    def test_init_with_specified_model(
+    def test_init_with_specified_model(  # noqa: PLR0913
         self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init command with user-specified model."""
@@ -278,7 +278,7 @@ class TestInitCommand:
                     )
 
     @patch("qwenvert.dependencies.check_backend_dependencies")
-    def test_init_model_download_needed(
+    def test_init_model_download_needed(  # noqa: PLR0913
         self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init when model needs to be downloaded."""
@@ -410,7 +410,7 @@ class TestInitCommand:
                                 )
 
     @patch("qwenvert.dependencies.check_backend_dependencies")
-    def test_init_download_error_user_continues(
+    def test_init_download_error_user_continues(  # noqa: PLR0913
         self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init when download fails but user continues."""
@@ -470,7 +470,7 @@ class TestInitCommand:
                                 )
 
     @patch("qwenvert.dependencies.check_backend_dependencies")
-    def test_init_with_context_length(
+    def test_init_with_context_length(  # noqa: PLR0913
         self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init with custom context length."""
@@ -528,7 +528,7 @@ class TestInitCommand:
                                 assert mock_config.context_length == 65536
 
     @patch("qwenvert.dependencies.check_backend_dependencies")
-    def test_init_ollama_backend_generates_modelfile(
+    def test_init_ollama_backend_generates_modelfile(  # noqa: PLR0913
         self, mock_check_deps, runner, mock_hardware, mock_model, mock_config, tmp_path
     ):
         """Test init with Ollama backend generates Modelfile."""

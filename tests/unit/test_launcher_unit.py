@@ -23,8 +23,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from qwenvert.dependencies import DependencyError
 from qwenvert.config import QwenvertConfig
+from qwenvert.dependencies import DependencyError
 from qwenvert.launcher import (
     ProcessHandle,
     ServerLauncher,
