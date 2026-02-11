@@ -170,6 +170,9 @@ class ServerLauncher:
             logger.error(error_msg)
             raise DependencyError(llamacpp_check)
 
+        if not llamacpp_check.path:
+            raise RuntimeError("llama-server path is not available")
+
         llamacpp_path = Path(llamacpp_check.path)
 
         # Generate flags from config
