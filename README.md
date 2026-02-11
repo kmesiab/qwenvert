@@ -35,10 +35,8 @@ pip install qwenvert
 ```
 
 **Or with Homebrew (coming soon):**
-```bash
-brew tap kmesiab/qwenvert
-brew install qwenvert
-```
+
+> Homebrew formula is not published yet. See [PUBLISHING.md](./PUBLISHING.md#homebrew) for instructions on creating a Homebrew tap.
 
 **Or install from source:**
 ```bash
