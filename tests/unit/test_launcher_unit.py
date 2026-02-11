@@ -24,7 +24,11 @@ import httpx
 import pytest
 
 from qwenvert.config import QwenvertConfig
-from qwenvert.dependencies import DependencyError
+from qwenvert.dependencies import (
+    DependencyCheckResult,
+    DependencyError,
+    DependencyStatus,
+)
 from qwenvert.launcher import (
     ProcessHandle,
     ServerLauncher,
@@ -263,8 +267,6 @@ class TestStartOllama:
         launcher = ServerLauncher(ollama_config)
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.MISSING,
@@ -280,8 +282,6 @@ class TestStartOllama:
         launcher = ServerLauncher(ollama_config)
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,
@@ -306,8 +306,6 @@ class TestStartOllama:
         launcher = ServerLauncher(ollama_config)
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,
@@ -347,8 +345,6 @@ class TestStartOllama:
         launcher = ServerLauncher(ollama_config)
 
         with patch("qwenvert.launcher.check_ollama") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,
@@ -440,8 +436,6 @@ class TestStartLlamaCpp:
         launcher = ServerLauncher(llamacpp_config)
 
         with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.MISSING,
@@ -459,8 +453,6 @@ class TestStartLlamaCpp:
         launcher = ServerLauncher(llamacpp_config)
 
         with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.INSTALLED,
@@ -531,8 +523,6 @@ class TestStartLlamaCpp:
         launcher = ServerLauncher(llamacpp_config)
 
         with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.INSTALLED,
@@ -585,8 +575,6 @@ class TestStartLlamaCpp:
         launcher = ServerLauncher(llamacpp_config)
 
         with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.INSTALLED,
@@ -610,8 +598,6 @@ class TestStartLlamaCpp:
         launcher = ServerLauncher(llamacpp_config)
 
         with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.INSTALLED,
@@ -1234,8 +1220,6 @@ class TestEdgeCases:
         # First Ollama
         launcher1 = ServerLauncher(ollama_config)
         with patch("qwenvert.launcher.check_ollama") as mock_check:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result = DependencyCheckResult(
                 name="Ollama",
                 status=DependencyStatus.INSTALLED,
@@ -1264,8 +1248,6 @@ class TestEdgeCases:
         # Then llama.cpp
         launcher2 = ServerLauncher(llamacpp_config)
         with patch("qwenvert.launcher.check_llamacpp") as mock_check_cpp:
-            from qwenvert.dependencies import DependencyCheckResult, DependencyStatus
-
             mock_result_cpp = DependencyCheckResult(
                 name="llama.cpp",
                 status=DependencyStatus.INSTALLED,
