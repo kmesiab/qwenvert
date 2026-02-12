@@ -267,7 +267,9 @@ def start(auto_install: bool) -> None:
                         ):
                             auto_install_dependency(dep_name)
 
-                        console.print(f"[green]✓ {dep_name} installed successfully![/green]")
+                        console.print(
+                            f"[green]✓ {dep_name} installed successfully![/green]"
+                        )
                         console.print(
                             "\n[bold]Please run 'qwenvert start' again to continue.[/bold]\n"
                         )

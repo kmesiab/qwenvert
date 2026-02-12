@@ -302,7 +302,9 @@ def auto_install_dependency(dependency_name: str) -> bool:
     import subprocess
 
     if not can_auto_install(dependency_name):
-        raise RuntimeError(f"Cannot auto-install {dependency_name} (Homebrew not available)")
+        raise RuntimeError(
+            f"Cannot auto-install {dependency_name} (Homebrew not available)"
+        )
 
     # SECURITY: Whitelist validation - only allow known dependencies
     normalized_name = dependency_name.lower().strip()
@@ -315,7 +317,9 @@ def auto_install_dependency(dependency_name: str) -> bool:
 
     # SECURITY: Additional validation - only allow alphanumeric, hyphen, dot
     if not re.match(r"^[a-z0-9\-\.]+$", normalized_name):
-        raise ValueError(f"Security: Invalid dependency name format: '{dependency_name}'")
+        raise ValueError(
+            f"Security: Invalid dependency name format: '{dependency_name}'"
+        )
 
     try:
         # Run brew install with validated, whitelisted dependency name
@@ -330,4 +334,6 @@ def auto_install_dependency(dependency_name: str) -> bool:
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to install {dependency_name}: {e.stderr}") from e
     except subprocess.TimeoutExpired as e:
-        raise RuntimeError(f"Installation of {dependency_name} timed out after 5 minutes") from e
+        raise RuntimeError(
+            f"Installation of {dependency_name} timed out after 5 minutes"
+        ) from e
