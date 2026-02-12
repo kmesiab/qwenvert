@@ -309,14 +309,10 @@ def auto_install_dependency(dependency_name: str) -> bool:
     import re
     import subprocess
 
-    if not can_auto_install(dependency_name):
-        raise RuntimeError(
-            f"Cannot auto-install {dependency_name} (Homebrew not available)"
-        )
-
-    # SECURITY: Whitelist validation - only allow known dependencies
+    # Normalize dependency name for validation
     normalized_name = dependency_name.lower().strip()
 
+    # SECURITY: Whitelist validation first - fail fast for non-whitelisted dependencies
     if normalized_name not in ALLOWED_AUTO_INSTALL_DEPENDENCIES:
         raise ValueError(
             f"Security: Cannot auto-install '{dependency_name}' - not in allowed list. "
@@ -327,6 +323,13 @@ def auto_install_dependency(dependency_name: str) -> bool:
     if not re.match(r"^[a-z0-9\-\.]+$", normalized_name):
         raise ValueError(
             f"Security: Invalid dependency name format: '{dependency_name}'"
+        )
+
+    # Check if Homebrew is available for installation
+    homebrew = check_homebrew()
+    if not homebrew.is_available:
+        raise RuntimeError(
+            f"Cannot auto-install {dependency_name} (Homebrew not available)"
         )
 
     try:
