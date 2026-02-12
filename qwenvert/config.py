@@ -62,12 +62,82 @@ class QwenvertConfig:
 
         Raises:
             SecurityValidationError: If configuration violates security requirements
+            ValueError: If model_path contains invalid characters or is malformed
         """
         # Validate adapter host is localhost-only
         validate_adapter_host(self.adapter_host)
 
         # Validate backend URL is localhost-only
         validate_localhost_url(self.backend_url)
+
+        # Validate model_path to prevent Modelfile injection attacks
+        if self.model_path is not None:
+            self._validate_model_path(self.model_path)
+
+    @staticmethod
+    def _validate_model_path(model_path: str) -> None:
+        """
+        Validate model_path to prevent injection attacks in Modelfile generation.
+
+        Args:
+            model_path: Path to validate
+
+        Raises:
+            ValueError: If model_path contains dangerous characters or is invalid
+
+        Security:
+            Prevents Modelfile injection by rejecting paths containing:
+            - Newlines (\\n, \\r) - could inject Modelfile directives
+            - Control characters - could bypass validation
+            - Suspicious Modelfile keywords at start of path components
+        """
+        if not model_path or not model_path.strip():
+            raise ValueError("model_path cannot be empty or whitespace-only")
+
+        # Check for newlines and control characters
+        if "\n" in model_path or "\r" in model_path:
+            raise ValueError(
+                "model_path cannot contain newline characters (possible injection attack)"
+            )
+
+        # Check for control characters (ASCII 0-31 except tab which is allowed in paths)
+        for char in model_path:
+            if ord(char) < 32 and char != "\t":
+                raise ValueError(
+                    f"model_path contains invalid control character: {char!r}"
+                )
+
+        # Normalize path and validate structure
+        try:
+            normalized = Path(model_path).expanduser().resolve()
+        except (ValueError, RuntimeError, OSError) as e:
+            raise ValueError(f"model_path is not a valid filesystem path: {e}")
+
+        # Convert back to string for validation
+        normalized_str = str(normalized)
+
+        # Check for suspicious Modelfile directives at start of any path component
+        # These could be injection attempts if someone crafts a malicious path
+        dangerous_keywords = [
+            "FROM",
+            "PARAMETER",
+            "SYSTEM",
+            "TEMPLATE",
+            "ADAPTER",
+            "LICENSE",
+            "MESSAGE",
+        ]
+
+        path_parts = normalized_str.split("/")
+        for part in path_parts:
+            # Check if any path component starts with a Modelfile directive
+            upper_part = part.upper()
+            for keyword in dangerous_keywords:
+                if upper_part.startswith(keyword + " "):
+                    raise ValueError(
+                        f"model_path contains suspicious Modelfile keyword '{keyword}' "
+                        f"in path component '{part}' (possible injection attack)"
+                    )
 
     def save(self, path: Path | None = None) -> Path:
         """
@@ -179,9 +249,13 @@ class ConfigGenerator:
             thermal_pacing=thermal_pacing,
         )
 
-    def generate_ollama_modelfile(self) -> str:
+    def generate_ollama_modelfile(self, model_path: str | None = None) -> str:
         """
         Generate Ollama Modelfile with optimal parameters.
+
+        Args:
+            model_path: Optional path to local GGUF file. If provided, uses local file
+                       instead of pulling from Ollama registry.
 
         Returns:
             Modelfile content as string
@@ -204,10 +278,13 @@ class ConfigGenerator:
         # Use performance cores only
         num_threads = self.hardware.cpu_cores_performance
 
+        # Use local file path if provided, otherwise use model ID
+        from_source = model_path or self.model.backend_model_id
+
         return f"""# Qwenvert Modelfile for {self.model.display_name}
 # Generated for {self.hardware.chip} with {self.hardware.total_memory_gb}GB RAM
 
-FROM {self.model.backend_model_id}
+FROM {from_source}
 
 # Context window
 PARAMETER num_ctx {context_length}

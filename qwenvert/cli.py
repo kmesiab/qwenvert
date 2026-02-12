@@ -187,7 +187,8 @@ def init(model, backend, adapter_port, context_length) -> None:
 
     # Step 6: Generate backend-specific configs
     if selected_model.backend == Backend.OLLAMA:
-        modelfile = config_gen.generate_ollama_modelfile()
+        # Pass model_path if available to use local file instead of pulling
+        modelfile = config_gen.generate_ollama_modelfile(model_path=config.model_path)
         modelfile_path = ConfigManager.save_ollama_modelfile(modelfile)
         console.print(f"✓ Ollama Modelfile: [green]{modelfile_path}[/green]")
 

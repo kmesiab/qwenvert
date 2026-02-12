@@ -292,13 +292,17 @@ class TestStartOllama:
                 launcher, "_check_health", new_callable=AsyncMock
             ) as mock_health:
                 mock_health.return_value = True
+                with patch.object(
+                    launcher, "_ensure_ollama_model", new_callable=AsyncMock
+                ) as mock_ensure:
+                    # When already running, should return unmanaged handle
+                    handle = await launcher._start_ollama()
 
-                # When already running, should return unmanaged handle
-                handle = await launcher._start_ollama()
-
-                assert handle.name == "ollama-existing"
-                assert handle.pid is None  # Unmanaged handle has no PID
-                mock_health.assert_called_once_with("http://localhost:11434")
+                    assert handle.name == "ollama-existing"
+                    assert handle.pid is None  # Unmanaged handle has no PID
+                    mock_health.assert_called_once_with("http://localhost:11434")
+                    # Should still ensure model is available even when server is running
+                    mock_ensure.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_start_ollama_success(self, ollama_config, mock_process):
