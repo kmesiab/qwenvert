@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
+    from .downloader import ModelDownloader
     from .hardware import HardwareProfile
 
 
@@ -317,8 +318,55 @@ class ModelSelector:
         """
         self.registry = registry
 
+    def _find_downloaded_model(
+        self,
+        downloaded_models: list[Path],
+        compatible: list[Model],
+        downloader: ModelDownloader | None = None,
+    ) -> Model | None:
+        """
+        Find first downloaded model that matches compatible models.
+
+        Args:
+            downloaded_models: List of downloaded GGUF file paths
+            compatible: List of compatible models from registry
+            downloader: ModelDownloader instance (optional)
+
+        Returns:
+            First matching model, or None if no match found
+        """
+        # Import here to avoid circular dependency (downloader imports Model)
+        from .downloader import ModelDownloader
+
+        # Use provided downloader or create one (avoids side effects when possible)
+        if downloader is None:
+            downloader = ModelDownloader()
+
+        for model_path in downloaded_models:
+            filename = model_path.name
+
+            # Try to match this downloaded file to a model in registry
+            for model in compatible:
+                try:
+                    expected_filename = downloader.get_model_filename(model)
+                    if filename == expected_filename:
+                        # Found a match! Use this already-downloaded model
+                        logger.info(
+                            f"Found already-downloaded compatible model: {model.display_name} "
+                            f"({model_path.name})"
+                        )
+                        return model
+                except (ValueError, AttributeError):
+                    # Skip models with invalid/missing filename info
+                    continue
+
+        return None
+
     def select_default(
-        self, hardware: HardwareProfile, downloaded_models: list[Path] | None = None
+        self,
+        hardware: HardwareProfile,
+        downloaded_models: list[Path] | None = None,
+        downloader: ModelDownloader | None = None,
     ) -> Model | None:
         """
         Select default model for given hardware.
@@ -334,6 +382,8 @@ class ModelSelector:
         Args:
             hardware: Detected hardware profile
             downloaded_models: List of paths to already-downloaded GGUF files (optional)
+            downloader: ModelDownloader instance for filename matching (optional,
+                       avoids filesystem side effects in tests)
 
         Returns:
             Selected model, or None if no compatible model found
@@ -345,27 +395,11 @@ class ModelSelector:
 
         # NEW: Check for already-downloaded compatible models first
         if downloaded_models:
-            # Import here to avoid circular dependency (downloader imports Model)
-            from .downloader import ModelDownloader
-
-            downloader = ModelDownloader()
-            for model_path in downloaded_models:
-                filename = model_path.name
-
-                # Try to match this downloaded file to a model in registry
-                for model in compatible:
-                    try:
-                        expected_filename = downloader.get_model_filename(model)
-                        if filename == expected_filename:
-                            # Found a match! Use this already-downloaded model
-                            logger.info(
-                                f"Found already-downloaded compatible model: {model.display_name} "
-                                f"({model_path.name})"
-                            )
-                            return model
-                    except (ValueError, AttributeError):
-                        # Skip models with invalid/missing filename info
-                        continue
+            found_model = self._find_downloaded_model(
+                downloaded_models, compatible, downloader
+            )
+            if found_model:
+                return found_model
 
         # Get optimal models (recommended RAM available)
         optimal = self.registry.find_optimal_models(hardware)

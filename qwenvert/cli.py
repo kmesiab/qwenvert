@@ -127,7 +127,7 @@ def init(model, backend, adapter_port, context_length) -> None:
                 sys.exit(1)
     else:
         # Auto-select optimal model (prioritizing already-downloaded models)
-        selected_model = selector.select_default(hardware, downloaded_models)
+        selected_model = selector.select_default(hardware, downloaded_models, downloader)
         if not selected_model:
             console.print(
                 "[red]Error:[/red] No compatible model found for your hardware"
