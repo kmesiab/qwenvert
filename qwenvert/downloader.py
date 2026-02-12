@@ -249,8 +249,8 @@ class ModelDownloader:
             model_path.unlink()
             logger.info(f"Successfully deleted {model_path.name}")
             return True, size
-        except Exception as e:
-            logger.exception(f"Failed to delete {model_path.name}: {e}")
+        except Exception:
+            logger.exception(f"Failed to delete {model_path.name}")
             raise
 
     def get_disk_usage(self) -> dict[str, float]:
