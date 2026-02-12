@@ -12,11 +12,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated GitHub Actions workflow for releases
 - Comprehensive publishing documentation
 
+## [0.2.3] - 2026-02-11
+
+### Added
+- Model cleanup command (`qwenvert models clean`) for removing downloaded models
+  - Interactive selection with numbered menu
+  - Delete specific models by filename (`--model-id` flag)
+  - Delete all models with confirmation (`--all` flag)
+  - Dry-run preview mode (`--dry-run` flag)
+  - Disk usage statistics before/after cleanup
+
 ### Fixed
 - Model selection now prioritizes already-downloaded models, preventing unnecessary re-downloads
   - `qwenvert init` checks for compatible downloaded models before selecting new ones
   - Saves bandwidth and setup time for users with models already downloaded
   - Particularly helpful for users with smaller models (1.5B, 3B) already on disk
+- One-click workflow now uses local GGUF files instead of downloading from registry
+  - Ollama Modelfile generated with local file path instead of model name
+  - Prevents redundant downloads when local model exists
+
+### Security
+- Added Modelfile injection attack prevention
+  - Validates model_path to reject newlines, control characters, and directive injection
+  - 14 comprehensive security tests for path validation
 
 ## [0.1.0] - 2026-02-10
 
@@ -77,5 +95,6 @@ Copy this for new releases:
 
 ---
 
-[Unreleased]: https://github.com/kmesiab/qwenvert/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/kmesiab/qwenvert/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/kmesiab/qwenvert/compare/v0.1.0...v0.2.3
 [0.1.0]: https://github.com/kmesiab/qwenvert/releases/tag/v0.1.0
