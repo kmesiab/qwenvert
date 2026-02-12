@@ -280,6 +280,52 @@ qwen2.5-coder-14b-q4         8.5GB   16GB   32K
 qwen2.5-coder-14b-q5         10GB    32GB   32K
 ```
 
+### Clean Up Downloaded Models
+
+Remove downloaded model files to free disk space:
+
+```bash
+# Interactive selection
+qwenvert models clean
+
+# Remove specific model
+qwenvert models clean --model-id qwen2.5-coder-7b-instruct-q4_k_m.gguf
+
+# Remove all models (with confirmation)
+qwenvert models clean --all
+
+# Preview what would be deleted (dry run)
+qwenvert models clean --dry-run
+```
+
+**Example output:**
+```
+Model Cleanup
+
+Models disk usage: 12.3 GB
+Available disk space: 45.2 GB
+
+Downloaded models:
+
+  1. qwen2.5-coder-7b-instruct-q4_k_m.gguf (4.2 GB)
+  2. qwen2.5-coder-14b-instruct-q5_k_m.gguf (8.1 GB)
+  3. All models
+  4. Cancel
+
+Enter number(s) separated by commas: 1
+
+Models to be deleted:
+
+Filename                                   Size
+qwen2.5-coder-7b-instruct-q4_k_m.gguf     4.2 GB
+
+Total space to free: 4.2 GB
+
+Delete these models? [y/N]: y
+
+✓ Cleanup complete! Deleted 1 model(s), freed 4.2 GB
+```
+
 ### Check Your Hardware
 
 ```bash
