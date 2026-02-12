@@ -386,6 +386,209 @@ def list_models(backend) -> None:
     console.print()
 
 
+@models.command("clean")
+@click.option(
+    "--model-id",
+    help="Specific model filename to remove (e.g., qwen2.5-coder-7b-instruct-q4_k_m.gguf)",
+)
+@click.option(
+    "--all",
+    "all_models",
+    is_flag=True,
+    help="Remove all downloaded models",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be deleted without actually deleting",
+)
+def clean_models(model_id, all_models, dry_run) -> None:
+    """
+    Remove downloaded model files to free disk space.
+
+    Examples:
+        qwenvert models clean --model-id qwen2.5-coder-7b-instruct-q4_k_m.gguf
+        qwenvert models clean --all
+        qwenvert models clean --dry-run
+    """
+    from pathlib import Path  # noqa: TC003
+
+    from .downloader import ModelDownloader
+
+    console.print("\n[bold blue]Model Cleanup[/bold blue]\n")
+
+    downloader = ModelDownloader()
+
+    # Get list of downloaded models
+    downloaded_models = downloader.list_downloaded_models()
+
+    if not downloaded_models:
+        console.print("[yellow]No models downloaded yet.[/yellow]\n")
+        return
+
+    # Show current disk usage
+    _show_disk_usage(downloader)
+
+    # Determine which models to delete
+    models_to_delete: list[Path] = []
+
+    if all_models:
+        models_to_delete = downloaded_models
+    elif model_id:
+        # Find model by filename
+        matching_model = next(
+            (m for m in downloaded_models if m.name == model_id), None
+        )
+        if matching_model:
+            models_to_delete = [matching_model]
+        else:
+            console.print(f"\n[red]Error:[/red] Model '{model_id}' not found\n")
+            console.print("[dim]Available models:[/dim]")
+            for model_path in downloaded_models:
+                console.print(f"  • {model_path.name}")
+            console.print()
+            return
+    else:
+        # Interactive selection
+        models_to_delete = _interactive_model_selection(downloaded_models)
+        if not models_to_delete:
+            console.print("\n[yellow]Cleanup cancelled.[/yellow]\n")
+            return
+
+    # Show what will be deleted
+    _show_deletion_summary(models_to_delete)
+
+    # Confirm deletion (unless dry-run)
+    if not _confirm_deletion(models_to_delete, dry_run):
+        return
+
+    # Delete models
+    try:
+        deleted_count = 0
+        total_freed = 0
+
+        with console.status("[cyan]Deleting models...", spinner="dots") as status:
+            for model_path in models_to_delete:
+                try:
+                    success, size = downloader.delete_model_by_path(model_path)
+                    if success:
+                        deleted_count += 1
+                        total_freed += size
+                        status.update(
+                            f"[cyan]Deleted {deleted_count}/{len(models_to_delete)}..."
+                        )
+                except Exception as e:
+                    console.print(f"\n[red]Error deleting {model_path.name}:[/red] {e}")
+
+        console.print(
+            f"\n[green]✓ Cleanup complete![/green] Deleted {deleted_count} "
+            f"model(s), freed {total_freed / (1024**3):.2f} GB\n"
+        )
+
+        # Show updated disk usage
+        console.print("[bold]Updated disk usage:[/bold]")
+        _show_disk_usage(downloader)
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Cleanup interrupted by user[/yellow]\n")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"\n[red]Error during cleanup:[/red] {e}\n")
+        sys.exit(1)
+
+
+def _show_disk_usage(downloader) -> None:
+    """Display current disk usage statistics."""
+    usage = downloader.get_disk_usage()
+    console.print(f"[dim]Models disk usage: {usage['total_gb']:.2f} GB[/dim]")
+    console.print(f"[dim]Available disk space: {usage['available_gb']:.2f} GB[/dim]\n")
+
+
+def _show_deletion_summary(models: list) -> None:
+    """Show summary of models to be deleted."""
+    from pathlib import Path
+
+    console.print("\n[bold]Models to be deleted:[/bold]\n")
+
+    table = Table()
+    table.add_column("Filename", style="cyan")
+    table.add_column("Size", justify="right", style="yellow")
+
+    total_size = 0
+    for model_path in models:
+        if isinstance(model_path, Path):
+            size = model_path.stat().st_size
+            total_size += size
+            table.add_row(model_path.name, f"{size / (1024**3):.2f} GB")
+
+    console.print(table)
+    console.print(
+        f"\n[bold]Total space to free: {total_size / (1024**3):.2f} GB[/bold]"
+    )
+
+
+def _confirm_deletion(model_paths: list, dry_run: bool) -> bool:
+    """Confirm model deletion with user."""
+    if dry_run:
+        console.print(
+            "\n[yellow]Dry run - showing preview only, no models will be deleted[/yellow]\n"
+        )
+        return False
+
+    console.print()
+    return click.confirm("Delete these models?", default=False)
+
+
+def _interactive_model_selection(downloaded_models: list) -> list:
+    """Interactively select models to delete."""
+    from pathlib import Path
+
+    console.print("[bold]Downloaded models:[/bold]\n")
+
+    # Show numbered list
+    for idx, model_path in enumerate(downloaded_models, 1):
+        if isinstance(model_path, Path):
+            size = model_path.stat().st_size
+            console.print(
+                f"  {idx}. {model_path.name} [dim]({size / (1024**3):.2f} GB)[/dim]"
+            )
+
+    console.print(f"  {len(downloaded_models) + 1}. All models")
+    console.print(f"  {len(downloaded_models) + 2}. Cancel")
+
+    # Get user input
+    try:
+        selection = click.prompt(
+            "\nEnter number(s) separated by commas",
+            type=str,
+            show_default=False,
+        )
+
+        # Parse selection and deduplicate
+        selected_indices = sorted({int(s.strip()) for s in selection.split(",")})
+
+        # Check for "All" or "Cancel"
+        if len(downloaded_models) + 2 in selected_indices:
+            return []
+        if len(downloaded_models) + 1 in selected_indices:
+            return downloaded_models
+
+        # Collect selected models
+        models_to_delete = []
+        for idx in selected_indices:
+            if 1 <= idx <= len(downloaded_models):
+                models_to_delete.append(downloaded_models[idx - 1])
+            else:
+                console.print(
+                    f"\n[yellow]Warning:[/yellow] Invalid selection {idx}, skipping"
+                )
+
+        return models_to_delete
+
+    except (ValueError, EOFError, KeyboardInterrupt):
+        return []
+
+
 def _list_models_table(registry, backend_filter=None) -> None:
     """Helper to display models table."""
     all_models = registry.list_models(backend=backend_filter)

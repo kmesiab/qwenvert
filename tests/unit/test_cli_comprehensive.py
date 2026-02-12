@@ -949,3 +949,192 @@ class TestMonitorCommand:
 
                 assert result.exit_code == 1
                 assert "Error" in result.output
+
+
+class TestModelsCleanCommand:
+    """Test models clean command."""
+
+    def test_clean_help(self, runner):
+        """Test clean command help output."""
+        result = runner.invoke(cli, ["models", "clean", "--help"])
+        assert result.exit_code == 0
+        assert "Remove downloaded model files" in result.output
+        assert "--model-id" in result.output
+        assert "--all" in result.output
+        assert "--dry-run" in result.output
+
+    def test_clean_no_models(self, runner):
+        """Test clean when no models are downloaded."""
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = []
+            mock_downloader_cls.return_value = mock_downloader
+
+            result = runner.invoke(cli, ["models", "clean"])
+
+            assert result.exit_code == 0
+            assert "No models downloaded" in result.output
+
+    def test_clean_dry_run(self, runner, tmp_path):
+        """Test dry run doesn't delete files."""
+        # Create fake model files
+        fake_model = tmp_path / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+        fake_model.write_bytes(b"fake model data" * 1000)
+
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = [fake_model]
+            mock_downloader.get_disk_usage.return_value = {
+                "total_gb": 0.01,
+                "available_gb": 100.0,
+            }
+            mock_downloader_cls.return_value = mock_downloader
+
+            result = runner.invoke(cli, ["models", "clean", "--all", "--dry-run"])
+
+            assert result.exit_code == 0
+            assert "Dry run" in result.output
+            assert fake_model.exists()  # File should still exist
+
+    def test_clean_specific_model(self, runner, tmp_path):
+        """Test cleaning a specific model by filename."""
+        # Create fake model files
+        model1 = tmp_path / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+        model2 = tmp_path / "qwen2.5-coder-14b-instruct-q5_k_m.gguf"
+        model1.write_bytes(b"fake model 1" * 1000)
+        model2.write_bytes(b"fake model 2" * 1000)
+
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = [model1, model2]
+            mock_downloader.get_disk_usage.return_value = {
+                "total_gb": 0.02,
+                "available_gb": 100.0,
+            }
+            mock_downloader_cls.return_value = mock_downloader
+
+            result = runner.invoke(
+                cli,
+                [
+                    "models",
+                    "clean",
+                    "--model-id",
+                    "qwen2.5-coder-7b-instruct-q4_k_m.gguf",
+                ],
+                input="y\n",
+            )
+
+            assert result.exit_code == 0
+            assert "Cleanup complete" in result.output
+
+    def test_clean_model_not_found(self, runner, tmp_path):
+        """Test cleaning non-existent model shows error."""
+        model1 = tmp_path / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+        model1.write_bytes(b"fake model" * 1000)
+
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = [model1]
+            mock_downloader.get_disk_usage.return_value = {
+                "total_gb": 0.01,
+                "available_gb": 100.0,
+            }
+            mock_downloader_cls.return_value = mock_downloader
+
+            result = runner.invoke(
+                cli,
+                ["models", "clean", "--model-id", "nonexistent.gguf"],
+            )
+
+            assert result.exit_code == 0
+            assert "not found" in result.output
+            assert "Available models" in result.output
+
+    def test_clean_all_with_confirmation(self, runner, tmp_path):
+        """Test --all flag with user confirmation."""
+        # Create fake model files
+        model1 = tmp_path / "model1.gguf"
+        model2 = tmp_path / "model2.gguf"
+        model1.write_bytes(b"fake model 1" * 1000)
+        model2.write_bytes(b"fake model 2" * 1000)
+
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = [model1, model2]
+            mock_downloader.get_disk_usage.return_value = {
+                "total_gb": 0.02,
+                "available_gb": 100.0,
+            }
+            mock_downloader_cls.return_value = mock_downloader
+
+            # Test with confirmation
+            result = runner.invoke(cli, ["models", "clean", "--all"], input="y\n")
+
+            assert result.exit_code == 0
+            assert "Cleanup complete" in result.output
+
+    def test_clean_all_with_denial(self, runner, tmp_path):
+        """Test --all flag with user denying confirmation."""
+        model1 = tmp_path / "model1.gguf"
+        model1.write_bytes(b"fake model" * 1000)
+
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = [model1]
+            mock_downloader.get_disk_usage.return_value = {
+                "total_gb": 0.01,
+                "available_gb": 100.0,
+            }
+            mock_downloader_cls.return_value = mock_downloader
+
+            # Test with denial
+            result = runner.invoke(cli, ["models", "clean", "--all"], input="n\n")
+
+            assert result.exit_code == 0
+            assert model1.exists()  # File should still exist
+
+    def test_clean_keyboard_interrupt(self, runner, tmp_path):
+        """Test clean handles keyboard interrupt gracefully."""
+        model1 = tmp_path / "model1.gguf"
+        model1.write_bytes(b"fake model" * 1000)
+
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = [model1]
+            mock_downloader.get_disk_usage.return_value = {
+                "total_gb": 0.01,
+                "available_gb": 100.0,
+            }
+            mock_downloader_cls.return_value = mock_downloader
+
+            # Simulate KeyboardInterrupt during deletion
+            mock_downloader.delete_model_by_path.side_effect = KeyboardInterrupt()
+
+            result = runner.invoke(cli, ["models", "clean", "--all"], input="y\n")
+
+            assert result.exit_code == 1
+            assert "interrupted" in result.output.lower()
+
+    def test_clean_deletion_error(self, runner, tmp_path):
+        """Test clean handles deletion errors gracefully."""
+        model1 = tmp_path / "model1.gguf"
+        model1.write_bytes(b"fake model" * 1000)
+
+        with patch("qwenvert.downloader.ModelDownloader") as mock_downloader_cls:
+            mock_downloader = MagicMock()
+            mock_downloader.list_downloaded_models.return_value = [model1]
+            mock_downloader.get_disk_usage.return_value = {
+                "total_gb": 0.01,
+                "available_gb": 100.0,
+            }
+            mock_downloader_cls.return_value = mock_downloader
+
+            # Simulate permission error during deletion
+            mock_downloader.delete_model_by_path.side_effect = PermissionError(
+                "Permission denied"
+            )
+
+            result = runner.invoke(cli, ["models", "clean", "--all"], input="y\n")
+
+            assert result.exit_code == 0  # Should continue despite error
+            assert "Error deleting" in result.output
