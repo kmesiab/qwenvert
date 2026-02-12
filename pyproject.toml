@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["qwenvert*"]
-exclude = ["tests*", "docs*", "benchmarks*", "configs*", "homebrew*"]
+exclude = ["docs*", "benchmarks*", "configs*", "homebrew*"]
 
 [project]
 name = "qwenvert"
