@@ -196,7 +196,7 @@ class TestModelPathValidation:
             backend_model_id=sample_model_7b_q4.backend_model_id,
             model_path="/path/to/model.gguf\nPARAMETER num_ctx 999999",
         )
-        with pytest.raises(ValueError, match="newline.*injection"):
+        with pytest.raises(ValueError, match=r"newline.*injection"):
             config.validate()
 
     def test_carriage_return_injection_rejected(self, sample_model_7b_q4):
@@ -208,7 +208,7 @@ class TestModelPathValidation:
             backend_model_id=sample_model_7b_q4.backend_model_id,
             model_path="/path/to/model.gguf\rSYSTEM malicious",
         )
-        with pytest.raises(ValueError, match="newline.*injection"):
+        with pytest.raises(ValueError, match=r"newline.*injection"):
             config.validate()
 
     def test_control_character_rejected(self, sample_model_7b_q4):
@@ -231,9 +231,9 @@ class TestModelPathValidation:
             backend=Backend.OLLAMA.value,
             backend_url="http://localhost:11434",
             backend_model_id=sample_model_7b_q4.backend_model_id,
-            model_path="/tmp/FROM malicious/model.gguf",
+            model_path="/tmp/FROM malicious/model.gguf",  # noqa: S108
         )
-        with pytest.raises(ValueError, match="suspicious Modelfile keyword.*FROM"):
+        with pytest.raises(ValueError, match=r"suspicious Modelfile keyword.*FROM"):
             config.validate()
 
     def test_parameter_directive_injection_rejected(self, sample_model_7b_q4):
@@ -243,9 +243,11 @@ class TestModelPathValidation:
             backend=Backend.OLLAMA.value,
             backend_url="http://localhost:11434",
             backend_model_id=sample_model_7b_q4.backend_model_id,
-            model_path="/tmp/PARAMETER num_ctx/model.gguf",
+            model_path="/tmp/PARAMETER num_ctx/model.gguf",  # noqa: S108
         )
-        with pytest.raises(ValueError, match="suspicious Modelfile keyword.*PARAMETER"):
+        with pytest.raises(
+            ValueError, match=r"suspicious Modelfile keyword.*PARAMETER"
+        ):
             config.validate()
 
     def test_system_directive_injection_rejected(self, sample_model_7b_q4):
@@ -255,9 +257,9 @@ class TestModelPathValidation:
             backend=Backend.OLLAMA.value,
             backend_url="http://localhost:11434",
             backend_model_id=sample_model_7b_q4.backend_model_id,
-            model_path="/tmp/SYSTEM malicious/model.gguf",
+            model_path="/tmp/SYSTEM malicious/model.gguf",  # noqa: S108
         )
-        with pytest.raises(ValueError, match="suspicious Modelfile keyword.*SYSTEM"):
+        with pytest.raises(ValueError, match=r"suspicious Modelfile keyword.*SYSTEM"):
             config.validate()
 
     def test_empty_path_rejected(self, sample_model_7b_q4):
@@ -302,7 +304,7 @@ class TestModelPathValidation:
             yaml.safe_dump(malicious_config, f)
 
         # Loading should fail validation
-        with pytest.raises(ValueError, match="newline.*injection"):
+        with pytest.raises(ValueError, match=r"newline.*injection"):
             QwenvertConfig.load(config_path)
 
     def test_modelfile_generation_with_validated_path(

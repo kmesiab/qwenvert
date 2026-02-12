@@ -247,17 +247,22 @@ class ServerLauncher:
 
         if self.config.backend_model_id not in result.stdout:
             # Check if we have a local model file and Modelfile
-            from .config import ConfigManager
-            from pathlib import Path
-
             modelfile_path = ConfigManager.get_ollama_modelfile_path()
-            model_path = Path(self.config.model_path) if self.config.model_path else None
+            model_path = (
+                Path(self.config.model_path) if self.config.model_path else None
+            )
 
             if model_path and model_path.exists() and modelfile_path.exists():
                 # Create model from local file using Modelfile
                 logger.info(f"Creating model from local file: {model_path}...")
                 subprocess.run(
-                    ["ollama", "create", self.config.backend_model_id, "-f", str(modelfile_path)],
+                    [
+                        "ollama",
+                        "create",
+                        self.config.backend_model_id,
+                        "-f",
+                        str(modelfile_path),
+                    ],
                     check=True,
                 )
                 logger.info("✓ Model created from local file")
