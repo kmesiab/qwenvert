@@ -26,7 +26,6 @@ from .dependencies import (
 from .models import Backend
 from .security import validate_adapter_host, validate_localhost_url
 
-
 logger = logging.getLogger(__name__)
 
 

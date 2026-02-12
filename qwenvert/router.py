@@ -23,7 +23,6 @@ from .adapter import (
 from .models import Backend, Model
 from .security import validate_localhost_url
 
-
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 

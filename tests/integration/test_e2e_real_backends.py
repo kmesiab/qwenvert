@@ -24,7 +24,6 @@ from qwenvert.adapter import create_app
 from qwenvert.models import Backend, Model
 from qwenvert.router import BackendRouter
 
-
 # Mark all tests in this file as e2e
 pytestmark = pytest.mark.e2e
 

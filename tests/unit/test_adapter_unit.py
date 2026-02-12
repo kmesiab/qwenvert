@@ -27,7 +27,6 @@ from qwenvert.adapter import (
     start_server_sync,
 )
 
-
 # ============================================================================
 # Model Validation Tests
 # ============================================================================
@@ -169,7 +168,9 @@ class TestMessagesRequestModel:
             messages=[Message(role="user", content="Hello")],
             max_tokens=5000,
         )
-        assert request.max_tokens == 5000, "Adapter accepts large values, router will cap"
+        assert (
+            request.max_tokens == 5000
+        ), "Adapter accepts large values, router will cap"
 
     def test_request_temperature_validation(self):
         """Test temperature parameter validation."""

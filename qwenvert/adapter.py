@@ -15,7 +15,6 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -41,9 +40,7 @@ class MessagesRequest(BaseModel):
     messages: List[Message] = Field(
         ..., min_length=1, description="Conversation messages"
     )
-    max_tokens: int = Field(
-        1024, ge=1, description="Maximum tokens to generate"
-    )
+    max_tokens: int = Field(1024, ge=1, description="Maximum tokens to generate")
     temperature: Optional[float] = Field(
         None, ge=0.0, le=2.0, description="Sampling temperature"
     )
