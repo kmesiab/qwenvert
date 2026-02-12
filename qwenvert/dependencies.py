@@ -274,12 +274,20 @@ def can_auto_install(dependency_name: str) -> bool:
         dependency_name: Name of the dependency ('ollama', 'homebrew', etc.)
 
     Returns:
-        True if auto-installation is possible
+        True if auto-installation is possible (dependency is whitelisted and Homebrew is available)
     """
-    if dependency_name.lower() == "homebrew":
-        return False  # Homebrew itself requires manual installation
+    # Normalize dependency name for case-insensitive comparison
+    normalized_name = dependency_name.lower().strip()
 
-    # Check if Homebrew is available for installing other dependencies
+    # Special case: Homebrew itself requires manual installation
+    if normalized_name == "homebrew":
+        return False
+
+    # Check if dependency is in the allowed whitelist
+    if normalized_name not in ALLOWED_AUTO_INSTALL_DEPENDENCIES:
+        return False
+
+    # Check if Homebrew is available for installing dependencies
     homebrew = check_homebrew()
     return homebrew.is_available
 
@@ -292,11 +300,12 @@ def auto_install_dependency(dependency_name: str) -> bool:
         dependency_name: Name of the dependency to install
 
     Returns:
-        True if installation succeeded, False otherwise
+        True if installation succeeded
 
     Raises:
         RuntimeError: If Homebrew is not available or installation fails
         ValueError: If dependency_name is not in allowed list
+        subprocess.TimeoutExpired: If installation times out after 5 minutes
     """
     import re
     import subprocess
@@ -323,14 +332,16 @@ def auto_install_dependency(dependency_name: str) -> bool:
 
     try:
         # Run brew install with validated, whitelisted dependency name
-        result = subprocess.run(
+        # check=True will raise CalledProcessError on non-zero exit
+        subprocess.run(
             ["brew", "install", normalized_name],
             capture_output=True,
             text=True,
             check=True,
             timeout=300,  # 5 minute timeout to prevent hanging
         )
-        return result.returncode == 0
+        # If we reach here, installation succeeded
+        return True
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to install {dependency_name}: {e.stderr}") from e
     except subprocess.TimeoutExpired as e:
