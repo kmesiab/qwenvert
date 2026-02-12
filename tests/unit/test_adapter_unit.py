@@ -162,13 +162,14 @@ class TestMessagesRequestModel:
                 max_tokens=0,
             )
 
-        # Invalid: above maximum
-        with pytest.raises(ValidationError):
-            MessagesRequest(
-                model="test-model",
-                messages=[Message(role="user", content="Hello")],
-                max_tokens=5000,
-            )
+        # max_tokens > 4096 is now handled by router (model-specific capping)
+        # Adapter accepts any positive value, router caps based on model limits
+        request = MessagesRequest(
+            model="test-model",
+            messages=[Message(role="user", content="Hello")],
+            max_tokens=5000,
+        )
+        assert request.max_tokens == 5000, "Adapter accepts large values, router will cap"
 
     def test_request_temperature_validation(self):
         """Test temperature parameter validation."""

@@ -29,6 +29,7 @@ def ollama_model():
         backend=Backend.OLLAMA,
         backend_model_id="qwen2.5-coder:7b",
         context_length=32768,
+        max_output_tokens=12288,
         min_ram_gb=8,
         recommended_ram_gb=16,
     )
@@ -46,6 +47,7 @@ def llamacpp_model():
         backend=Backend.LLAMACPP,
         backend_model_id="qwen2.5-coder-14b.gguf",
         context_length=32768,
+        max_output_tokens=16384,
         min_ram_gb=20,
         recommended_ram_gb=32,
     )
