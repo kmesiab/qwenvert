@@ -977,8 +977,6 @@ class TestModelsCleanCommand:
 
     def test_clean_dry_run(self, runner, tmp_path):
         """Test dry run doesn't delete files."""
-        from pathlib import Path
-
         # Create fake model files
         fake_model = tmp_path / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
         fake_model.write_bytes(b"fake model data" * 1000)
@@ -1000,8 +998,6 @@ class TestModelsCleanCommand:
 
     def test_clean_specific_model(self, runner, tmp_path):
         """Test cleaning a specific model by filename."""
-        from pathlib import Path
-
         # Create fake model files
         model1 = tmp_path / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
         model2 = tmp_path / "qwen2.5-coder-14b-instruct-q5_k_m.gguf"
@@ -1033,8 +1029,6 @@ class TestModelsCleanCommand:
 
     def test_clean_model_not_found(self, runner, tmp_path):
         """Test cleaning non-existent model shows error."""
-        from pathlib import Path
-
         model1 = tmp_path / "qwen2.5-coder-7b-instruct-q4_k_m.gguf"
         model1.write_bytes(b"fake model" * 1000)
 
@@ -1058,8 +1052,6 @@ class TestModelsCleanCommand:
 
     def test_clean_all_with_confirmation(self, runner, tmp_path):
         """Test --all flag with user confirmation."""
-        from pathlib import Path
-
         # Create fake model files
         model1 = tmp_path / "model1.gguf"
         model2 = tmp_path / "model2.gguf"
@@ -1083,8 +1075,6 @@ class TestModelsCleanCommand:
 
     def test_clean_all_with_denial(self, runner, tmp_path):
         """Test --all flag with user denying confirmation."""
-        from pathlib import Path
-
         model1 = tmp_path / "model1.gguf"
         model1.write_bytes(b"fake model" * 1000)
 
@@ -1105,8 +1095,6 @@ class TestModelsCleanCommand:
 
     def test_clean_keyboard_interrupt(self, runner, tmp_path):
         """Test clean handles keyboard interrupt gracefully."""
-        from pathlib import Path
-
         model1 = tmp_path / "model1.gguf"
         model1.write_bytes(b"fake model" * 1000)
 
@@ -1129,8 +1117,6 @@ class TestModelsCleanCommand:
 
     def test_clean_deletion_error(self, runner, tmp_path):
         """Test clean handles deletion errors gracefully."""
-        from pathlib import Path
-
         model1 = tmp_path / "model1.gguf"
         model1.write_bytes(b"fake model" * 1000)
 
