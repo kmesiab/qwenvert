@@ -393,6 +393,7 @@ def list_models(backend) -> None:
 )
 @click.option(
     "--all",
+    "all_models",
     is_flag=True,
     help="Remove all downloaded models",
 )
@@ -401,7 +402,7 @@ def list_models(backend) -> None:
     is_flag=True,
     help="Show what would be deleted without actually deleting",
 )
-def clean_models(model_id, all, dry_run) -> None:
+def clean_models(model_id, all_models, dry_run) -> None:
     """
     Remove downloaded model files to free disk space.
 
@@ -431,7 +432,7 @@ def clean_models(model_id, all, dry_run) -> None:
     # Determine which models to delete
     models_to_delete: list[Path] = []
 
-    if all:
+    if all_models:
         models_to_delete = downloaded_models
     elif model_id:
         # Find model by filename
