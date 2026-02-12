@@ -115,6 +115,7 @@ class TestLauncherBackendUrlValidation:
             backend=Backend.OLLAMA,
             backend_model_id="test:7b",
             context_length=4096,
+            max_output_tokens=12288,
             min_ram_gb=8,
             recommended_ram_gb=16,
         )

@@ -54,6 +54,7 @@ def mock_model():
         backend=Backend.OLLAMA,
         backend_model_id="qwen2.5-coder:7b",
         context_length=32768,
+        max_output_tokens=12288,
         min_ram_gb=8,
         recommended_ram_gb=16,
         huggingface_repo="Qwen/Qwen2.5-Coder-7B-GGUF",
@@ -221,6 +222,7 @@ class TestInitCommand:
             backend=Backend.OLLAMA,
             backend_model_id="qwen2.5-coder:32b",
             context_length=32768,
+            max_output_tokens=16384,
             min_ram_gb=64,  # More than our mock hardware has
             recommended_ram_gb=128,
             huggingface_repo="Qwen/Qwen2.5-Coder-32B-GGUF",
@@ -339,6 +341,7 @@ class TestInitCommand:
             backend=Backend.OLLAMA,
             backend_model_id="custom:7b",
             context_length=32768,
+            max_output_tokens=12288,
             min_ram_gb=8,
             recommended_ram_gb=16,
             huggingface_repo=None,  # No HuggingFace repo
@@ -735,6 +738,7 @@ class TestModelsCommand:
             backend=Backend.OLLAMA,
             backend_model_id="qwen2.5-coder:14b",
             context_length=32768,
+            max_output_tokens=16384,
             min_ram_gb=20,
             recommended_ram_gb=32,
         )
