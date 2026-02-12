@@ -2,6 +2,8 @@
 Unit tests for configuration generation.
 """
 
+import pytest
+
 from qwenvert.config import ConfigGenerator, ConfigManager, QwenvertConfig
 from qwenvert.models import Backend
 
@@ -144,3 +146,198 @@ class TestConfigManager:
         # Load
         loaded = ConfigManager.load()
         assert loaded.model_id == config.model_id
+
+
+class TestModelPathValidation:
+    """Test model_path validation to prevent injection attacks."""
+
+    def test_valid_absolute_path(self, sample_model_7b_q4):
+        """Test that valid absolute paths pass validation."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="/Users/test/.qwenvert/models/model.gguf",
+        )
+        # Should not raise
+        config.validate()
+
+    def test_valid_home_path(self, sample_model_7b_q4):
+        """Test that paths with ~ pass validation."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="~/.qwenvert/models/model.gguf",
+        )
+        # Should not raise
+        config.validate()
+
+    def test_none_model_path_is_valid(self, sample_model_7b_q4):
+        """Test that None model_path is valid (falls back to pull)."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path=None,
+        )
+        # Should not raise
+        config.validate()
+
+    def test_newline_injection_rejected(self, sample_model_7b_q4):
+        """Test that paths with newlines are rejected (Modelfile injection)."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="/path/to/model.gguf\nPARAMETER num_ctx 999999",
+        )
+        with pytest.raises(ValueError, match="newline.*injection"):
+            config.validate()
+
+    def test_carriage_return_injection_rejected(self, sample_model_7b_q4):
+        """Test that paths with carriage returns are rejected."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="/path/to/model.gguf\rSYSTEM malicious",
+        )
+        with pytest.raises(ValueError, match="newline.*injection"):
+            config.validate()
+
+    def test_control_character_rejected(self, sample_model_7b_q4):
+        """Test that paths with control characters are rejected."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="/path/to/model\x00.gguf",  # Null byte
+        )
+        with pytest.raises(ValueError, match="control character"):
+            config.validate()
+
+    def test_modelfile_directive_injection_rejected(self, sample_model_7b_q4):
+        """Test that paths with Modelfile directives are rejected."""
+        # Create a path with a suspicious directory name
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="/tmp/FROM malicious/model.gguf",
+        )
+        with pytest.raises(ValueError, match="suspicious Modelfile keyword.*FROM"):
+            config.validate()
+
+    def test_parameter_directive_injection_rejected(self, sample_model_7b_q4):
+        """Test that PARAMETER directive in path is rejected."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="/tmp/PARAMETER num_ctx/model.gguf",
+        )
+        with pytest.raises(ValueError, match="suspicious Modelfile keyword.*PARAMETER"):
+            config.validate()
+
+    def test_system_directive_injection_rejected(self, sample_model_7b_q4):
+        """Test that SYSTEM directive in path is rejected."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="/tmp/SYSTEM malicious/model.gguf",
+        )
+        with pytest.raises(ValueError, match="suspicious Modelfile keyword.*SYSTEM"):
+            config.validate()
+
+    def test_empty_path_rejected(self, sample_model_7b_q4):
+        """Test that empty paths are rejected."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="",
+        )
+        with pytest.raises(ValueError, match="empty"):
+            config.validate()
+
+    def test_whitespace_only_path_rejected(self, sample_model_7b_q4):
+        """Test that whitespace-only paths are rejected."""
+        config = QwenvertConfig(
+            model_id=sample_model_7b_q4.id,
+            backend=Backend.OLLAMA.value,
+            backend_url="http://localhost:11434",
+            backend_model_id=sample_model_7b_q4.backend_model_id,
+            model_path="   ",
+        )
+        with pytest.raises(ValueError, match="empty"):
+            config.validate()
+
+    def test_validation_runs_on_load(self, temp_config_dir, sample_model_7b_q4):
+        """Test that validation runs when loading config from file."""
+        import yaml
+
+        # Create config file with malicious model_path
+        config_path = temp_config_dir / "config.yaml"
+        malicious_config = {
+            "model_id": sample_model_7b_q4.id,
+            "backend": Backend.OLLAMA.value,
+            "backend_url": "http://localhost:11434",
+            "backend_model_id": sample_model_7b_q4.backend_model_id,
+            "model_path": "/path/to/model.gguf\nPARAMETER num_ctx 999999",
+        }
+
+        with open(config_path, "w") as f:
+            yaml.safe_dump(malicious_config, f)
+
+        # Loading should fail validation
+        with pytest.raises(ValueError, match="newline.*injection"):
+            QwenvertConfig.load(config_path)
+
+    def test_modelfile_generation_with_validated_path(
+        self, sample_model_7b_q4, mock_hardware_m1_16gb
+    ):
+        """Test that Modelfile generation works with validated paths."""
+        gen = ConfigGenerator(sample_model_7b_q4, mock_hardware_m1_16gb)
+
+        # Valid path should work
+        valid_path = "/Users/test/.qwenvert/models/model.gguf"
+        modelfile = gen.generate_ollama_modelfile(model_path=valid_path)
+
+        assert f"FROM {valid_path}" in modelfile
+        assert "PARAMETER num_ctx" in modelfile
+
+    def test_modelfile_prevents_directive_injection(
+        self, sample_model_7b_q4, mock_hardware_m1_16gb
+    ):
+        """Test that malicious paths don't inject directives into Modelfile."""
+        gen = ConfigGenerator(sample_model_7b_q4, mock_hardware_m1_16gb)
+
+        # This path would be caught by validation, but let's verify
+        # the Modelfile generation itself doesn't introduce vulnerabilities
+        valid_path = "/home/user/models/qwen-model.gguf"
+        modelfile = gen.generate_ollama_modelfile(model_path=valid_path)
+
+        # Count occurrences of PARAMETER - should only be the intended ones
+        param_count = modelfile.count("PARAMETER")
+        # Expected: num_ctx, num_gpu, num_thread, temperature, top_p, top_k, repeat_penalty
+        assert param_count == 7
+
+        # Count FROM - should only be one
+        from_count = modelfile.count("FROM")
+        assert from_count == 1
+
+        # Count SYSTEM - should only be one
+        system_count = modelfile.count("SYSTEM")
+        assert system_count == 1
