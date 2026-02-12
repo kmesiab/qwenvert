@@ -3,7 +3,8 @@ Unit tests for model registry and selection.
 """
 
 from pathlib import Path
-from qwenvert.models import Backend, Model, ModelSelector
+
+from qwenvert.models import Backend, ModelSelector
 
 
 class TestModelRegistry:

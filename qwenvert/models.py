@@ -15,11 +15,11 @@ from typing import TYPE_CHECKING
 
 import yaml
 
+
 logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    from .downloader import ModelDownloader
     from .hardware import HardwareProfile
 
 
