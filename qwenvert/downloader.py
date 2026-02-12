@@ -229,6 +229,30 @@ class ModelDownloader:
 
         return False
 
+    def delete_model_by_path(self, model_path: Path) -> tuple[bool, int]:
+        """
+        Delete a model file by path.
+
+        Args:
+            model_path: Path to model file
+
+        Returns:
+            Tuple of (success: bool, size_bytes: int)
+        """
+        if not model_path.exists():
+            logger.warning(f"Model not found: {model_path}")
+            return False, 0
+
+        try:
+            size = model_path.stat().st_size
+            logger.info(f"Deleting {model_path.name} ({size / (1024**3):.2f} GB)")
+            model_path.unlink()
+            logger.info(f"Successfully deleted {model_path.name}")
+            return True, size
+        except Exception as e:
+            logger.error(f"Failed to delete {model_path.name}: {e}")
+            raise
+
     def get_disk_usage(self) -> dict[str, float]:
         """
         Get disk usage statistics for models directory.

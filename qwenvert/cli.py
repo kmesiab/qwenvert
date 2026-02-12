@@ -470,13 +470,13 @@ def clean_models(model_id, all_models, dry_run) -> None:
         with console.status("[cyan]Deleting models...", spinner="dots") as status:
             for model_path in models_to_delete:
                 try:
-                    size = model_path.stat().st_size
-                    model_path.unlink()
-                    deleted_count += 1
-                    total_freed += size
-                    status.update(
-                        f"[cyan]Deleted {deleted_count}/{len(models_to_delete)}..."
-                    )
+                    success, size = downloader.delete_model_by_path(model_path)
+                    if success:
+                        deleted_count += 1
+                        total_freed += size
+                        status.update(
+                            f"[cyan]Deleted {deleted_count}/{len(models_to_delete)}..."
+                        )
                 except Exception as e:
                     console.print(f"\n[red]Error deleting {model_path.name}:[/red] {e}")
 

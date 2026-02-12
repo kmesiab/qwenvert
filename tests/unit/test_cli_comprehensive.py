@@ -1120,13 +1120,12 @@ class TestModelsCleanCommand:
             mock_downloader_cls.return_value = mock_downloader
 
             # Simulate KeyboardInterrupt during deletion
-            with patch("pathlib.Path.unlink") as mock_unlink:
-                mock_unlink.side_effect = KeyboardInterrupt()
+            mock_downloader.delete_model_by_path.side_effect = KeyboardInterrupt()
 
-                result = runner.invoke(cli, ["models", "clean", "--all"], input="y\n")
+            result = runner.invoke(cli, ["models", "clean", "--all"], input="y\n")
 
-                assert result.exit_code == 1
-                assert "interrupted" in result.output.lower()
+            assert result.exit_code == 1
+            assert "interrupted" in result.output.lower()
 
     def test_clean_deletion_error(self, runner, tmp_path):
         """Test clean handles deletion errors gracefully."""
@@ -1145,10 +1144,11 @@ class TestModelsCleanCommand:
             mock_downloader_cls.return_value = mock_downloader
 
             # Simulate permission error during deletion
-            with patch("pathlib.Path.unlink") as mock_unlink:
-                mock_unlink.side_effect = PermissionError("Permission denied")
+            mock_downloader.delete_model_by_path.side_effect = PermissionError(
+                "Permission denied"
+            )
 
-                result = runner.invoke(cli, ["models", "clean", "--all"], input="y\n")
+            result = runner.invoke(cli, ["models", "clean", "--all"], input="y\n")
 
-                assert result.exit_code == 0  # Should continue despite error
-                assert "Error deleting" in result.output
+            assert result.exit_code == 0  # Should continue despite error
+            assert "Error deleting" in result.output
