@@ -104,7 +104,7 @@ class QwenvertConfig:
         for char in model_path:
             if ord(char) < 32 and char != "\t":
                 raise ValueError(
-                    f"model_path contains invalid control character: {repr(char)}"
+                    f"model_path contains invalid control character: {char!r}"
                 )
 
         # Normalize path and validate structure
@@ -279,7 +279,7 @@ class ConfigGenerator:
         num_threads = self.hardware.cpu_cores_performance
 
         # Use local file path if provided, otherwise use model ID
-        from_source = model_path if model_path else self.model.backend_model_id
+        from_source = model_path or self.model.backend_model_id
 
         return f"""# Qwenvert Modelfile for {self.model.display_name}
 # Generated for {self.hardware.chip} with {self.hardware.total_memory_gb}GB RAM
