@@ -133,6 +133,8 @@ class ServerLauncher:
         # Check if server is already running
         if await self._check_health("http://localhost:11434"):
             logger.info("Ollama server already running")
+            # Still need to ensure model is available!
+            await self._ensure_ollama_model()
             # Return unmanaged handle (we don't own this process)
             return ProcessHandle.unmanaged("ollama-existing")
 
@@ -244,12 +246,29 @@ class ServerLauncher:
         )
 
         if self.config.backend_model_id not in result.stdout:
-            logger.info(f"Pulling model {self.config.backend_model_id}...")
-            subprocess.run(
-                ["ollama", "pull", self.config.backend_model_id],
-                check=True,
-            )
-            logger.info("✓ Model pulled")
+            # Check if we have a local model file and Modelfile
+            from .config import ConfigManager
+            from pathlib import Path
+
+            modelfile_path = ConfigManager.get_ollama_modelfile_path()
+            model_path = Path(self.config.model_path) if self.config.model_path else None
+
+            if model_path and model_path.exists() and modelfile_path.exists():
+                # Create model from local file using Modelfile
+                logger.info(f"Creating model from local file: {model_path}...")
+                subprocess.run(
+                    ["ollama", "create", self.config.backend_model_id, "-f", str(modelfile_path)],
+                    check=True,
+                )
+                logger.info("✓ Model created from local file")
+            else:
+                # Fall back to pulling from Ollama registry
+                logger.info(f"Pulling model {self.config.backend_model_id}...")
+                subprocess.run(
+                    ["ollama", "pull", self.config.backend_model_id],
+                    check=True,
+                )
+                logger.info("✓ Model pulled")
         else:
             logger.info("✓ Model already available")
 

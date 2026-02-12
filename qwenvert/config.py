@@ -179,9 +179,13 @@ class ConfigGenerator:
             thermal_pacing=thermal_pacing,
         )
 
-    def generate_ollama_modelfile(self) -> str:
+    def generate_ollama_modelfile(self, model_path: str | None = None) -> str:
         """
         Generate Ollama Modelfile with optimal parameters.
+
+        Args:
+            model_path: Optional path to local GGUF file. If provided, uses local file
+                       instead of pulling from Ollama registry.
 
         Returns:
             Modelfile content as string
@@ -204,10 +208,13 @@ class ConfigGenerator:
         # Use performance cores only
         num_threads = self.hardware.cpu_cores_performance
 
+        # Use local file path if provided, otherwise use model ID
+        from_source = model_path if model_path else self.model.backend_model_id
+
         return f"""# Qwenvert Modelfile for {self.model.display_name}
 # Generated for {self.hardware.chip} with {self.hardware.total_memory_gb}GB RAM
 
-FROM {self.model.backend_model_id}
+FROM {from_source}
 
 # Context window
 PARAMETER num_ctx {context_length}
