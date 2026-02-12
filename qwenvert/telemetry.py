@@ -64,6 +64,7 @@ from urllib.parse import urlparse
 
 from opentelemetry import metrics, trace
 
+
 if TYPE_CHECKING:
     from fastapi import FastAPI
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
@@ -80,6 +81,7 @@ from opentelemetry.sdk.metrics.export import (
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
 
 logger = logging.getLogger(__name__)
 

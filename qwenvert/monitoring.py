@@ -21,6 +21,7 @@ from opentelemetry.metrics import CallbackOptions, Observation
 
 from .telemetry import get_meter
 
+
 logger = logging.getLogger(__name__)
 
 

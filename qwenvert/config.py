@@ -16,6 +16,7 @@ import yaml
 from .models import Backend, Model
 from .security import validate_adapter_host, validate_localhost_url
 
+
 if TYPE_CHECKING:
     from .hardware import HardwareProfile
 

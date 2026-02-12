@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from huggingface_hub import hf_hub_download
 
+
 if TYPE_CHECKING:
     from .models import Model
 
