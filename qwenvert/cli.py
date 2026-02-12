@@ -564,8 +564,8 @@ def _interactive_model_selection(downloaded_models: list):
             show_default=False,
         )
 
-        # Parse selection
-        selected_indices = [int(s.strip()) for s in selection.split(",")]
+        # Parse selection and deduplicate
+        selected_indices = sorted(set(int(s.strip()) for s in selection.split(",")))
 
         # Check for "All" or "Cancel"
         if len(downloaded_models) + 2 in selected_indices:
