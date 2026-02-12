@@ -73,7 +73,7 @@ class ModelDownloader:
 
         # Extract filename from backend_model_id
         # e.g., "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
-        filename = self._get_model_filename(model)
+        filename = self.get_model_filename(model)
 
         # Check if already downloaded
         local_path = self.models_dir / filename
@@ -107,7 +107,7 @@ class ModelDownloader:
             logger.error(f"Download failed: {e}", exc_info=True)
             raise RuntimeError(f"Failed to download {model.display_name}: {e}") from e
 
-    def _get_model_filename(self, model: Model) -> str:
+    def get_model_filename(self, model: Model) -> str:
         """
         Extract GGUF filename from model configuration.
 
@@ -205,7 +205,7 @@ class ModelDownloader:
         Returns:
             Path to model file, or None if not downloaded
         """
-        filename = self._get_model_filename(model)
+        filename = self.get_model_filename(model)
         model_path = self.models_dir / filename
 
         return model_path if model_path.exists() else None

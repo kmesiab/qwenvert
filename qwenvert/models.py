@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
+    from .downloader import ModelDownloader
     from .hardware import HardwareProfile
 
 
@@ -344,6 +345,7 @@ class ModelSelector:
 
         # NEW: Check for already-downloaded compatible models first
         if downloaded_models:
+            # Import here to avoid circular dependency (downloader imports Model)
             from .downloader import ModelDownloader
 
             downloader = ModelDownloader()
@@ -353,7 +355,7 @@ class ModelSelector:
                 # Try to match this downloaded file to a model in registry
                 for model in compatible:
                     try:
-                        expected_filename = downloader._get_model_filename(model)
+                        expected_filename = downloader.get_model_filename(model)
                         if filename == expected_filename:
                             # Found a match! Use this already-downloaded model
                             logger.info(
