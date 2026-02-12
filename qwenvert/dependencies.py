@@ -303,9 +303,8 @@ def auto_install_dependency(dependency_name: str) -> bool:
         True if installation succeeded
 
     Raises:
-        RuntimeError: If Homebrew is not available or installation fails
+        RuntimeError: If Homebrew is not available, installation fails, or times out
         ValueError: If dependency_name is not in allowed list
-        subprocess.TimeoutExpired: If installation times out after 5 minutes
     """
     import re
     import subprocess
