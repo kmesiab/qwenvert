@@ -477,9 +477,7 @@ def clean_models(model_id, all, dry_run) -> None:
                         f"[cyan]Deleted {deleted_count}/{len(models_to_delete)}..."
                     )
                 except Exception as e:
-                    console.print(
-                        f"\n[red]Error deleting {model_path.name}:[/red] {e}"
-                    )
+                    console.print(f"\n[red]Error deleting {model_path.name}:[/red] {e}")
 
         console.print(
             f"\n[green]✓ Cleanup complete![/green] Deleted {deleted_count} "
@@ -519,7 +517,9 @@ def _show_deletion_summary(models: list) -> None:
             table.add_row(model_path.name, f"{size / (1024**3):.2f} GB")
 
     console.print(table)
-    console.print(f"\n[bold]Total space to free: {total_size / (1024**3):.2f} GB[/bold]")
+    console.print(
+        f"\n[bold]Total space to free: {total_size / (1024**3):.2f} GB[/bold]"
+    )
 
 
 def _confirm_deletion(model_paths: list, dry_run: bool) -> bool:
