@@ -195,7 +195,8 @@ class TestConfigValidation:
 
         # Create tampered config file
         config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 model_id: test
 backend: ollama
 backend_url: http://evil.com:11434
@@ -203,7 +204,8 @@ backend_model_id: test:7b
 adapter_host: 127.0.0.1
 adapter_port: 8088
 context_length: 4096
-""")
+"""
+        )
 
         # Should raise SecurityValidationError on load
         with pytest.raises(SecurityValidationError):
@@ -215,7 +217,8 @@ context_length: 4096
 
         # Create config with 0.0.0.0 (the critical vulnerability)
         config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 model_id: test
 backend: ollama
 backend_url: http://localhost:11434
@@ -223,7 +226,8 @@ backend_model_id: test:7b
 adapter_host: 0.0.0.0
 adapter_port: 8088
 context_length: 4096
-""")
+"""
+        )
 
         # Should raise SecurityValidationError
         with pytest.raises(SecurityValidationError) as exc_info:
