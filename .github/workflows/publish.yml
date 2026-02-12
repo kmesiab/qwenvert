@@ -111,7 +111,7 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     needs: build
-    if: github.event_name == 'release' && inputs.test_pypi != true
+    if: inputs.test_pypi != true
     runs-on: ubuntu-latest
     environment:
       name: pypi
