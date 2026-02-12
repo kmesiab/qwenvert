@@ -98,6 +98,17 @@ def init(model, backend, adapter_port, context_length) -> None:
     registry = ModelRegistry()
     selector = ModelSelector(registry)
 
+    # Check for already-downloaded models to prioritize them
+    from .downloader import ModelDownloader
+
+    downloader = ModelDownloader()
+    downloaded_models = downloader.list_downloaded_models()
+
+    if downloaded_models:
+        console.print(
+            f"✓ Found {len(downloaded_models)} downloaded model(s), checking compatibility..."
+        )
+
     if model:
         # User specified model
         selected_model = registry.get_model(model)
@@ -115,8 +126,10 @@ def init(model, backend, adapter_port, context_length) -> None:
             if not click.confirm("Continue anyway?"):
                 sys.exit(1)
     else:
-        # Auto-select optimal model
-        selected_model = selector.select_default(hardware)
+        # Auto-select optimal model (prioritizing already-downloaded models)
+        selected_model = selector.select_default(
+            hardware, downloaded_models, downloader
+        )
         if not selected_model:
             console.print(
                 "[red]Error:[/red] No compatible model found for your hardware"
@@ -126,9 +139,7 @@ def init(model, backend, adapter_port, context_length) -> None:
     console.print(f"✓ Selected: [green]{selected_model.display_name}[/green]")
 
     # Step 3: Download model if needed
-    from .downloader import ModelDownloader
-
-    downloader = ModelDownloader()
+    # (downloader already initialized above for downloaded models check)
     model_path = downloader.get_model_path(selected_model)
 
     if model_path:

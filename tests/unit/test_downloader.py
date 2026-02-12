@@ -260,7 +260,7 @@ class TestGetModelFilename:
         """Test extracting filename when backend_model_id is a GGUF file."""
         downloader = ModelDownloader(models_dir=temp_models_dir)
 
-        filename = downloader._get_model_filename(sample_model)
+        filename = downloader.get_model_filename(sample_model)
 
         assert filename == "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
         assert filename.endswith(".gguf")
@@ -283,7 +283,7 @@ class TestGetModelFilename:
 
         downloader = ModelDownloader(models_dir=temp_models_dir)
 
-        filename = downloader._get_model_filename(model)
+        filename = downloader.get_model_filename(model)
 
         # Should generate filename from model ID
         assert ".gguf" in filename
@@ -307,7 +307,7 @@ class TestGetModelFilename:
         model.gguf_filename = "custom-filename.gguf"
 
         downloader = ModelDownloader(models_dir=temp_models_dir)
-        filename = downloader._get_model_filename(model)
+        filename = downloader.get_model_filename(model)
 
         assert filename == "custom-filename.gguf"
 
@@ -328,7 +328,7 @@ class TestGetModelFilename:
         )
 
         downloader = ModelDownloader(models_dir=temp_models_dir)
-        filename = downloader._get_model_filename(model)
+        filename = downloader.get_model_filename(model)
 
         assert ".gguf" in filename
         assert "14.5b" in filename

@@ -2,6 +2,8 @@
 Unit tests for model registry and selection.
 """
 
+from pathlib import Path
+
 from qwenvert.models import Backend, ModelSelector
 
 
@@ -109,6 +111,64 @@ class TestModelSelection:
 
         assert model is not None
         # Should be smaller for faster inference
+        assert model.fits_hardware(mock_hardware_m1_16gb)
+
+    def test_select_default_prioritizes_downloaded_models(
+        self, model_registry, mock_hardware_m1_16gb
+    ):
+        """Should prioritize already-downloaded compatible models."""
+        selector = ModelSelector(model_registry)
+
+        # Create mock downloaded model paths - 1.5B model
+        downloaded_models = [
+            Path("/fake/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf")
+        ]
+
+        # Without downloaded models, 16GB system would normally select 7B
+        model_without = selector.select_default(mock_hardware_m1_16gb)
+        assert model_without is not None
+        # Should select a larger model for 16GB system
+        assert model_without.size_b >= 7.0
+
+        # With downloaded 1.5B model, should prefer the downloaded one
+        model_with = selector.select_default(mock_hardware_m1_16gb, downloaded_models)
+        assert model_with is not None
+        # Should select the 1.5B model that's already downloaded
+        assert model_with.size_b == 1.5
+        assert model_with.id == "qwen2.5-coder-1.5b-q4-ollama"
+
+    def test_select_default_skips_incompatible_downloaded_models(
+        self, model_registry, mock_hardware_m1_air_8gb
+    ):
+        """Should skip downloaded models that don't fit hardware."""
+        selector = ModelSelector(model_registry)
+
+        # Create mock downloaded model path - 14B model (too large for 8GB)
+        downloaded_models = [
+            Path("/fake/models/qwen2.5-coder-14b-instruct-q4_k_m.gguf")
+        ]
+
+        # Should fall back to hardware-based selection since 14B doesn't fit 8GB
+        model = selector.select_default(mock_hardware_m1_air_8gb, downloaded_models)
+        assert model is not None
+        # Should select a smaller model that fits
+        assert model.size_b <= 7.0
+        assert model.min_ram_gb <= 8
+
+    def test_select_default_works_without_downloaded_models(
+        self, model_registry, mock_hardware_m1_16gb
+    ):
+        """Should work normally when no downloaded models provided."""
+        selector = ModelSelector(model_registry)
+
+        # Pass None for downloaded_models (default)
+        model = selector.select_default(mock_hardware_m1_16gb, None)
+        assert model is not None
+        assert model.fits_hardware(mock_hardware_m1_16gb)
+
+        # Pass empty list
+        model = selector.select_default(mock_hardware_m1_16gb, [])
+        assert model is not None
         assert model.fits_hardware(mock_hardware_m1_16gb)
 
 
