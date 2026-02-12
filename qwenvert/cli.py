@@ -485,6 +485,10 @@ def clean_models(model_id, all_models, dry_run) -> None:
             f"model(s), freed {total_freed / (1024**3):.2f} GB\n"
         )
 
+        # Show updated disk usage
+        console.print("[bold]Updated disk usage:[/bold]")
+        _show_disk_usage(downloader)
+
     except KeyboardInterrupt:
         console.print("\n[yellow]Cleanup interrupted by user[/yellow]\n")
         sys.exit(1)
@@ -526,7 +530,9 @@ def _show_deletion_summary(models: list) -> None:
 def _confirm_deletion(model_paths: list, dry_run: bool) -> bool:
     """Confirm model deletion with user."""
     if dry_run:
-        console.print("\n[yellow]Dry run - no models will be deleted[/yellow]\n")
+        console.print(
+            "\n[yellow]Dry run - showing preview only, no models will be deleted[/yellow]\n"
+        )
         return False
 
     console.print()
