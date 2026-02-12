@@ -52,20 +52,61 @@ jobs:
           python -m pip install --upgrade pip
           pip install build twine
 
-      - name: Verify version matches tag
-        if: github.event_name == 'release'
+      - name: Verify branch (manual dispatch only)
+        if: github.event_name == 'workflow_dispatch'
         run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          PKG_VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])")
+          CURRENT_BRANCH="${GITHUB_REF#refs/heads/}"
 
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "❌ Version mismatch!"
-            echo "Git tag: v$TAG_VERSION"
-            echo "pyproject.toml: $PKG_VERSION"
+          if [ "$CURRENT_BRANCH" != "main" ]; then
+            echo "❌ Manual dispatch must be triggered from main branch!"
+            echo "Current branch: $CURRENT_BRANCH"
+            echo "Required branch: main"
             exit 1
           fi
 
-          echo "✅ Version match: $PKG_VERSION"
+          echo "✅ Branch check passed: $CURRENT_BRANCH"
+
+      - name: Verify version matches tag
+        run: |
+          PKG_VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])")
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # For releases: verify against the release tag
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+
+            if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+              echo "❌ Version mismatch!"
+              echo "Git tag: v$TAG_VERSION"
+              echo "pyproject.toml: $PKG_VERSION"
+              exit 1
+            fi
+
+            echo "✅ Version matches release tag: $PKG_VERSION"
+
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # For manual dispatch: verify against the latest git tag
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+            LATEST_TAG_VERSION="${LATEST_TAG#v}"
+
+            if [ "$LATEST_TAG" = "none" ]; then
+              echo "❌ No git tags found! Cannot verify version."
+              echo "Please create a git tag first: git tag v$PKG_VERSION"
+              exit 1
+            fi
+
+            if [ "$LATEST_TAG_VERSION" != "$PKG_VERSION" ]; then
+              echo "❌ Version mismatch!"
+              echo "Latest git tag: v$LATEST_TAG_VERSION"
+              echo "pyproject.toml: $PKG_VERSION"
+              echo ""
+              echo "Before publishing, please:"
+              echo "  1. Update version in pyproject.toml to $LATEST_TAG_VERSION, OR"
+              echo "  2. Create a new tag: git tag v$PKG_VERSION && git push --tags"
+              exit 1
+            fi
+
+            echo "✅ Version matches latest git tag: v$PKG_VERSION"
+          fi
 
       - name: Build package
         run: |
@@ -111,7 +152,7 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     needs: build
-    if: github.event_name == 'release' && inputs.test_pypi != true
+    if: inputs.test_pypi != true
     runs-on: ubuntu-latest
     environment:
       name: pypi
