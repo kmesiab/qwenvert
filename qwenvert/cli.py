@@ -411,7 +411,7 @@ def clean_models(model_id, all_models, dry_run) -> None:
         qwenvert models clean --all
         qwenvert models clean --dry-run
     """
-    from pathlib import Path
+    from pathlib import Path  # noqa: TC003
 
     from .downloader import ModelDownloader
 
@@ -539,7 +539,7 @@ def _confirm_deletion(model_paths: list, dry_run: bool) -> bool:
     return click.confirm("Delete these models?", default=False)
 
 
-def _interactive_model_selection(downloaded_models: list):
+def _interactive_model_selection(downloaded_models: list) -> list:
     """Interactively select models to delete."""
     from pathlib import Path
 
@@ -565,7 +565,7 @@ def _interactive_model_selection(downloaded_models: list):
         )
 
         # Parse selection and deduplicate
-        selected_indices = sorted(set(int(s.strip()) for s in selection.split(",")))
+        selected_indices = sorted({int(s.strip()) for s in selection.split(",")})
 
         # Check for "All" or "Cancel"
         if len(downloaded_models) + 2 in selected_indices:
