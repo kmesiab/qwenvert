@@ -72,6 +72,7 @@ class TestServerLauncher:
             backend=Backend.LLAMACPP,
             backend_model_id=sample_model_14b_q5.backend_model_id,
             context_length=sample_model_14b_q5.context_length,
+            max_output_tokens=sample_model_14b_q5.max_output_tokens,
             min_ram_gb=sample_model_14b_q5.min_ram_gb,
             recommended_ram_gb=sample_model_14b_q5.recommended_ram_gb,
         )
