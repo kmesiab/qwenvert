@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated GitHub Actions workflow for releases
 - Comprehensive publishing documentation
 
+### Fixed
+- Model selection now prioritizes already-downloaded models, preventing unnecessary re-downloads
+  - `qwenvert init` checks for compatible downloaded models before selecting new ones
+  - Saves bandwidth and setup time for users with models already downloaded
+  - Particularly helpful for users with smaller models (1.5B, 3B) already on disk
+
 ## [0.1.0] - 2026-02-10
 
 ### Added
