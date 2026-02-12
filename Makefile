@@ -1,17 +1,21 @@
 .PHONY: help install install-dev clean lint format typecheck test test-unit test-integration coverage check-all benchmark build publish-test publish release venv check-venv check-python
 
 # Auto-detect compatible Python version (3.9-3.12)
-# Try specific versions first, fall back to python3
+# In CI, use the active Python; otherwise, try specific versions
 PYTHON ?= $(shell \
-	for py in python3.12 python3.11 python3.10 python3.9 python3; do \
-		if command -v $$py >/dev/null 2>&1; then \
-			version=$$($$py -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null); \
-			if [ "$$version" = "3.9" ] || [ "$$version" = "3.10" ] || [ "$$version" = "3.11" ] || [ "$$version" = "3.12" ]; then \
-				echo $$py; \
-				break; \
+	if [ -n "$$CI" ]; then \
+		echo python; \
+	else \
+		for py in python3.12 python3.11 python3.10 python3.9 python3; do \
+			if command -v $$py >/dev/null 2>&1; then \
+				version=$$($$py -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null); \
+				if [ "$$version" = "3.9" ] || [ "$$version" = "3.10" ] || [ "$$version" = "3.11" ] || [ "$$version" = "3.12" ]; then \
+					echo $$py; \
+					break; \
+				fi; \
 			fi; \
-		fi; \
-	done)
+		done; \
+	fi)
 
 # Default target
 help:
