@@ -5,7 +5,7 @@ A production-grade inference orchestration system optimized for consumer
 Mac hardware running Qwen models with Claude Code integration.
 """
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 __author__ = "Kevin Mesiab"
 
 from .hardware import HardwareDetector, HardwareProfile
