@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import logging
 import signal
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -331,6 +333,25 @@ class ServerLauncher:
             instrument_fastapi(app)
         except Exception as e:
             logger.warning(f"Could not instrument FastAPI: {e}")
+
+        # Check if port is available before trying to bind
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind((self.config.adapter_host, self.config.adapter_port))
+        except OSError as e:
+            if e.errno == errno.EADDRINUSE:
+                raise RuntimeError(
+                    f"Port {self.config.adapter_port} is already in use.\n\n"
+                    f"Another process is using port {self.config.adapter_port}. "
+                    f"This could be:\n"
+                    f"  • Another qwenvert instance already running\n"
+                    f"  • A different application using the same port\n\n"
+                    f"Solutions:\n"
+                    f"  1. Stop the other qwenvert instance: qwenvert stop\n"
+                    f"  2. Find and kill the process: lsof -ti:{self.config.adapter_port} | xargs kill\n"
+                    f"  3. Use a different port: qwenvert init --adapter-port <PORT>\n"
+                ) from e
+            raise
 
         # Start server in background
         import uvicorn
