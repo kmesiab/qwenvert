@@ -356,6 +356,14 @@ class ServerLauncher:
         # Start server in background
         import uvicorn
 
+        # Filter out noisy health check logs
+        class HealthCheckFilter(logging.Filter):
+            """Filter to suppress health check endpoint logs."""
+
+            def filter(self, record: logging.LogRecord) -> bool:
+                """Return False to suppress health check logs."""
+                return "/health" not in record.getMessage()
+
         config = uvicorn.Config(
             app,
             host=self.config.adapter_host,
@@ -364,6 +372,10 @@ class ServerLauncher:
         )
 
         server = uvicorn.Server(config)
+
+        # Apply health check filter to uvicorn's access logger
+        uvicorn_access_logger = logging.getLogger("uvicorn.access")
+        uvicorn_access_logger.addFilter(HealthCheckFilter())
 
         # Run server in asyncio task (non-blocking)
         self.adapter_task = asyncio.create_task(server.serve())
