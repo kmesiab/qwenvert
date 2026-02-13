@@ -95,6 +95,7 @@ def mock_model():
         backend=Backend.OLLAMA,
         backend_model_id="qwen2.5-coder:7b",
         context_length=32768,
+        max_output_tokens=12288,
         min_ram_gb=8,
         recommended_ram_gb=16,
     )

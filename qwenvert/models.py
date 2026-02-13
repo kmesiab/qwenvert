@@ -47,6 +47,7 @@ class Model:
         backend: Primary backend for this model
         backend_model_id: Backend-specific model identifier
         context_length: Maximum context window in tokens
+        max_output_tokens: Maximum tokens for generation (output only)
         min_ram_gb: Minimum RAM required
         recommended_ram_gb: Recommended RAM for good performance
         min_vram_gb: Minimum VRAM required (if applicable)
@@ -65,6 +66,7 @@ class Model:
     backend: Backend
     backend_model_id: str
     context_length: int
+    max_output_tokens: int
     min_ram_gb: int
     recommended_ram_gb: int
     min_vram_gb: int | None = None
@@ -145,6 +147,7 @@ class ModelRegistry:
                 backend=Backend(model_data["backend"]),
                 backend_model_id=model_data["backend_model_id"],
                 context_length=model_data["context_length"],
+                max_output_tokens=model_data["max_output_tokens"],
                 min_ram_gb=model_data["min_ram_gb"],
                 recommended_ram_gb=model_data["recommended_ram_gb"],
                 min_vram_gb=model_data.get("min_vram_gb"),
@@ -168,6 +171,7 @@ class ModelRegistry:
                 backend=Backend.OLLAMA,
                 backend_model_id="qwen2.5-coder:7b-instruct-q4_K_M",
                 context_length=32768,
+                max_output_tokens=12288,
                 min_ram_gb=8,
                 recommended_ram_gb=16,
                 is_coder_model=True,
@@ -184,6 +188,7 @@ class ModelRegistry:
                 backend=Backend.OLLAMA,
                 backend_model_id="qwen2.5-coder:7b-instruct-q5_K_M",
                 context_length=32768,
+                max_output_tokens=12288,
                 min_ram_gb=12,
                 recommended_ram_gb=16,
                 is_coder_model=True,
@@ -200,6 +205,7 @@ class ModelRegistry:
                 backend=Backend.LLAMACPP,
                 backend_model_id="qwen2.5-coder-14b-instruct-q4_K_M.gguf",
                 context_length=32768,
+                max_output_tokens=16384,
                 min_ram_gb=16,
                 recommended_ram_gb=24,
                 is_coder_model=True,
@@ -216,6 +222,7 @@ class ModelRegistry:
                 backend=Backend.LLAMACPP,
                 backend_model_id="qwen2.5-coder-14b-instruct-q5_K_M.gguf",
                 context_length=32768,
+                max_output_tokens=16384,
                 min_ram_gb=20,
                 recommended_ram_gb=32,
                 is_coder_model=True,

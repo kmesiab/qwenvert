@@ -41,9 +41,7 @@ class MessagesRequest(BaseModel):
     messages: List[Message] = Field(
         ..., min_length=1, description="Conversation messages"
     )
-    max_tokens: int = Field(
-        1024, ge=1, le=4096, description="Maximum tokens to generate"
-    )
+    max_tokens: int = Field(1024, ge=1, description="Maximum tokens to generate")
     temperature: Optional[float] = Field(
         None, ge=0.0, le=2.0, description="Sampling temperature"
     )
@@ -54,7 +52,34 @@ class MessagesRequest(BaseModel):
     )
     stream: bool = Field(False, description="Enable streaming responses")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Request metadata")
-    system: Optional[str] = Field(None, description="System prompt")
+    system: Optional[Union[str, List[Dict[str, Any]]]] = Field(
+        None, description="System prompt (string or array with cache_control)"
+    )
+
+    @field_validator("system")
+    @classmethod
+    def normalize_system(
+        cls, v: Optional[Union[str, List[Dict[str, Any]]]]
+    ) -> Optional[str]:
+        """Convert system field from array format to string."""
+        if v is None:
+            return None
+
+        # If already a string, return as-is
+        if isinstance(v, str):
+            return v
+
+        # If array (Claude Code format with cache_control), extract text
+        if isinstance(v, list):
+            text_parts = []
+            for block in v:
+                if isinstance(block, dict) and "text" in block:
+                    text_parts.append(block["text"])
+            result = "\n".join(text_parts)
+            logger.debug(f"Converted system array to string ({len(text_parts)} blocks)")
+            return result
+
+        return None
 
     @field_validator("messages")
     @classmethod

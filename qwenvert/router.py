@@ -61,6 +61,27 @@ class BackendRouter:
             timeout=300.0
         )  # 5 min timeout for long generations
 
+    def _cap_max_tokens(self, request: MessagesRequest) -> MessagesRequest:
+        """
+        Cap max_tokens to model's limit.
+
+        Args:
+            request: Original request
+
+        Returns:
+            Request with capped max_tokens
+        """
+        if request.max_tokens > self.model.max_output_tokens:
+            logger.warning(
+                f"max_tokens={request.max_tokens} exceeds model limit "
+                f"({self.model.max_output_tokens}), capping to {self.model.max_output_tokens}"
+            )
+            # Create a copy with capped max_tokens
+            request_dict = request.model_dump()
+            request_dict["max_tokens"] = self.model.max_output_tokens
+            return MessagesRequest(**request_dict)
+        return request
+
     async def generate(self, request: MessagesRequest) -> MessagesResponse:
         """
         Generate response from backend.
@@ -74,6 +95,9 @@ class BackendRouter:
         Raises:
             httpx.HTTPError: If backend request fails
         """
+        # Cap max_tokens to model's limit
+        request = self._cap_max_tokens(request)
+
         if self.model.backend == Backend.OLLAMA:
             return await self._generate_ollama(request)
         if self.model.backend == Backend.LLAMACPP:
@@ -95,6 +119,9 @@ class BackendRouter:
         Raises:
             httpx.HTTPError: If backend request fails
         """
+        # Cap max_tokens to model's limit
+        request = self._cap_max_tokens(request)
+
         if self.model.backend == Backend.OLLAMA:
             async for event in self._stream_ollama(request):
                 yield event
