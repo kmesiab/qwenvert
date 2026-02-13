@@ -248,7 +248,10 @@ class BackendRouter:
                         yield {
                             "type": "content_block_delta",
                             "index": 0,
-                            "delta": {"type": "text_delta", "text": chunk["message"]["content"]},
+                            "delta": {
+                                "type": "text_delta",
+                                "text": chunk["message"]["content"],
+                            },
                         }
 
                     # Final chunk indicates completion
@@ -270,7 +273,10 @@ class BackendRouter:
 
                         yield {
                             "type": "message_delta",
-                            "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+                            "delta": {
+                                "stop_reason": stop_reason,
+                                "stop_sequence": None,
+                            },
                             "usage": {"output_tokens": output_tokens},
                         }
 
