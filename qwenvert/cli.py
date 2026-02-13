@@ -293,7 +293,13 @@ def start(auto_install: bool) -> None:
                 )
                 sys.exit(1)
 
-        # For other errors, show the full error
+        # RuntimeError from launcher (e.g., port already in use)
+        if isinstance(e, RuntimeError):
+            # Show clean error message without traceback
+            console.print(f"\n[red]Error:[/red] {e}")
+            sys.exit(1)
+
+        # For other unexpected errors, show the full traceback
         console.print(f"\n[red]Error:[/red] {e}")
         import traceback
 
