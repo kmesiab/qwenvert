@@ -8,10 +8,11 @@ Translates Anthropic Messages API requests to backend format.
 import asyncio
 import json
 import logging
+import uuid
 from collections.abc import AsyncIterator
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
@@ -186,7 +187,7 @@ def create_app() -> FastAPI:
 
     @app.post("/v1/messages", response_model=MessagesResponse)
     async def create_message(
-        request: MessagesRequest, http_request: Request
+        request: MessagesRequest, http_request: Request, response: Response
     ) -> Union[MessagesResponse, StreamingResponse]:
         """
         Create a message (Anthropic Messages API endpoint).
@@ -196,6 +197,7 @@ def create_app() -> FastAPI:
         Args:
             request: Anthropic Messages API request
             http_request: FastAPI HTTP request object
+            response: FastAPI Response object for setting headers
 
         Returns:
             Message response (non-streaming) or StreamingResponse (streaming)
@@ -209,6 +211,13 @@ def create_app() -> FastAPI:
                 detail="Backend router not initialized. Run qwenvert start first.",
             )
 
+        # Generate request ID for Anthropic API compatibility
+        request_id = f"req_{uuid.uuid4().hex[:24]}"
+
+        # Add Anthropic-compatible headers
+        response.headers["request-id"] = request_id
+        response.headers["x-request-id"] = request_id
+
         logger.info(
             f"Received request for model={request.model}, "
             f"messages={len(request.messages)}, "
@@ -219,13 +228,17 @@ def create_app() -> FastAPI:
         try:
             if request.stream:
                 # Streaming response
-                return StreamingResponse(
+                streaming_response = StreamingResponse(
                     _stream_response(request, app.state.backend_router),
                     media_type="text/event-stream",
                 )
+                # Add headers to streaming response
+                streaming_response.headers["request-id"] = request_id
+                streaming_response.headers["x-request-id"] = request_id
+                return streaming_response
             # Non-streaming response
-            response = await _generate_response(request, app.state.backend_router)
-            return response
+            api_response = await _generate_response(request, app.state.backend_router)
+            return api_response
 
         except Exception as e:
             logger.error(f"Error processing request: {e}", exc_info=True)
