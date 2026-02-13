@@ -460,6 +460,127 @@ class TestCreateMessageEndpoint:
         # Verify backend was called
         mock_router.generate.assert_called_once()
 
+    def test_create_message_includes_request_id_headers(self):
+        """Test that non-streaming responses include Anthropic-compatible request-id headers."""
+        app = create_app()
+
+        mock_router = AsyncMock()
+        mock_response = MessagesResponse(
+            id="msg_test123",
+            content=[ContentBlock(text="Response")],
+            model="test-model",
+            usage=Usage(input_tokens=10, output_tokens=5),
+        )
+        mock_router.generate = AsyncMock(return_value=mock_response)
+        app.state.backend_router = mock_router
+
+        client = TestClient(app)
+
+        response = client.post(
+            "/v1/messages",
+            json={
+                "model": "test-model",
+                "messages": [{"role": "user", "content": "Hello"}],
+            },
+        )
+
+        assert response.status_code == 200
+
+        # Verify request-id headers are present
+        assert "request-id" in response.headers
+        assert "x-request-id" in response.headers
+
+        # Verify both headers have the same value
+        request_id = response.headers["request-id"]
+        x_request_id = response.headers["x-request-id"]
+        assert request_id == x_request_id
+
+        # Verify format: req_ + 24 hexadecimal characters
+        assert request_id.startswith("req_")
+        hex_part = request_id[4:]  # Remove "req_" prefix
+        assert len(hex_part) == 24
+        # Verify it's valid hexadecimal
+        try:
+            int(hex_part, 16)
+        except ValueError:
+            pytest.fail(f"request-id hex part is not valid hex: {hex_part}")
+
+    def test_create_message_streaming_includes_request_id_headers(self):
+        """Test that streaming responses include request-id headers."""
+        app = create_app()
+
+        async def mock_stream_generator(request):
+            yield {"type": "message_start", "message": {"id": "msg_stream"}}
+            yield {"type": "content_block_delta", "delta": {"text": "Hi"}}
+            yield {"type": "message_stop"}
+
+        mock_router = AsyncMock()
+        mock_router.generate_stream = mock_stream_generator
+        app.state.backend_router = mock_router
+
+        client = TestClient(app)
+
+        response = client.post(
+            "/v1/messages",
+            json={
+                "model": "test-model",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": True,
+            },
+        )
+
+        assert response.status_code == 200
+
+        # Verify request-id headers are present in streaming response
+        assert "request-id" in response.headers
+        assert "x-request-id" in response.headers
+
+        # Verify both headers match
+        request_id = response.headers["request-id"]
+        x_request_id = response.headers["x-request-id"]
+        assert request_id == x_request_id
+
+        # Verify format: req_ + 24 hex chars
+        assert request_id.startswith("req_")
+        hex_part = request_id[4:]
+        assert len(hex_part) == 24
+        try:
+            int(hex_part, 16)
+        except ValueError:
+            pytest.fail(f"Streaming request-id hex part is not valid hex: {hex_part}")
+
+    def test_create_message_unique_request_ids(self):
+        """Test that each request gets a unique request-id."""
+        app = create_app()
+
+        mock_router = AsyncMock()
+        mock_response = MessagesResponse(
+            id="msg_test",
+            content=[ContentBlock(text="Response")],
+            model="test-model",
+            usage=Usage(input_tokens=5, output_tokens=5),
+        )
+        mock_router.generate = AsyncMock(return_value=mock_response)
+        app.state.backend_router = mock_router
+
+        client = TestClient(app)
+
+        # Make multiple requests
+        request_ids = set()
+        for _ in range(5):
+            response = client.post(
+                "/v1/messages",
+                json={
+                    "model": "test-model",
+                    "messages": [{"role": "user", "content": "Test"}],
+                },
+            )
+            assert response.status_code == 200
+            request_ids.add(response.headers["request-id"])
+
+        # All request IDs should be unique
+        assert len(request_ids) == 5
+
     def test_create_message_with_system_prompt(self):
         """Test message creation with system prompt."""
         app = create_app()
