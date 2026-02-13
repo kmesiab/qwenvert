@@ -15,12 +15,14 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from . import __version__
+
 
 console = Console()
 
 
 @click.group()
-@click.version_option(version="0.1.0")
+@click.version_option(version=__version__)
 def cli() -> None:
     """
     Qwenvert - One-click local LLM inference for Claude Code.
@@ -226,7 +228,7 @@ def start(auto_install: bool) -> None:
     """
     from .launcher import start_qwenvert_sync
 
-    console.print("\n[bold blue]Starting Qwenvert[/bold blue]\n")
+    console.print(f"\n[bold blue]Starting Qwenvert v{__version__}[/bold blue]\n")
 
     try:
         start_qwenvert_sync()
@@ -764,7 +766,7 @@ def monitor(adapter_url, refresh_rate, enable_otel) -> None:
         try:
             init_telemetry(
                 service_name="qwenvert-monitor",
-                service_version="0.1.0",
+                service_version=__version__,
                 enable_console=False,  # Console exporter would interfere with TUI
                 enable_otlp=False,  # User can enable via env vars if needed
                 enable_prometheus=False,  # User can enable via env vars if needed
