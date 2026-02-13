@@ -195,11 +195,42 @@ class BackendRouter:
         if request.temperature is not None:
             ollama_request["options"]["temperature"] = request.temperature
         if request.top_p is not None:
+            ollama_request["options"]["temperature"] = request.temperature
+        if request.top_p is not None:
             ollama_request["options"]["top_p"] = request.top_p
         if request.top_k is not None:
             ollama_request["options"]["top_k"] = request.top_k
         if request.stop_sequences:
             ollama_request["options"]["stop"] = request.stop_sequences
+
+        # Generate message ID for Anthropic compatibility
+        message_id = f"msg_{uuid.uuid4().hex[:8]}"
+
+        # Emit message_start event (required first event)
+        yield {
+            "type": "message_start",
+            "message": {
+                "id": message_id,
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": request.model,
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+        }
+
+        # Emit content_block_start event (required before first delta)
+        yield {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        }
+
+        # Track cumulative usage stats
+        input_tokens = 0
+        output_tokens = 0
 
         async with self.client.stream(
             "POST", f"{self.backend_url}/api/chat", json=ollama_request
@@ -216,18 +247,36 @@ class BackendRouter:
                     if "message" in chunk and "content" in chunk["message"]:
                         yield {
                             "type": "content_block_delta",
-                            "delta": {"text": chunk["message"]["content"]},
+                            "index": 0,
+                            "delta": {"type": "text_delta", "text": chunk["message"]["content"]},
                         }
 
                     # Final chunk indicates completion
                     if chunk.get("done", False):
+                        # Update usage stats from final chunk
+                        input_tokens = chunk.get("prompt_eval_count", 0)
+                        output_tokens = chunk.get("eval_count", 0)
+
+                        # Emit content_block_stop event (required after last delta)
+                        yield {
+                            "type": "content_block_stop",
+                            "index": 0,
+                        }
+
+                        # Emit message_delta event with usage (required before message_stop)
+                        stop_reason = "end_turn"
+                        if chunk.get("done_reason") == "length":
+                            stop_reason = "max_tokens"
+
+                        yield {
+                            "type": "message_delta",
+                            "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+                            "usage": {"output_tokens": output_tokens},
+                        }
+
+                        # Emit message_stop event (required final event)
                         yield {
                             "type": "message_stop",
-                            "stop_reason": "end_turn",
-                            "usage": {
-                                "input_tokens": chunk.get("prompt_eval_count", 0),
-                                "output_tokens": chunk.get("eval_count", 0),
-                            },
                         }
 
     def _anthropic_to_ollama_messages(
@@ -361,6 +410,35 @@ class BackendRouter:
         if request.stop_sequences:
             llamacpp_request["stop"] = request.stop_sequences
 
+        # Generate message ID for Anthropic compatibility
+        message_id = f"msg_{uuid.uuid4().hex[:8]}"
+
+        # Emit message_start event (required first event)
+        yield {
+            "type": "message_start",
+            "message": {
+                "id": message_id,
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": request.model,
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+        }
+
+        # Emit content_block_start event (required before first delta)
+        yield {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        }
+
+        # Track tokens for usage stats
+        tokens_evaluated = 0
+        tokens_predicted = 0
+
         async with self.client.stream(
             "POST", f"{self.backend_url}/completion", json=llamacpp_request
         ) as response:
@@ -372,7 +450,21 @@ class BackendRouter:
 
                     data = line[6:]  # Remove "data: " prefix
                     if data == "[DONE]":
-                        yield {"type": "message_stop", "stop_reason": "end_turn"}
+                        # Emit content_block_stop event (required after last delta)
+                        yield {
+                            "type": "content_block_stop",
+                            "index": 0,
+                        }
+
+                        # Emit message_delta event with usage (required before message_stop)
+                        yield {
+                            "type": "message_delta",
+                            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                            "usage": {"output_tokens": tokens_predicted},
+                        }
+
+                        # Emit message_stop event (required final event)
+                        yield {"type": "message_stop"}
                         break
 
                     chunk = json.loads(data)
@@ -380,8 +472,15 @@ class BackendRouter:
                     if "content" in chunk:
                         yield {
                             "type": "content_block_delta",
-                            "delta": {"text": chunk["content"]},
+                            "index": 0,
+                            "delta": {"type": "text_delta", "text": chunk["content"]},
                         }
+
+                    # Track token counts if available
+                    if "tokens_evaluated" in chunk:
+                        tokens_evaluated = chunk["tokens_evaluated"]
+                    if "tokens_predicted" in chunk:
+                        tokens_predicted = chunk["tokens_predicted"]
 
     def _anthropic_to_llamacpp_prompt(
         self, messages: list[Message], system: str | None = None
