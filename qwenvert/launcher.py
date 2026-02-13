@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import logging
 import signal
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -333,14 +335,11 @@ class ServerLauncher:
             logger.warning(f"Could not instrument FastAPI: {e}")
 
         # Check if port is available before trying to bind
-        import socket
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.bind((self.config.adapter_host, self.config.adapter_port))
-            sock.close()
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind((self.config.adapter_host, self.config.adapter_port))
         except OSError as e:
-            if e.errno == 48:  # EADDRINUSE
+            if e.errno == errno.EADDRINUSE:
                 raise RuntimeError(
                     f"Port {self.config.adapter_port} is already in use.\n\n"
                     f"Another process is using port {self.config.adapter_port}. "
