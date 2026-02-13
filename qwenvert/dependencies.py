@@ -45,6 +45,10 @@ class DependencyError(Exception):
         super().__init__(result.error_message or f"{result.name} is not available")
 
 
+# SECURITY: Whitelist of dependencies allowed for auto-installation
+ALLOWED_AUTO_INSTALL_DEPENDENCIES = {"ollama", "llama.cpp"}
+
+
 def check_homebrew() -> DependencyCheckResult:
     """
     Check if Homebrew is installed.
@@ -260,3 +264,89 @@ def format_missing_dependency_message(result: DependencyCheckResult) -> str:
     message += f"\n{border}\n"
 
     return message
+
+
+def can_auto_install(dependency_name: str) -> bool:
+    """
+    Check if a dependency can be auto-installed via Homebrew.
+
+    Args:
+        dependency_name: Name of the dependency ('ollama', 'homebrew', etc.)
+
+    Returns:
+        True if auto-installation is possible (dependency is whitelisted and Homebrew is available)
+    """
+    # Normalize dependency name for case-insensitive comparison
+    normalized_name = dependency_name.lower().strip()
+
+    # Special case: Homebrew itself requires manual installation
+    if normalized_name == "homebrew":
+        return False
+
+    # Check if dependency is in the allowed whitelist
+    if normalized_name not in ALLOWED_AUTO_INSTALL_DEPENDENCIES:
+        return False
+
+    # Check if Homebrew is available for installing dependencies
+    homebrew = check_homebrew()
+    return homebrew.is_available
+
+
+def auto_install_dependency(dependency_name: str) -> bool:
+    """
+    Attempt to auto-install a dependency via Homebrew.
+
+    Args:
+        dependency_name: Name of the dependency to install
+
+    Returns:
+        True if installation succeeded
+
+    Raises:
+        RuntimeError: If Homebrew is not available, installation fails, or times out
+        ValueError: If dependency_name is not in allowed list
+    """
+    import re
+    import subprocess
+
+    # Normalize dependency name for validation
+    normalized_name = dependency_name.lower().strip()
+
+    # SECURITY: Whitelist validation first - fail fast for non-whitelisted dependencies
+    if normalized_name not in ALLOWED_AUTO_INSTALL_DEPENDENCIES:
+        raise ValueError(
+            f"Security: Cannot auto-install '{dependency_name}' - not in allowed list. "
+            f"Allowed: {', '.join(ALLOWED_AUTO_INSTALL_DEPENDENCIES)}"
+        )
+
+    # SECURITY: Additional validation - only allow alphanumeric, hyphen, dot
+    if not re.match(r"^[a-z0-9\-\.]+$", normalized_name):
+        raise ValueError(
+            f"Security: Invalid dependency name format: '{dependency_name}'"
+        )
+
+    # Check if Homebrew is available for installation
+    homebrew = check_homebrew()
+    if not homebrew.is_available:
+        raise RuntimeError(
+            f"Cannot auto-install {dependency_name} (Homebrew not available)"
+        )
+
+    try:
+        # Run brew install with validated, whitelisted dependency name
+        # check=True will raise CalledProcessError on non-zero exit
+        subprocess.run(
+            ["brew", "install", normalized_name],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=300,  # 5 minute timeout to prevent hanging
+        )
+        # If we reach here, installation succeeded
+        return True
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to install {dependency_name}: {e.stderr}") from e
+    except subprocess.TimeoutExpired as e:
+        raise RuntimeError(
+            f"Installation of {dependency_name} timed out after 5 minutes"
+        ) from e

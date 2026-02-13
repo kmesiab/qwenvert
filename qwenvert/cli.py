@@ -212,7 +212,12 @@ def init(model, backend, adapter_port, context_length) -> None:
 
 
 @cli.command()
-def start() -> None:
+@click.option(
+    "--auto-install",
+    is_flag=True,
+    help="Automatically install missing dependencies via Homebrew",
+)
+def start(auto_install: bool) -> None:
     """
     Start qwenvert servers (backend + adapter).
 
@@ -229,15 +234,64 @@ def start() -> None:
         console.print("\n[yellow]Interrupted by user[/yellow]")
     except Exception as e:
         # Check if it's a dependency error
-        from .dependencies import DependencyError, format_missing_dependency_message
+        from .dependencies import (
+            DependencyError,
+            auto_install_dependency,
+            can_auto_install,
+            format_missing_dependency_message,
+        )
 
         if isinstance(e, DependencyError):
-            console.print("\n[red]Dependency Error:[/red]\n")
+            # Show clean, user-friendly error message without traceback
             console.print(format_missing_dependency_message(e.result))
-            console.print(
-                "[dim]Tip: After installing dependencies, run 'qwenvert start' again.[/dim]"
-            )
-            sys.exit(1)
+
+            # Offer auto-installation if possible
+            dep_name = e.result.name
+            if can_auto_install(dep_name):
+                console.print()
+
+                # Check if user wants auto-install
+                should_install = auto_install or click.confirm(
+                    f"Would you like to install {dep_name} automatically using Homebrew?",
+                    default=True,
+                )
+
+                if should_install:
+                    console.print(
+                        f"\n[cyan]Installing {dep_name} via Homebrew...[/cyan]"
+                    )
+                    try:
+                        with console.status(
+                            f"[cyan]Running: brew install {dep_name.lower()}...",
+                            spinner="dots",
+                        ):
+                            auto_install_dependency(dep_name)
+
+                        console.print(
+                            f"[green]✓ {dep_name} installed successfully![/green]"
+                        )
+                        console.print(
+                            "\n[bold]Please run 'qwenvert start' again to continue.[/bold]\n"
+                        )
+                        sys.exit(0)
+                    except Exception as install_error:
+                        console.print(
+                            f"\n[red]Installation failed:[/red] {install_error}"
+                        )
+                        console.print(
+                            "\n[yellow]Please install manually using the instructions above.[/yellow]"
+                        )
+                        sys.exit(1)
+                else:
+                    console.print(
+                        "\n[dim]Tip: After installing dependencies, run 'qwenvert start' again.[/dim]"
+                    )
+                    sys.exit(1)
+            else:
+                console.print(
+                    "\n[dim]Tip: After installing dependencies, run 'qwenvert start' again.[/dim]"
+                )
+                sys.exit(1)
 
         # For other errors, show the full error
         console.print(f"\n[red]Error:[/red] {e}")

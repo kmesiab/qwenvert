@@ -22,7 +22,6 @@ from .dependencies import (
     DependencyError,
     check_llamacpp,
     check_ollama,
-    format_missing_dependency_message,
 )
 from .models import Backend
 from .security import validate_adapter_host, validate_localhost_url
@@ -126,8 +125,7 @@ class ServerLauncher:
         # Check if ollama is installed
         ollama_check = check_ollama()
         if not ollama_check.is_available:
-            error_msg = format_missing_dependency_message(ollama_check)
-            logger.error(error_msg)
+            # Raise DependencyError without logging (CLI will display clean message)
             raise DependencyError(ollama_check)
 
         # Check if server is already running
@@ -168,8 +166,7 @@ class ServerLauncher:
         # Check if llama-server is available
         llamacpp_check = check_llamacpp()
         if not llamacpp_check.is_available:
-            error_msg = format_missing_dependency_message(llamacpp_check)
-            logger.error(error_msg)
+            # Raise DependencyError without logging (CLI will display clean message)
             raise DependencyError(llamacpp_check)
 
         if not llamacpp_check.path:
@@ -492,6 +489,11 @@ async def start_qwenvert() -> None:
 
     except KeyboardInterrupt:
         await launcher.stop_all()
+    except DependencyError:
+        # Re-raise dependency errors without logging traceback
+        # CLI will handle displaying the clean error message
+        await launcher.stop_all()
+        raise
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
         await launcher.stop_all()

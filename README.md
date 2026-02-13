@@ -112,6 +112,41 @@ Configure Claude Code:
 
 Leave this terminal running.
 
+**Missing Dependencies?** If Ollama isn't installed, qwenvert will offer to install it automatically:
+
+```bash
+qwenvert start
+```
+
+You'll see:
+```text
+======================================================================
+  Missing Dependency: Ollama
+======================================================================
+
+Ollama is not installed (required for running local models)
+
+To install Ollama using Homebrew:
+  1. Run: brew install ollama
+  2. Wait for installation to complete
+  3. Run: qwenvert init
+
+Learn more: https://ollama.ai
+
+======================================================================
+
+Would you like to install Ollama automatically using Homebrew? [Y/n]:
+```
+
+**Non-interactive mode:**
+```bash
+qwenvert start --auto-install
+```
+
+Automatically installs missing dependencies via Homebrew without prompting.
+
+> **Note:** Auto-installation only works for supported dependencies (Ollama, llama.cpp) when Homebrew is available.
+
 ### 4. Configure Claude Code (New Terminal)
 
 ```bash
@@ -343,6 +378,66 @@ Performance Cores:  8
 Cooling:            Active (fan)
 Recommended:        32K tokens context
 ```
+
+---
+
+## 📦 Dependencies & Auto-Installation
+
+### Required Dependencies
+
+Qwenvert requires one of these backends to run:
+
+- **Ollama** (recommended) - Easy to install via Homebrew: `brew install ollama`
+- **llama.cpp** - Manual build required, see [llama.cpp docs](https://github.com/ggerganov/llama.cpp)
+
+### Supported Auto-Install Dependencies
+
+When you run `qwenvert start`, it automatically detects missing dependencies and offers to install them via Homebrew. The following dependencies support auto-installation:
+
+| Dependency | Package Name | Installation Command |
+|------------|--------------|---------------------|
+| Ollama | `ollama` | `brew install ollama` |
+| llama.cpp | `llama.cpp` | (Not yet supported for auto-install) |
+
+> **Security Note:** Auto-installation only works for whitelisted dependencies defined in `ALLOWED_AUTO_INSTALL_DEPENDENCIES`. This prevents accidental installation of arbitrary packages.
+
+### Auto-Install Modes
+
+**Interactive (default):**
+```bash
+qwenvert start
+# Prompts: "Would you like to install Ollama automatically using Homebrew? [Y/n]:"
+```
+
+**Non-interactive (CI/automation):**
+```bash
+qwenvert start --auto-install
+# Automatically installs without prompting
+```
+
+**Manual installation (traditional):**
+```bash
+# Install Ollama manually
+brew install ollama
+
+# Then start qwenvert
+qwenvert start
+```
+
+### Checking Dependencies
+
+To check if dependencies are installed, qwenvert automatically detects them when you run commands. You can also manually check:
+
+```bash
+which ollama        # Check if Ollama is in PATH
+ollama --version    # Verify Ollama version
+```
+
+### Adding More Dependencies
+
+Currently, only Ollama and llama.cpp are supported as backends. Other dependencies (like Homebrew itself) require manual installation.
+
+If you need support for additional backends, please [open an issue](https://github.com/kmesiab/qwenvert/issues).
 
 ---
 
