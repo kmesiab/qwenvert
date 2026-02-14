@@ -10,11 +10,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from .hardware import HardwareProfile
     from .models import Model
 
@@ -79,7 +80,7 @@ class BackendLifecycle(ABC):
         """
 
     @abstractmethod
-    def configure(self, model: "Model", hardware: "HardwareProfile") -> dict:
+    def configure(self, model: Model, hardware: HardwareProfile) -> dict:
         """
         Generate backend-specific configuration.
 

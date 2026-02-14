@@ -846,7 +846,7 @@ class BinaryManager:
         # Verify it works
         info = self._get_binary_info(self.binary_path, BinarySource.DOWNLOADED)
         if not info or not info.is_valid:
-            raise RuntimeError(f"Downloaded binary failed validation")
+            raise RuntimeError("Downloaded binary failed validation")
 
         logger.info(f"Successfully installed llama-server {version}")
         return self.binary_path

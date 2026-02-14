@@ -4,7 +4,10 @@ Backend manager for unified backend access.
 Provides factory pattern for backend selection and management.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import ClassVar
 
 from .backend_interface import BackendInfo, BackendLifecycle
 from .backends import LlamaCppBackend, OllamaBackend
@@ -19,7 +22,7 @@ class BackendManager:
     Factory and manager for backend implementations.
     """
 
-    _backends = {
+    _backends: ClassVar[dict[Backend, type[BackendLifecycle]]] = {
         Backend.LLAMACPP: LlamaCppBackend,
         Backend.OLLAMA: OllamaBackend,
     }
@@ -70,14 +73,11 @@ class BackendManager:
         return results
 
     @classmethod
-    def recommend_backend(cls, hardware: "HardwareProfile") -> Backend:
+    def recommend_backend(cls) -> Backend:
         """
-        Recommend optimal backend for hardware.
+        Recommend optimal backend based on availability.
 
         Priority: llama.cpp (faster) > Ollama (easier)
-
-        Args:
-            hardware: Hardware profile
 
         Returns:
             Recommended backend type

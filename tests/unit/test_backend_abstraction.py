@@ -335,7 +335,7 @@ class TestBackendManager:
             "detect_all",
             return_value={Backend.LLAMACPP: mock_llamacpp, Backend.OLLAMA: mock_ollama},
         ):
-            recommended = BackendManager.recommend_backend(mock_hardware)
+            recommended = BackendManager.recommend_backend()
             assert recommended == Backend.LLAMACPP
 
     def test_recommend_backend_ollama_fallback(self, mock_hardware):
@@ -361,7 +361,7 @@ class TestBackendManager:
             "detect_all",
             return_value={Backend.LLAMACPP: mock_llamacpp, Backend.OLLAMA: mock_ollama},
         ):
-            recommended = BackendManager.recommend_backend(mock_hardware)
+            recommended = BackendManager.recommend_backend()
             assert recommended == Backend.OLLAMA
 
     def test_recommend_backend_default(self, mock_hardware):
@@ -387,6 +387,6 @@ class TestBackendManager:
             "detect_all",
             return_value={Backend.LLAMACPP: mock_llamacpp, Backend.OLLAMA: mock_ollama},
         ):
-            recommended = BackendManager.recommend_backend(mock_hardware)
+            recommended = BackendManager.recommend_backend()
             # Defaults to llama.cpp (will trigger auto-install)
             assert recommended == Backend.LLAMACPP

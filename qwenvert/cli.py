@@ -127,7 +127,7 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
 
         except RuntimeError as e:
             # Graceful fallback to Ollama
-            console.print(f"\n[yellow]Could not install llama-server:[/yellow]")
+            console.print("\n[yellow]Could not install llama-server:[/yellow]")
             console.print(f"  {e}\n")
             console.print("[cyan]Switching to Ollama backend (recommended)[/cyan]")
             backend = "ollama"
@@ -1106,7 +1106,7 @@ def binary_verify() -> None:
     # Get full info
     info = binary_mgr.detect_binary()
     if info and info.is_valid:
-        console.print(f"\n[green]✓ Binary verification passed[/green]")
+        console.print("\n[green]✓ Binary verification passed[/green]")
         console.print(f"  Version: {info.version}")
         console.print(f"  Architecture: {info.architecture}")
         console.print(f"  Source: {info.source.value}\n")
@@ -1171,8 +1171,8 @@ def binary_rollback() -> None:
 @cli.command("backends")
 def backends_command() -> None:
     """Detect and show available LLM backends."""
-    from .backend_manager import BackendManager
     from .backend_interface import BackendStatus
+    from .backend_manager import BackendManager
 
     console.print("\n[cyan]Detecting available backends...[/cyan]\n")
 
@@ -1218,7 +1218,7 @@ def backends_command() -> None:
 
     detector = HardwareDetector()
     hardware = detector.detect()
-    recommended = BackendManager.recommend_backend(hardware)
+    recommended = BackendManager.recommend_backend()
 
     console.print(f"Recommended backend: [cyan]{recommended.value}[/cyan]")
     console.print(f"  (Based on: {hardware.chip}, {hardware.total_memory_gb}GB RAM)\n")

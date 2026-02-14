@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import httpx
 
 from ..backend_interface import BackendInfo, BackendLifecycle, BackendStatus
-from ..binary_manager import BinaryManager, BinarySource
+from ..binary_manager import BinaryManager
 
 
 logger = logging.getLogger(__name__)
