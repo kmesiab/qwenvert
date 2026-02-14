@@ -10,6 +10,7 @@ import httpx
 from qwenvert.backend_interface import BackendInfo, BackendLifecycle, BackendStatus
 from qwenvert.binary_manager import BinaryManager
 
+
 if TYPE_CHECKING:
     from qwenvert.hardware import HardwareProfile
     from qwenvert.models import Model
@@ -63,7 +64,7 @@ class LlamaCppBackend(BackendLifecycle):
                 installation_method=binary_info_obj.source.value,
             )
 
-        except RuntimeError as e:
+        except RuntimeError:
             logger.exception("Failed to install llama.cpp")
             return BackendInfo(
                 name="llama.cpp",

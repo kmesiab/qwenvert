@@ -11,6 +11,7 @@ import httpx
 
 from qwenvert.backend_interface import BackendInfo, BackendLifecycle, BackendStatus
 
+
 if TYPE_CHECKING:
     from qwenvert.hardware import HardwareProfile
     from qwenvert.models import Model
