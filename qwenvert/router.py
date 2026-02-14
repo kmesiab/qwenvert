@@ -396,18 +396,16 @@ class BackendRouter:
         # Transform to Anthropic format
         return self._llamacpp_to_anthropic_response(llamacpp_response, request)
 
-    async def _stream_llamacpp(
-        self, request: MessagesRequest
-    ) -> AsyncIterator[dict[str, Any]]:
-        """Stream response from llama.cpp backend."""
+    def _build_llamacpp_request(self, request: MessagesRequest) -> dict[str, Any]:
+        """Build llama.cpp streaming request with parameters."""
         prompt = self._anthropic_to_llamacpp_prompt(request.messages, request.system)
-
         llamacpp_request = {
             "prompt": prompt,
             "n_predict": request.max_tokens or 512,
             "stream": True,
         }
 
+        # Add optional parameters
         if request.temperature is not None:
             llamacpp_request["temperature"] = request.temperature
         if request.top_p is not None:
@@ -417,10 +415,26 @@ class BackendRouter:
         if request.stop_sequences:
             llamacpp_request["stop"] = request.stop_sequences
 
-        # Generate message ID for Anthropic compatibility
+        return llamacpp_request
+
+    def _determine_stop_reason(
+        self, stop: bool, stopped_limit: bool, stopped_word: bool
+    ) -> str:
+        """Map llama.cpp stop metadata to Anthropic stop_reason."""
+        if stop and stopped_limit:
+            return "max_tokens"
+        if stop and stopped_word:
+            return "stop_sequence"
+        return "end_turn"
+
+    async def _stream_llamacpp(
+        self, request: MessagesRequest
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Stream response from llama.cpp backend."""
+        llamacpp_request = self._build_llamacpp_request(request)
         message_id = f"msg_{uuid.uuid4().hex[:8]}"
 
-        # Emit message_start event (required first event)
+        # Emit message_start event
         yield {
             "type": "message_start",
             "message": {
@@ -435,14 +449,14 @@ class BackendRouter:
             },
         }
 
-        # Emit content_block_start event (required before first delta)
+        # Emit content_block_start event
         yield {
             "type": "content_block_start",
             "index": 0,
             "content_block": {"type": "text", "text": ""},
         }
 
-        # Track tokens and stop metadata for final events
+        # Track tokens and stop metadata
         tokens_evaluated = 0
         tokens_predicted = 0
         stop = False
@@ -455,62 +469,49 @@ class BackendRouter:
             response.raise_for_status()
 
             async for line in response.aiter_lines():
-                if line.startswith("data: "):
-                    import json
+                if not line.startswith("data: "):
+                    continue
 
-                    data = line[6:]  # Remove "data: " prefix
-                    if data == "[DONE]":
-                        # Emit content_block_stop event (required after last delta)
-                        yield {
-                            "type": "content_block_stop",
-                            "index": 0,
-                        }
+                import json
 
-                        # Map llama.cpp stop metadata to Anthropic stop_reason
-                        stop_reason = "end_turn"
-                        if stop:
-                            if stopped_limit:
-                                stop_reason = "max_tokens"
-                            elif stopped_word:
-                                stop_reason = "stop_sequence"
+                data = line[6:]  # Remove "data: " prefix
+                if data == "[DONE]":
+                    # Emit content_block_stop event
+                    yield {"type": "content_block_stop", "index": 0}
 
-                        # Emit message_delta event with usage (required before message_stop)
-                        yield {
-                            "type": "message_delta",
-                            "delta": {
-                                "stop_reason": stop_reason,
-                                "stop_sequence": None,
-                            },
-                            "usage": {
-                                "input_tokens": tokens_evaluated,
-                                "output_tokens": tokens_predicted,
-                            },
-                        }
+                    # Emit message_delta with stop_reason and usage
+                    stop_reason = self._determine_stop_reason(
+                        stop, stopped_limit, stopped_word
+                    )
+                    yield {
+                        "type": "message_delta",
+                        "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+                        "usage": {
+                            "input_tokens": tokens_evaluated,
+                            "output_tokens": tokens_predicted,
+                        },
+                    }
 
-                        # Emit message_stop event (required final event)
-                        yield {"type": "message_stop"}
-                        break
+                    # Emit message_stop event
+                    yield {"type": "message_stop"}
+                    break
 
-                    chunk = json.loads(data)
+                chunk = json.loads(data)
 
-                    if "content" in chunk:
-                        yield {
-                            "type": "content_block_delta",
-                            "index": 0,
-                            "delta": {"type": "text_delta", "text": chunk["content"]},
-                        }
+                # Emit content delta if present
+                if "content" in chunk:
+                    yield {
+                        "type": "content_block_delta",
+                        "index": 0,
+                        "delta": {"type": "text_delta", "text": chunk["content"]},
+                    }
 
-                    # Track token counts and stop metadata from each chunk
-                    if "tokens_evaluated" in chunk:
-                        tokens_evaluated = chunk["tokens_evaluated"]
-                    if "tokens_predicted" in chunk:
-                        tokens_predicted = chunk["tokens_predicted"]
-                    if "stop" in chunk:
-                        stop = chunk["stop"]
-                    if "stopped_limit" in chunk:
-                        stopped_limit = chunk["stopped_limit"]
-                    if "stopped_word" in chunk:
-                        stopped_word = chunk["stopped_word"]
+                # Update tracking variables from chunk
+                tokens_evaluated = chunk.get("tokens_evaluated", tokens_evaluated)
+                tokens_predicted = chunk.get("tokens_predicted", tokens_predicted)
+                stop = chunk.get("stop", stop)
+                stopped_limit = chunk.get("stopped_limit", stopped_limit)
+                stopped_word = chunk.get("stopped_word", stopped_word)
 
     def _anthropic_to_llamacpp_prompt(
         self, messages: list[Message], system: str | None = None
