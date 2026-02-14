@@ -461,8 +461,6 @@ class TestStartLlamaCpp:
         self, llamacpp_config, mock_process, mock_model
     ):
         """Test successfully starting llama.cpp server."""
-        from pathlib import Path
-
         from qwenvert.binary_manager import BinaryInfo, BinarySource
 
         launcher = ServerLauncher(llamacpp_config)
@@ -538,8 +536,6 @@ class TestStartLlamaCpp:
         self, llamacpp_config, mock_process, mock_model
     ):
         """Test finding llama-server in alternative location."""
-        from pathlib import Path
-
         from qwenvert.binary_manager import BinaryInfo, BinarySource
 
         launcher = ServerLauncher(llamacpp_config)
@@ -589,8 +585,6 @@ class TestStartLlamaCpp:
     @pytest.mark.asyncio
     async def test_start_llamacpp_model_not_found(self, llamacpp_config):
         """Test error when model is not found in registry."""
-        from pathlib import Path
-
         from qwenvert.binary_manager import BinaryInfo, BinarySource
 
         launcher = ServerLauncher(llamacpp_config)
@@ -622,8 +616,6 @@ class TestStartLlamaCpp:
         self, llamacpp_config, mock_process, mock_model
     ):
         """Test llama.cpp startup failure due to health check timeout."""
-        from pathlib import Path
-
         from qwenvert.binary_manager import BinaryInfo, BinarySource
 
         launcher = ServerLauncher(llamacpp_config)
@@ -1281,8 +1273,6 @@ class TestEdgeCases:
                             assert handle1.name == "ollama"
 
         # Then llama.cpp
-        from pathlib import Path
-
         from qwenvert.binary_manager import BinaryInfo, BinarySource
 
         launcher2 = ServerLauncher(llamacpp_config)
