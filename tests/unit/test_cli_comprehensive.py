@@ -230,10 +230,10 @@ class TestInitCommand:
                 assert result.exit_code == 1
                 assert "not found" in result.output or "Error" in result.output
 
-    def test_init_model_insufficient_ram_user_declines(
+    def test_init_model_insufficient_ram_shows_warning(
         self, runner, mock_hardware, mock_model, tmp_path
     ):
-        """Test init when model doesn't fit hardware and user declines."""
+        """Test init when model doesn't fit hardware shows warning but continues."""
         # Make the model require more RAM than available
         large_model = Model(
             id="qwen2.5-coder-32b-q8-ollama",
@@ -260,12 +260,12 @@ class TestInitCommand:
                 mock_registry.get_model.return_value = large_model
                 mock_registry_cls.return_value = mock_registry
 
-                # User declines to continue
+                # Zero-friction: shows warning but continues (no user prompt)
                 result = runner.invoke(
-                    cli, ["init", "--model", "qwen2.5-coder-32b-q8-ollama"], input="n\n"
+                    cli, ["init", "--model", "qwen2.5-coder-32b-q8-ollama"]
                 )
 
-                assert result.exit_code == 1
+                assert result.exit_code == 0
                 assert "Warning" in result.output or "may not fit" in result.output
 
     def test_init_no_compatible_model(self, runner, mock_hardware):

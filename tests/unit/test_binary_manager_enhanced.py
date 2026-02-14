@@ -353,10 +353,14 @@ class TestSecurityValidation:
         source = inspect.getsource(binary_manager._download_and_install_zip)
 
         # Verify security check is in place
-        assert "is_relative_to" in source, "Zip Slip check using is_relative_to() must be present"
+        assert (
+            "is_relative_to" in source
+        ), "Zip Slip check using is_relative_to() must be present"
         assert "SecurityError" in source, "SecurityError exception must be raised"
         assert "resolve()" in source, "Path resolution must be present"
-        assert "Zip Slip attack detected" in source, "Clear error message must be present"
+        assert (
+            "Zip Slip attack detected" in source
+        ), "Clear error message must be present"
 
     def test_download_methods_use_secure_helper(self, binary_manager):
         """Verify that both download methods use the secure helper."""

@@ -265,9 +265,7 @@ class BenchmarkRunner:
     ) -> list[BenchmarkResult]:
         """Run a suite of benchmarks."""
 
-        console.print(
-            "\n[bold blue]Qwenvert Performance Benchmark Suite[/bold blue]\n"
-        )
+        console.print("\n[bold blue]Qwenvert Performance Benchmark Suite[/bold blue]\n")
 
         # Check adapter health
         console.print("Checking adapter health...")
