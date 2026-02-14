@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+
 if TYPE_CHECKING:
     from .hardware import HardwareProfile
 
