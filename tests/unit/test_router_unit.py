@@ -251,6 +251,232 @@ class TestStreamingGeneration:
                 ]
             ), f"Expected streaming event types not found. Got: {types}"
 
+    @pytest.mark.asyncio
+    async def test_stream_ollama_complete_event_sequence(
+        self, ollama_model, sample_request
+    ):
+        """Test that Ollama streaming emits all 6 required SSE events in correct order."""
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Hello"},"done":false}'
+                yield '{"message":{"content":" world"},"done":false}'
+                yield '{"message":{"content":"!"},"done":true,"prompt_eval_count":25,"eval_count":10}'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(sample_request):
+                chunks.append(chunk)
+
+            # Extract event types in order
+            event_types = [c.get("type") for c in chunks]
+
+            # Validate complete sequence
+            assert (
+                len(event_types) >= 6
+            ), f"Expected at least 6 events, got {len(event_types)}"
+
+            # Validate required sequence (may have multiple content_block_delta)
+            assert (
+                event_types[0] == "message_start"
+            ), f"First event must be message_start, got {event_types[0]}"
+            assert (
+                event_types[1] == "content_block_start"
+            ), f"Second event must be content_block_start, got {event_types[1]}"
+
+            # Find positions of final events
+            content_block_stop_idx = event_types.index("content_block_stop")
+            message_delta_idx = event_types.index("message_delta")
+            message_stop_idx = event_types.index("message_stop")
+
+            # Validate order of final events
+            assert (
+                content_block_stop_idx < message_delta_idx < message_stop_idx
+            ), "Events must be in order: content_block_stop → message_delta → message_stop"
+
+            # Validate all content_block_delta events come between start and stop
+            delta_events = [
+                i for i, t in enumerate(event_types) if t == "content_block_delta"
+            ]
+            assert all(
+                1 < idx < content_block_stop_idx for idx in delta_events
+            ), "All content_block_delta events must be between content_block_start and content_block_stop"
+
+            # Validate message_stop is last
+            assert (
+                event_types[-1] == "message_stop"
+            ), f"Last event must be message_stop, got {event_types[-1]}"
+
+            # Verify usage tokens are included in message_delta
+            message_delta = chunks[message_delta_idx]
+            usage = message_delta["usage"]
+            assert usage["input_tokens"] == 25
+            assert usage["output_tokens"] == 10
+
+    @pytest.mark.asyncio
+    async def test_stream_ollama_end_turn_without_stop_sequences(self, ollama_model):
+        """Test that Ollama streaming reports end_turn when no stop_sequences configured."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            # No stop_sequences configured
+        )
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Response"},"done":false}'
+                yield '{"message":{"content":" complete"},"done":true,"done_reason":"stop","prompt_eval_count":10,"eval_count":5}'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+
+            # Verify stop_reason is end_turn (natural completion, no stop_sequences)
+            assert (
+                message_delta["delta"]["stop_reason"] == "end_turn"
+            ), f"Expected stop_reason='end_turn', got {message_delta['delta']['stop_reason']}"
+
+    @pytest.mark.asyncio
+    async def test_stream_ollama_stop_sequence_detection(self, ollama_model):
+        """Test that Ollama streaming detects stop_sequence when stop_sequences are configured."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            stop_sequences=["###", "STOP"],
+        )
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Response"},"done":false}'
+                yield '{"message":{"content":" text ###"},"done":true,"done_reason":"stop","prompt_eval_count":10,"eval_count":5}'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+
+            # Verify stop_reason is stop_sequence (heuristic: stop_sequences configured + done_reason="stop")
+            assert (
+                message_delta["delta"]["stop_reason"] == "stop_sequence"
+            ), f"Expected stop_reason='stop_sequence', got {message_delta['delta']['stop_reason']}"
+
+    @pytest.mark.asyncio
+    async def test_stream_ollama_includes_usage_tokens(
+        self, ollama_model, sample_request
+    ):
+        """Test that Ollama streaming includes both input and output tokens in message_delta."""
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Test"},"done":false}'
+                yield '{"message":{"content":" response"},"done":true,"prompt_eval_count":25,"eval_count":10}'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(sample_request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+
+            # Verify usage contains both input and output tokens
+            assert "usage" in message_delta, "usage field missing in message_delta"
+            usage = message_delta["usage"]
+            assert "input_tokens" in usage, "input_tokens missing in usage"
+            assert "output_tokens" in usage, "output_tokens missing in usage"
+            assert (
+                usage["input_tokens"] == 25
+            ), f"Expected input_tokens=25, got {usage['input_tokens']}"
+            assert (
+                usage["output_tokens"] == 10
+            ), f"Expected output_tokens=10, got {usage['output_tokens']}"
+
 
 class TestErrorHandling:
     """Test error handling in router."""
@@ -890,6 +1116,300 @@ class TestLlamaCppStreaming:
             has_delta = any(c.get("type") == "content_block_delta" for c in chunks)
             has_stop = any(c.get("type") == "message_stop" for c in chunks)
             assert has_delta or has_stop
+
+    @pytest.mark.asyncio
+    async def test_stream_stop_reason_max_tokens(self, llamacpp_model):
+        """Test llama.cpp streaming with stopped_limit (max_tokens)."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=10,
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_predicted":5}'
+                yield 'data: {"content":" world","tokens_predicted":10,"stop":true,"stopped_limit":true}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+            assert (
+                message_delta["delta"]["stop_reason"] == "max_tokens"
+            ), f"Expected stop_reason='max_tokens', got {message_delta['delta']['stop_reason']}"
+
+    @pytest.mark.asyncio
+    async def test_stream_stop_reason_stop_sequence(self, llamacpp_model):
+        """Test llama.cpp streaming with stopped_word (stop_sequence)."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            stop_sequences=["###"],
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_predicted":3}'
+                yield 'data: {"content":" ###","tokens_predicted":4,"stop":true,"stopped_word":true}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+            assert (
+                message_delta["delta"]["stop_reason"] == "stop_sequence"
+            ), f"Expected stop_reason='stop_sequence', got {message_delta['delta']['stop_reason']}"
+
+    @pytest.mark.asyncio
+    async def test_stream_stop_reason_end_turn(self, llamacpp_model):
+        """Test llama.cpp streaming with end_turn (natural completion)."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_predicted":2}'
+                yield 'data: {"content":" world!","tokens_predicted":4,"stop":false}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+            assert (
+                message_delta["delta"]["stop_reason"] == "end_turn"
+            ), f"Expected stop_reason='end_turn', got {message_delta['delta']['stop_reason']}"
+            # Verify usage tokens are tracked
+            assert message_delta["usage"]["output_tokens"] == 4
+
+    @pytest.mark.asyncio
+    async def test_stream_llamacpp_complete_event_sequence(self, llamacpp_model):
+        """Test that llama.cpp streaming emits all 6 required SSE events in correct order."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test prompt")],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_evaluated":15,"tokens_predicted":3}'
+                yield 'data: {"content":" world","tokens_evaluated":15,"tokens_predicted":5}'
+                yield 'data: {"content":"!","tokens_evaluated":15,"tokens_predicted":6}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Extract event types in order
+            event_types = [c.get("type") for c in chunks]
+
+            # Validate complete sequence
+            assert (
+                len(event_types) >= 6
+            ), f"Expected at least 6 events, got {len(event_types)}"
+
+            # Validate required sequence (may have multiple content_block_delta)
+            assert (
+                event_types[0] == "message_start"
+            ), f"First event must be message_start, got {event_types[0]}"
+            assert (
+                event_types[1] == "content_block_start"
+            ), f"Second event must be content_block_start, got {event_types[1]}"
+
+            # Find positions of final events
+            content_block_stop_idx = event_types.index("content_block_stop")
+            message_delta_idx = event_types.index("message_delta")
+            message_stop_idx = event_types.index("message_stop")
+
+            # Validate order of final events
+            assert (
+                content_block_stop_idx < message_delta_idx < message_stop_idx
+            ), "Events must be in order: content_block_stop → message_delta → message_stop"
+
+            # Validate all content_block_delta events come between start and stop
+            delta_events = [
+                i for i, t in enumerate(event_types) if t == "content_block_delta"
+            ]
+            assert all(
+                1 < idx < content_block_stop_idx for idx in delta_events
+            ), "All content_block_delta events must be between content_block_start and content_block_stop"
+
+            # Validate message_stop is last
+            assert (
+                event_types[-1] == "message_stop"
+            ), f"Last event must be message_stop, got {event_types[-1]}"
+
+            # Verify usage tokens are included in message_delta
+            message_delta = chunks[message_delta_idx]
+            usage = message_delta["usage"]
+            assert usage["input_tokens"] == 15
+            assert usage["output_tokens"] == 6
+
+    @pytest.mark.asyncio
+    async def test_stream_llamacpp_includes_usage_tokens(self, llamacpp_model):
+        """Test that llama.cpp streaming includes both input and output tokens in message_delta."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test prompt")],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Response","tokens_evaluated":15,"tokens_predicted":5}'
+                yield 'data: {"content":" text","tokens_evaluated":15,"tokens_predicted":8}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+
+            # Verify usage contains both input and output tokens
+            assert "usage" in message_delta, "usage field missing in message_delta"
+            usage = message_delta["usage"]
+            assert "input_tokens" in usage, "input_tokens missing in usage"
+            assert "output_tokens" in usage, "output_tokens missing in usage"
+            assert (
+                usage["input_tokens"] == 15
+            ), f"Expected input_tokens=15, got {usage['input_tokens']}"
+            assert (
+                usage["output_tokens"] == 8
+            ), f"Expected output_tokens=8, got {usage['output_tokens']}"
 
     @pytest.mark.asyncio
     async def test_stream_unknown_backend(self, ollama_model):
