@@ -162,19 +162,25 @@ class ServerLauncher:
         return handle
 
     async def _start_llamacpp(self) -> ProcessHandle:
-        """Start llama.cpp server."""
+        """Start llama.cpp server with BinaryManager."""
         logger.info("Starting llama.cpp server...")
 
-        # Check if llama-server is available
-        llamacpp_check = check_llamacpp()
-        if not llamacpp_check.is_available:
-            # Raise DependencyError without logging (CLI will display clean message)
+        # Use BinaryManager for detection (prioritizes cache, then PATH, then Homebrew)
+        from .binary_manager import BinaryManager
+
+        binary_mgr = BinaryManager()
+        binary_info = binary_mgr.detect_binary()
+
+        if not binary_info:
+            # No binary found - provide helpful error
+            llamacpp_check = check_llamacpp()
             raise DependencyError(llamacpp_check)
 
-        if not llamacpp_check.path:
-            raise RuntimeError("llama-server path is not available")
-
-        llamacpp_path = Path(llamacpp_check.path)
+        llamacpp_path = binary_info.path
+        logger.info(
+            f"Using llama-server: {llamacpp_path} "
+            f"(v{binary_info.version}, {binary_info.source.value})"
+        )
 
         # Generate flags from config
         from .config import ConfigGenerator
