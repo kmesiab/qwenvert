@@ -12,6 +12,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automated GitHub Actions workflow for releases
 - Comprehensive publishing documentation
 
+## [0.2.6] - 2026-02-13
+
+### Added
+- Dependency auto-installation via Homebrew - PR #50
+  - `--auto-install` flag for `qwenvert start` command
+  - Interactive and non-interactive installation modes
+  - Whitelist validation for allowed dependencies (ollama, llama.cpp)
+  - 5-minute timeout and shell injection protection
+- Request-id tracing for API compatibility - PR #58
+  - Anthropic-compatible `request-id` and `x-request-id` headers
+  - Unique request identifiers for end-to-end tracing
+  - Improves Claude Code CLI compatibility
+
+### Fixed
+- Suppressed noisy health check endpoint logs - PR #56
+  - Filters `/health` requests from uvicorn access logs
+  - Reduces log noise during normal operation
+- Enhanced dependency error handling - PR #50
+  - Clean, formatted error messages without Python tracebacks
+  - Interactive prompts for dependency installation
+
+## [0.2.5] - 2026-02-13
+
+### Fixed
+- Display actual version in CLI and startup message - PR #54
+  - `qwenvert --version` now shows correct version instead of hardcoded "0.1.0"
+  - Version displayed in startup message
+  - Dynamic version used in telemetry
+- Clean error message when port is already in use - PR #53
+  - Socket-based port availability check before server bind
+  - User-friendly error message with 3 solutions for port conflicts
+  - Replaces ugly uvicorn traceback with helpful guidance
+
+## [0.2.4] - 2026-02-13
+
+### Added
+- Model-aware context window management - PR #51
+  - Per-model `max_output_tokens` limits (8K-16K based on model size)
+  - Dynamic token capping based on active model
+  - Comprehensive test suite with edge cases
+
+### Fixed
+- Claude Code compatibility improvements - PR #51
+  - System field normalization (accepts both string and array formats)
+  - Handles `cache_control` objects in system prompts
+  - Prevents 422 errors for oversized `max_tokens` requests
+  - Caps requests to model-appropriate limits with warning logs
+
 ## [0.2.3] - 2026-02-11
 
 ### Added
@@ -95,6 +143,9 @@ Copy this for new releases:
 
 ---
 
-[Unreleased]: https://github.com/kmesiab/qwenvert/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/kmesiab/qwenvert/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/kmesiab/qwenvert/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/kmesiab/qwenvert/compare/v0.2.4...v0.2.5
+[0.2.4]: https://github.com/kmesiab/qwenvert/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/kmesiab/qwenvert/compare/v0.1.0...v0.2.3
 [0.1.0]: https://github.com/kmesiab/qwenvert/releases/tag/v0.1.0
