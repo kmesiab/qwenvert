@@ -273,8 +273,7 @@ class BinaryManager:
                 llama_server_files = [
                     name
                     for name in zip_ref.namelist()
-                    if name.endswith("llama-server")
-                    or name.endswith("llama-server.exe")
+                    if name.endswith(("llama-server", "llama-server.exe"))
                 ]
 
                 if not llama_server_files:
