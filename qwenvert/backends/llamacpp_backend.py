@@ -64,7 +64,7 @@ class LlamaCppBackend(BackendLifecycle):
             )
 
         except RuntimeError as e:
-            logger.error(f"Failed to install llama.cpp: {e}")
+            logger.exception("Failed to install llama.cpp")
             return BackendInfo(
                 name="llama.cpp",
                 version=None,

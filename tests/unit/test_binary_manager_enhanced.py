@@ -315,7 +315,7 @@ class TestVersionManagement:
         """Test binary rollback from backup."""
         # Create original binary and backup
         binary_manager.binary_path.write_text("original")
-        backup_path = binary_manager.backup_binary()
+        _ = binary_manager.backup_binary()
 
         # Modify original
         binary_manager.binary_path.write_text("modified")

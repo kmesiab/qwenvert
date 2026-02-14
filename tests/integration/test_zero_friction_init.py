@@ -112,7 +112,7 @@ class TestZeroFrictionInit:
                 )
                 mock_mgr_cls.return_value = mock_mgr
 
-                result = cli_runner.invoke(
+                _ = cli_runner.invoke(
                     cli, ["init", "--backend", "llamacpp", "--no-auto-install"]
                 )
 

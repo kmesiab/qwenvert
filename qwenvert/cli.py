@@ -963,7 +963,7 @@ def binary_update() -> None:
     # Check latest version
     with console.status("[cyan]Checking for updates...", spinner="dots"):
         try:
-            latest = binary_mgr._get_latest_release_version()
+            latest = binary_mgr.get_latest_release_version()
         except Exception as e:
             console.print(f"[red]Failed to check for updates:[/red] {e}\n")
             sys.exit(1)
@@ -991,7 +991,7 @@ def binary_update() -> None:
         hardware = detector.detect()
 
         console.print(f"[cyan]Downloading llama-server {latest}...[/cyan]\n")
-        binary_path = binary_mgr.download_binary(hardware)
+        _ = binary_mgr.download_binary(hardware)
 
         console.print(f"✓ Successfully updated to {latest}\n")
 

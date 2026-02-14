@@ -370,7 +370,7 @@ class BinaryManager:
             logger.warning(f"Failed to fetch checksum: {e}")
             return None
 
-    def _get_latest_release_version(self, use_cache: bool = True) -> str:
+    def get_latest_release_version(self, use_cache: bool = True) -> str:
         """
         Fetch latest stable release version from GitHub API.
 
@@ -445,7 +445,7 @@ class BinaryManager:
         )
 
         # Get latest release version dynamically
-        version = self._get_latest_release_version()
+        version = self.get_latest_release_version()
 
         # Construct URL
         # Example: https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip
