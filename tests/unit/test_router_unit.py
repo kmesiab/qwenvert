@@ -252,7 +252,9 @@ class TestStreamingGeneration:
             ), f"Expected streaming event types not found. Got: {types}"
 
     @pytest.mark.asyncio
-    async def test_stream_ollama_includes_usage_tokens(self, ollama_model, sample_request):
+    async def test_stream_ollama_includes_usage_tokens(
+        self, ollama_model, sample_request
+    ):
         """Test that Ollama streaming includes both input and output tokens in message_delta."""
         router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
 
@@ -293,8 +295,12 @@ class TestStreamingGeneration:
             usage = message_delta["usage"]
             assert "input_tokens" in usage, "input_tokens missing in usage"
             assert "output_tokens" in usage, "output_tokens missing in usage"
-            assert usage["input_tokens"] == 25, f"Expected input_tokens=25, got {usage['input_tokens']}"
-            assert usage["output_tokens"] == 10, f"Expected output_tokens=10, got {usage['output_tokens']}"
+            assert (
+                usage["input_tokens"] == 25
+            ), f"Expected input_tokens=25, got {usage['input_tokens']}"
+            assert (
+                usage["output_tokens"] == 10
+            ), f"Expected output_tokens=10, got {usage['output_tokens']}"
 
 
 class TestErrorHandling:
@@ -1137,8 +1143,12 @@ class TestLlamaCppStreaming:
             usage = message_delta["usage"]
             assert "input_tokens" in usage, "input_tokens missing in usage"
             assert "output_tokens" in usage, "output_tokens missing in usage"
-            assert usage["input_tokens"] == 15, f"Expected input_tokens=15, got {usage['input_tokens']}"
-            assert usage["output_tokens"] == 8, f"Expected output_tokens=8, got {usage['output_tokens']}"
+            assert (
+                usage["input_tokens"] == 15
+            ), f"Expected input_tokens=15, got {usage['input_tokens']}"
+            assert (
+                usage["output_tokens"] == 8
+            ), f"Expected output_tokens=8, got {usage['output_tokens']}"
 
     @pytest.mark.asyncio
     async def test_stream_unknown_backend(self, ollama_model):
