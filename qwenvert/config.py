@@ -341,14 +341,15 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
             "127.0.0.1",
             "--port",
             "8080",
-            # Memory optimization
-            "--mlock",  # Lock model in memory (prevent swapping)
             # Metal-specific optimizations for Mac Silicon
-            "-fa",  # Flash attention (20-30% faster on Metal)
             "--cont-batching",  # Continuous batching for better throughput
             # API compatibility
             "--log-disable",  # Reduce log noise
         ]
+
+        # NOTE: Removed flags based on research:
+        # - "--mlock": Crashes on macOS (see: https://github.com/ggml-org/llama.cpp/issues/18152)
+        # - "-fa": Flash attention can slow generation unless KV cache fits in VRAM
 
         # Add split-mode for larger models (7B+) to optimize Metal memory
         if self.model.size_b >= 7.0:
