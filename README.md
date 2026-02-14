@@ -8,7 +8,7 @@
 
 Qwenvert lets you use Claude Code CLI with a completely local LLM (Qwen2.5-Coder) instead of Anthropic's API. Your code never leaves your machine.
 
-```
+```text
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
 │ Claude Code │ --> │   Qwenvert   │ --> │ Local Qwen  │
 │     CLI     │     │   (adapter)  │     │    Model    │
@@ -76,7 +76,7 @@ This will **automatically** (no prompts!):
 **First run takes 2-5 minutes** (downloads binaries & models). Subsequent runs are instant.
 
 **Example output:**
-```
+```text
 Qwenvert Initialization
 
 ✓ Detected: M1 Pro, 16GB RAM, 16 GPU cores, Active cooling
@@ -95,7 +95,7 @@ qwenvert start
 ```
 
 **You'll see:**
-```
+```text
 Starting Qwenvert
 
 ✓ Backend: Ollama with qwen2.5-coder:7b
@@ -305,7 +305,7 @@ qwenvert binary info
 ```
 
 **Output:**
-```
+```text
 ┌──────────────┬────────────────────────────────────────┐
 │ Property     │ Value                                  │
 ├──────────────┼────────────────────────────────────────┤
@@ -866,7 +866,7 @@ qwenvert init --backend llamacpp  # Use llama.cpp (default)
 
 ### Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Claude Code CLI                         │
 └────────────────────────┬────────────────────────────────────┘
