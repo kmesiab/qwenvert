@@ -49,7 +49,9 @@ class TestZeroFrictionInit:
                             mock_detector_cls.return_value = mock_detector
 
                             mock_mgr = Mock()
-                            mock_mgr.get_or_install_binary.return_value = mock_binary_info
+                            mock_mgr.get_or_install_binary.return_value = (
+                                mock_binary_info
+                            )
                             mock_mgr_cls.return_value = mock_mgr
 
                             # Run init
@@ -79,7 +81,9 @@ class TestZeroFrictionInit:
 
                             mock_mgr = Mock()
                             # Simulate auto-download success
-                            mock_mgr.get_or_install_binary.return_value = mock_binary_info
+                            mock_mgr.get_or_install_binary.return_value = (
+                                mock_binary_info
+                            )
                             mock_mgr_cls.return_value = mock_mgr
 
                             result = cli_runner.invoke(

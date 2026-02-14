@@ -863,9 +863,7 @@ class BinaryManager:
             return None
 
         # Create backup with timestamp
-        backup_path = self.binary_path.with_suffix(
-            f".backup.{int(time.time())}"
-        )
+        backup_path = self.binary_path.with_suffix(f".backup.{int(time.time())}")
 
         try:
             shutil.copy2(self.binary_path, backup_path)

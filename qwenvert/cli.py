@@ -10,6 +10,8 @@ Commands:
 - binary: Binary management commands
 """
 
+from __future__ import annotations
+
 import stat
 import sys
 
@@ -1001,9 +1003,7 @@ def binary_update() -> None:
 
     except Exception as e:
         console.print(f"[red]Update failed:[/red] {e}\n")
-        console.print(
-            "[yellow]Rollback available:[/yellow] qwenvert binary rollback\n"
-        )
+        console.print("[yellow]Rollback available:[/yellow] qwenvert binary rollback\n")
         sys.exit(1)
 
 
@@ -1221,9 +1221,7 @@ def backends_command() -> None:
     recommended = BackendManager.recommend_backend(hardware)
 
     console.print(f"Recommended backend: [cyan]{recommended.value}[/cyan]")
-    console.print(
-        f"  (Based on: {hardware.chip}, {hardware.total_memory_gb}GB RAM)\n"
-    )
+    console.print(f"  (Based on: {hardware.chip}, {hardware.total_memory_gb}GB RAM)\n")
 
     # Show installation commands
     console.print("[dim]Install missing backends:[/dim]")

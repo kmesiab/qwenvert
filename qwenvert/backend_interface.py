@@ -5,6 +5,8 @@ Provides unified interface for different LLM backends (Ollama, llama.cpp, MLX, v
 Enables clean separation between qwenvert core and backend implementations.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum

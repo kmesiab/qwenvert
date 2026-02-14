@@ -211,7 +211,9 @@ class TestGetOrInstallBinary:
         # Mock detection to return None
         with patch.object(binary_manager, "detect_binary", return_value=None):
             with patch.object(
-                binary_manager, "download_binary", return_value=Path("/cache/llama-server")
+                binary_manager,
+                "download_binary",
+                return_value=Path("/cache/llama-server"),
             ) as mock_download:
                 mock_binary = BinaryInfo(
                     path=Path("/cache/llama-server"),
@@ -221,7 +223,9 @@ class TestGetOrInstallBinary:
                     is_valid=True,
                 )
 
-                with patch.object(binary_manager, "_get_binary_info", return_value=mock_binary):
+                with patch.object(
+                    binary_manager, "_get_binary_info", return_value=mock_binary
+                ):
                     with patch.object(binary_manager, "_save_version_cache"):
                         result = binary_manager.get_or_install_binary(
                             hardware=mock_hardware, auto_install=True
