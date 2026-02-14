@@ -15,11 +15,12 @@ import subprocess
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from .hardware import HardwareProfile
+if TYPE_CHECKING:
+    from .hardware import HardwareProfile
 
 
 logger = logging.getLogger(__name__)
