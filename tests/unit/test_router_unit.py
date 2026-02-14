@@ -252,6 +252,85 @@ class TestStreamingGeneration:
             ), f"Expected streaming event types not found. Got: {types}"
 
     @pytest.mark.asyncio
+    async def test_stream_ollama_complete_event_sequence(
+        self, ollama_model, sample_request
+    ):
+        """Test that Ollama streaming emits all 6 required SSE events in correct order."""
+        router = BackendRouter(model=ollama_model, backend_url="http://localhost:11434")
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield '{"message":{"content":"Hello"},"done":false}'
+                yield '{"message":{"content":" world"},"done":false}'
+                yield '{"message":{"content":"!"},"done":true,"prompt_eval_count":25,"eval_count":10}'
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(sample_request):
+                chunks.append(chunk)
+
+            # Extract event types in order
+            event_types = [c.get("type") for c in chunks]
+
+            # Validate complete sequence
+            assert (
+                len(event_types) >= 6
+            ), f"Expected at least 6 events, got {len(event_types)}"
+
+            # Validate required sequence (may have multiple content_block_delta)
+            assert (
+                event_types[0] == "message_start"
+            ), f"First event must be message_start, got {event_types[0]}"
+            assert (
+                event_types[1] == "content_block_start"
+            ), f"Second event must be content_block_start, got {event_types[1]}"
+
+            # Find positions of final events
+            content_block_stop_idx = event_types.index("content_block_stop")
+            message_delta_idx = event_types.index("message_delta")
+            message_stop_idx = event_types.index("message_stop")
+
+            # Validate order of final events
+            assert (
+                content_block_stop_idx < message_delta_idx < message_stop_idx
+            ), "Events must be in order: content_block_stop → message_delta → message_stop"
+
+            # Validate all content_block_delta events come between start and stop
+            delta_events = [
+                i for i, t in enumerate(event_types) if t == "content_block_delta"
+            ]
+            assert all(
+                1 < idx < content_block_stop_idx for idx in delta_events
+            ), "All content_block_delta events must be between content_block_start and content_block_stop"
+
+            # Validate message_stop is last
+            assert (
+                event_types[-1] == "message_stop"
+            ), f"Last event must be message_stop, got {event_types[-1]}"
+
+            # Verify usage tokens are included in message_delta
+            message_delta = chunks[message_delta_idx]
+            usage = message_delta["usage"]
+            assert usage["input_tokens"] == 25
+            assert usage["output_tokens"] == 10
+
+    @pytest.mark.asyncio
     async def test_stream_ollama_includes_usage_tokens(
         self, ollama_model, sample_request
     ):
@@ -1091,6 +1170,92 @@ class TestLlamaCppStreaming:
             ), f"Expected stop_reason='end_turn', got {message_delta['delta']['stop_reason']}"
             # Verify usage tokens are tracked
             assert message_delta["usage"]["output_tokens"] == 4
+
+    @pytest.mark.asyncio
+    async def test_stream_llamacpp_complete_event_sequence(self, llamacpp_model):
+        """Test that llama.cpp streaming emits all 6 required SSE events in correct order."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test prompt")],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_evaluated":15,"tokens_predicted":3}'
+                yield 'data: {"content":" world","tokens_evaluated":15,"tokens_predicted":5}'
+                yield 'data: {"content":"!","tokens_evaluated":15,"tokens_predicted":6}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Extract event types in order
+            event_types = [c.get("type") for c in chunks]
+
+            # Validate complete sequence
+            assert (
+                len(event_types) >= 6
+            ), f"Expected at least 6 events, got {len(event_types)}"
+
+            # Validate required sequence (may have multiple content_block_delta)
+            assert (
+                event_types[0] == "message_start"
+            ), f"First event must be message_start, got {event_types[0]}"
+            assert (
+                event_types[1] == "content_block_start"
+            ), f"Second event must be content_block_start, got {event_types[1]}"
+
+            # Find positions of final events
+            content_block_stop_idx = event_types.index("content_block_stop")
+            message_delta_idx = event_types.index("message_delta")
+            message_stop_idx = event_types.index("message_stop")
+
+            # Validate order of final events
+            assert (
+                content_block_stop_idx < message_delta_idx < message_stop_idx
+            ), "Events must be in order: content_block_stop → message_delta → message_stop"
+
+            # Validate all content_block_delta events come between start and stop
+            delta_events = [
+                i for i, t in enumerate(event_types) if t == "content_block_delta"
+            ]
+            assert all(
+                1 < idx < content_block_stop_idx for idx in delta_events
+            ), "All content_block_delta events must be between content_block_start and content_block_stop"
+
+            # Validate message_stop is last
+            assert (
+                event_types[-1] == "message_stop"
+            ), f"Last event must be message_stop, got {event_types[-1]}"
+
+            # Verify usage tokens are included in message_delta
+            message_delta = chunks[message_delta_idx]
+            usage = message_delta["usage"]
+            assert usage["input_tokens"] == 15
+            assert usage["output_tokens"] == 6
 
     @pytest.mark.asyncio
     async def test_stream_llamacpp_includes_usage_tokens(self, llamacpp_model):
