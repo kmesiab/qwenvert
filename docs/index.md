@@ -44,7 +44,7 @@ cd qwenvert
 pip install -e .
 ```
 
-> **Note:** Qwenvert v0.2.8 is published on PyPI. Python 3.9-3.12 required.
+> **Note:** Qwenvert v0.2.9 is published on PyPI. Python 3.9-3.12 required.
 
 ### Initialize & Start
 
@@ -106,8 +106,8 @@ Qwenvert is an HTTP adapter that translates between Claude Code and local LLM ba
 
 - **Translates APIs**: Converts Anthropic Messages API → Ollama/llama.cpp format
 - **Validates Security**: All URLs/hosts checked for localhost-only access (93+ tests)
-- **Auto-Downloads Binaries**: Fetches llama-server with checksum verification (v0.2.8)
-- **Protects Against Attacks**: Zip Slip prevention, fail-closed security (v0.2.8)
+- **Auto-Downloads Binaries**: Fetches llama-server with checksum verification (v0.2.9)
+- **Protects Against Attacks**: Zip Slip prevention, fail-closed security (v0.2.9)
 - **Manages Backends**: Launches and monitors Ollama or llama.cpp servers
 - **Streams Responses**: Complete 6-event SSE sequence for Claude CLI compatibility
 - **Optimizes Hardware**: Auto-configures Metal flags based on your Mac's specs
@@ -141,8 +141,8 @@ Our configuration includes research-backed optimizations:
 
 - **100% Private**: Zero cloud dependencies, all inference local
 - **Localhost-Only**: Comprehensive validation with 93+ security tests
-- **Zip Slip Protection**: Path validation prevents malicious archive extraction (v0.2.8)
-- **Checksum Enforcement**: Fail-closed binary verification (v0.2.8)
+- **Zip Slip Protection**: Path validation prevents malicious archive extraction (v0.2.9)
+- **Checksum Enforcement**: Fail-closed binary verification (v0.2.9)
 - **$0 API Fees**: No subscription, no per-token costs
 - **Metal Accelerated**: Optimized for Apple Silicon unified memory
 - **Thermal Aware**: Pacing for fanless MacBook Air models
