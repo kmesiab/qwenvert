@@ -223,14 +223,21 @@ jobs:
 
       - name: Verify installation with retry
         run: |
-          # Extract version from tag (remove 'v' prefix)
+          # Extract version from release tag (remove 'v' prefix) or from pyproject.toml
           if [ "${{ github.event_name }}" = "release" ]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
           else
             VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])")
           fi
 
-          echo "📦 Attempting to install qwenvert version $VERSION from PyPI..."
+          # Determine PyPI index URL based on test_pypi input
+          if [ "${{ inputs.test_pypi }}" = "true" ]; then
+            INDEX_URL="https://test.pypi.org/simple"
+            echo "📦 Attempting to install qwenvert version $VERSION from TestPyPI..."
+          else
+            INDEX_URL="https://pypi.org/simple"
+            echo "📦 Attempting to install qwenvert version $VERSION from PyPI..."
+          fi
           
           # Test installation in clean environment
           python -m venv test_env
@@ -241,7 +248,7 @@ jobs:
           for i in {1..5}; do
             echo "🔄 Attempt $i of 5..."
             
-            if pip install "qwenvert==$VERSION" --no-cache-dir --index-url https://pypi.org/simple; then
+            if pip install "qwenvert==$VERSION" --no-cache-dir --index-url "$INDEX_URL"; then
               echo "✅ Successfully installed qwenvert==$VERSION"
               break
             else
@@ -257,5 +264,6 @@ jobs:
           # Verify installation
           echo "🔍 Verifying installation..."
           qwenvert --version
+          qwenvert --help
           
           echo "✅ macOS installation verified"
