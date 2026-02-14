@@ -246,9 +246,7 @@ class BinaryManager:
         temp_zip = None
         try:
             # Create temporary file for zip download
-            with tempfile.NamedTemporaryFile(
-                suffix=".zip", delete=False
-            ) as temp_file:
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
                 temp_zip = Path(temp_file.name)
 
             # Download zip archive
@@ -275,7 +273,8 @@ class BinaryManager:
                 llama_server_files = [
                     name
                     for name in zip_ref.namelist()
-                    if name.endswith("llama-server") or name.endswith("llama-server.exe")
+                    if name.endswith("llama-server")
+                    or name.endswith("llama-server.exe")
                 ]
 
                 if not llama_server_files:
@@ -330,7 +329,9 @@ class BinaryManager:
             # Common checksum file names in llama.cpp releases
             checksum_files = ["SHA256SUMS", "checksums.txt", f"{filename}.sha256"]
 
-            base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download/{version}"
+            base_url = (
+                f"https://github.com/{self.GITHUB_REPO}/releases/download/{version}"
+            )
 
             for checksum_file in checksum_files:
                 try:
@@ -429,7 +430,9 @@ class BinaryManager:
         else:
             arch = "x86_64"
 
-        logger.info(f"Detected architecture: {arch} (chip={hardware.chip}, machine={platform.machine()})")
+        logger.info(
+            f"Detected architecture: {arch} (chip={hardware.chip}, machine={platform.machine()})"
+        )
 
         # Get latest release version dynamically
         version = self._get_latest_release_version()
