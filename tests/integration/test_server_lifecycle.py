@@ -58,6 +58,9 @@ class TestServerLauncher:
     @pytest.mark.asyncio
     async def test_llamacpp_backend_launch(self, sample_model_14b_q5, temp_config_dir):
         """Test launching llama.cpp backend."""
+        from pathlib import Path
+
+        from qwenvert.binary_manager import BinaryInfo, BinarySource
         from qwenvert.config import QwenvertConfig
 
         # Update model to llama.cpp
@@ -86,33 +89,42 @@ class TestServerLauncher:
             adapter_port=8088,
         )
 
-        with patch("shutil.which") as mock_which:
-            mock_which.return_value = "/usr/local/bin/llama-server"
+        # Mock BinaryManager to return valid binary info
+        mock_binary_info = BinaryInfo(
+            path=Path("/usr/local/bin/llama-server"),
+            version="b3600",
+            source=BinarySource.SYSTEM,
+            architecture="arm64",
+            is_valid=True,
+        )
 
-            # Mock Path.exists to return True for llama-server
-            with patch("pathlib.Path.exists", return_value=True):
-                launcher = ServerLauncher(config=config)
+        with patch("qwenvert.launcher.BinaryManager") as mock_binary_manager_class:
+            mock_binary_manager = MagicMock()
+            mock_binary_manager.detect_binary.return_value = mock_binary_info
+            mock_binary_manager_class.return_value = mock_binary_manager
 
-                with patch("subprocess.Popen") as mock_popen:
-                    mock_process = MagicMock()
-                    mock_process.pid = 12346
-                    mock_process.returncode = None
-                    mock_process.poll.return_value = None
-                    mock_popen.return_value = mock_process
+            launcher = ServerLauncher(config=config)
 
-                    with patch.object(launcher, "_check_health", return_value=False):
-                        with patch.object(
-                            launcher, "_wait_for_health", return_value=True
-                        ):
-                            handle = await launcher.start_backend()
+            with patch("subprocess.Popen") as mock_popen:
+                mock_process = MagicMock()
+                mock_process.pid = 12346
+                mock_process.returncode = None
+                mock_process.poll.return_value = None
+                mock_popen.return_value = mock_process
 
-                            assert handle is not None
-                            assert handle.pid == 12346
+                with patch.object(launcher, "_check_health", return_value=False):
+                    with patch.object(
+                        launcher, "_wait_for_health", return_value=True
+                    ):
+                        handle = await launcher.start_backend()
 
-                            # Verify llama.cpp command line
-                            call_args = mock_popen.call_args
-                            cmd = call_args[0][0] if call_args and call_args[0] else []
-                            assert any("llama" in str(arg).lower() for arg in cmd)
+                        assert handle is not None
+                        assert handle.pid == 12346
+
+                        # Verify llama.cpp command line
+                        call_args = mock_popen.call_args
+                        cmd = call_args[0][0] if call_args and call_args[0] else []
+                        assert any("llama" in str(arg).lower() for arg in cmd)
 
     @pytest.mark.asyncio
     async def test_backend_health_check_retry(self, sample_model_7b_q4):
