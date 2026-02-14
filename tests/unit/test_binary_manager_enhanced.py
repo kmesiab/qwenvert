@@ -362,6 +362,25 @@ class TestSecurityValidation:
             "Zip Slip attack detected" in source
         ), "Clear error message must be present"
 
+    def test_security_check_before_extraction(self, binary_manager):
+        """Verify that Zip Slip validation happens BEFORE extraction (not after)."""
+        import inspect
+
+        # Read the source code of the helper
+        source = inspect.getsource(binary_manager._download_and_install_zip)
+
+        # Find the positions of key operations
+        security_check_pos = source.find("is_relative_to")
+        extract_pos = source.find("zip_ref.extract")
+
+        assert security_check_pos != -1, "Security check must be present"
+        assert extract_pos != -1, "Extraction must be present"
+
+        # CRITICAL: Security check must come BEFORE extraction
+        assert (
+            security_check_pos < extract_pos
+        ), "Zip Slip validation must happen BEFORE extraction to prevent TOCTOU vulnerability"
+
     def test_download_methods_use_secure_helper(self, binary_manager):
         """Verify that both download methods use the secure helper."""
         import inspect

@@ -290,23 +290,24 @@ class BinaryManager:
                 llama_server_path = llama_server_files[0]
                 logger.info(f"Extracting {llama_server_path} from archive")
 
-                # Extract to temporary location first
-                extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
-
-                # SECURITY: Validate extraction path to prevent Zip Slip attacks
-                extract_path_resolved = Path(extract_path).resolve()
+                # SECURITY: Validate extraction path BEFORE extracting to prevent Zip Slip attacks
+                # Calculate where the file would be extracted and validate it's safe
+                intended_path = (self.bin_dir / llama_server_path).resolve()
                 bin_dir_resolved = self.bin_dir.resolve()
 
-                if not extract_path_resolved.is_relative_to(bin_dir_resolved):
+                if not intended_path.is_relative_to(bin_dir_resolved):
                     raise SecurityError(
                         f"Zip Slip attack detected: Archive member '{llama_server_path}' "
-                        f"would extract to '{extract_path_resolved}', "
+                        f"would extract to '{intended_path}', "
                         f"which is outside the target directory '{bin_dir_resolved}'. "
                         "This archive may be malicious."
                     )
 
+                # Safe to extract - path has been validated
+                extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
+
                 # Move to final location
-                shutil.move(extract_path_resolved, self.binary_path)
+                shutil.move(extract_path, self.binary_path)
 
         except Exception as e:
             raise RuntimeError(
