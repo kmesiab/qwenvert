@@ -8,11 +8,14 @@ binaries from official llama.cpp releases.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+import platform
 import shutil
 import stat
 import subprocess
 import tempfile
+import time
 import zipfile
 from dataclasses import dataclass
 from enum import Enum
@@ -367,15 +370,17 @@ class BinaryManager:
             logger.warning(f"Failed to fetch checksum: {e}")
             return None
 
-    def _get_latest_release_version(self) -> str:
+    def get_latest_release_version(self, use_cache: bool = True) -> str:
         """
         Fetch latest stable release version from GitHub API.
 
+        Falls back to cached version if offline, then to known-good version.
+
+        Args:
+            use_cache: If True, use cached version when GitHub API unavailable
+
         Returns:
             Latest release version tag (e.g., "b3600")
-
-        Raises:
-            RuntimeError: If unable to fetch from API
         """
         try:
             response = httpx.get(
@@ -395,12 +400,18 @@ class BinaryManager:
             logger.info(f"Latest llama.cpp release: {version}")
             return version
 
-        except Exception as e:
-            # Fall back to known-good version
-            logger.warning(
-                f"Failed to fetch latest release from GitHub API: {e}. "
-                f"Falling back to b3600"
-            )
+        except httpx.HTTPError as e:
+            logger.warning(f"GitHub API unavailable: {e}")
+
+            # Try cache fallback if enabled
+            if use_cache:
+                cache_data = self._load_version_cache()
+                if cache_data:
+                    logger.info(f"Using cached version: {cache_data['version']}")
+                    return cache_data["version"]
+
+            # Final fallback to known-good version
+            logger.warning("Falling back to hardcoded version b3600")
             return "b3600"
 
     def _get_release_url(self, hardware: HardwareProfile) -> str:
@@ -434,7 +445,7 @@ class BinaryManager:
         )
 
         # Get latest release version dynamically
-        version = self._get_latest_release_version()
+        version = self.get_latest_release_version()
 
         # Construct URL
         # Example: https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip
@@ -515,3 +526,388 @@ class BinaryManager:
             Path where binary should be/is located
         """
         return self.binary_path
+
+    def _save_version_cache(
+        self, version: str, url: str, checksum: str | None = None
+    ) -> None:
+        """
+        Cache version information for offline operation.
+
+        Args:
+            version: Release version tag
+            url: Download URL
+            checksum: Optional SHA256 checksum
+        """
+        cache_file = self.cache_dir / "version_cache.json"
+        cache_data = {
+            "version": version,
+            "download_url": url,
+            "checksum": checksum,
+            "timestamp": time.time(),
+            "architecture": platform.machine(),
+        }
+
+        try:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            with open(cache_file, "w") as f:
+                json.dump(cache_data, f, indent=2)
+            logger.info(f"Cached version info for {version}")
+        except OSError as e:
+            logger.warning(f"Failed to save version cache: {e}")
+
+    def _load_version_cache(self) -> dict | None:
+        """
+        Load cached version information.
+
+        Returns:
+            Cached version data if valid (<24h old, matching arch), None otherwise
+        """
+        cache_file = self.cache_dir / "version_cache.json"
+
+        if not cache_file.exists():
+            return None
+
+        try:
+            with open(cache_file) as f:
+                cache_data = json.load(f)
+
+            # Check cache age (24 hour TTL)
+            age_hours = (time.time() - cache_data["timestamp"]) / 3600
+            if age_hours > 24:
+                logger.info(f"Version cache expired ({age_hours:.1f}h old)")
+                return None
+
+            # Check architecture match
+            if cache_data.get("architecture") != platform.machine():
+                logger.warning("Architecture mismatch in version cache")
+                return None
+
+            logger.info(f"Using cached version info: {cache_data['version']}")
+            return cache_data
+
+        except (OSError, json.JSONDecodeError, KeyError) as e:
+            logger.warning(f"Failed to load version cache: {e}")
+            return None
+
+    def install_via_homebrew(self) -> Path | None:
+        """
+        Attempt to install llama.cpp via Homebrew.
+
+        Returns:
+            Path to installed binary if successful, None otherwise
+        """
+        # Check if Homebrew is available
+        brew_path = shutil.which("brew")
+        if not brew_path:
+            logger.warning("Homebrew not found - cannot auto-install")
+            return None
+
+        logger.info("Attempting to install llama.cpp via Homebrew...")
+
+        try:
+            # Run brew install with timeout
+            result = subprocess.run(
+                [brew_path, "install", "llama.cpp"],
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+                check=False,
+            )
+
+            if result.returncode != 0:
+                logger.warning(f"Homebrew installation failed: {result.stderr}")
+                return None
+
+            logger.info("Successfully installed llama.cpp via Homebrew")
+
+            # Detect the newly installed binary
+            binary_info = self.detect_binary()
+            if binary_info:
+                return binary_info.path
+
+            return None
+
+        except subprocess.TimeoutExpired:
+            logger.warning("Homebrew installation timed out after 5 minutes")
+            return None
+        except (subprocess.SubprocessError, OSError) as e:
+            logger.warning(f"Failed to install via Homebrew: {e}")
+            return None
+
+    def get_or_install_binary(
+        self,
+        hardware: HardwareProfile | None = None,
+        auto_install: bool = True,
+    ) -> BinaryInfo:
+        """
+        Get llama-server binary using multi-strategy approach.
+
+        This method tries multiple strategies in order until one succeeds:
+        1. Detect existing (cache/PATH/Homebrew)
+        2. Download from GitHub (if online and auto_install=True)
+        3. Install via Homebrew (if available and auto_install=True)
+        4. Use cached version info for offline download retry
+
+        Args:
+            hardware: Hardware profile (auto-detected if None)
+            auto_install: If True, automatically install if not found
+
+        Returns:
+            BinaryInfo for available binary
+
+        Raises:
+            RuntimeError: If all strategies fail
+        """
+        # Strategy 1: Try to detect existing binary
+        binary_info = self.detect_binary()
+        if binary_info:
+            logger.info(f"Using existing binary: {binary_info}")
+            return binary_info
+
+        if not auto_install:
+            raise RuntimeError(
+                "llama-server not found and auto-install disabled. "
+                "Install manually or run without --no-auto-install flag."
+            )
+
+        # Import here to avoid circular dependency
+        if hardware is None:
+            from .hardware import HardwareDetector
+
+            detector = HardwareDetector()
+            hardware = detector.detect()
+
+        # Strategy 2: Try to download from GitHub
+        logger.info("Binary not found - attempting automatic installation...")
+        try:
+            binary_path: Path | None = self.download_binary(hardware)
+            if binary_path:
+                binary_info = self._get_binary_info(
+                    binary_path, BinarySource.DOWNLOADED
+                )
+                if binary_info:
+                    # Cache successful download info for offline use
+                    version = binary_info.version
+                    url = self._get_release_url(hardware)
+                    self._save_version_cache(version, url)
+                    return binary_info
+        except Exception as e:
+            logger.warning(f"GitHub download failed: {e}")
+
+        # Strategy 3: Try Homebrew installation
+        logger.info("Trying Homebrew installation...")
+        binary_path = self.install_via_homebrew()
+        if binary_path:
+            binary_info = self._get_binary_info(binary_path, BinarySource.HOMEBREW)
+            if binary_info:
+                return binary_info
+
+        # All strategies failed
+        raise RuntimeError(
+            "Failed to install llama-server automatically. "
+            "Please install manually:\n"
+            "  1. Via Homebrew: brew install llama.cpp\n"
+            "  2. Download from: https://github.com/ggerganov/llama.cpp/releases\n"
+            "  3. Or use Ollama backend: qwenvert init --backend ollama"
+        )
+
+    def list_available_versions(self, limit: int = 10) -> list[dict]:
+        """
+        List available llama.cpp releases from GitHub.
+
+        Args:
+            limit: Maximum number of versions to return
+
+        Returns:
+            List of dicts with version, date, and download info
+        """
+        try:
+            url = f"https://api.github.com/repos/{self.GITHUB_REPO}/releases"
+            response = httpx.get(
+                url,
+                headers={"Accept": "application/vnd.github.v3+json"},
+                timeout=10.0,
+                params={"per_page": limit},
+                follow_redirects=True,
+            )
+            response.raise_for_status()
+
+            releases = response.json()
+            versions = []
+
+            for release in releases[:limit]:
+                versions.append(
+                    {
+                        "version": release.get("tag_name", "unknown"),
+                        "date": release.get("published_at", "unknown"),
+                        "url": release.get("html_url", ""),
+                        "prerelease": release.get("prerelease", False),
+                    }
+                )
+
+            return versions
+
+        except httpx.HTTPError as e:
+            logger.warning(f"Failed to fetch releases from GitHub: {e}")
+            return []
+
+    def get_installed_version(self) -> str | None:
+        """
+        Get version of currently installed binary.
+
+        Returns:
+            Version string if installed, None otherwise
+        """
+        binary_info = self.detect_binary()
+        if binary_info:
+            return binary_info.version
+        return None
+
+    def download_specific_version(
+        self, version: str, hardware: HardwareProfile, progress_callback: Any = None
+    ) -> Path:
+        """
+        Download specific version of llama-server.
+
+        Args:
+            version: Version tag (e.g., "b3600")
+            hardware: Hardware profile
+            progress_callback: Optional progress callback
+
+        Returns:
+            Path to downloaded binary
+
+        Raises:
+            RuntimeError: If download fails
+        """
+        logger.info(f"Downloading llama-server version {version}")
+
+        # Determine architecture
+        chip_lower = hardware.chip.lower()
+        machine_lower = platform.machine().lower()
+
+        if "arm" in chip_lower or "aarch64" in machine_lower:
+            arch = "arm64"
+        else:
+            arch = "x86_64"
+
+        # Construct URL for specific version
+        base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
+        zip_filename = f"llama-{version}-bin-macos-{arch}.zip"
+        release_url = f"{base_url}/{version}/{zip_filename}"
+
+        logger.info(f"Downloading from: {release_url}")
+
+        # Download using existing download_binary logic (but with specific URL)
+        temp_zip = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
+                temp_zip = Path(temp_file.name)
+
+            self._download_file(release_url, temp_zip, progress_callback)
+
+            # Verify checksum if available
+            expected_checksum = self._get_checksum_for_release(version, zip_filename)
+            if expected_checksum:
+                logger.info("Verifying download integrity...")
+                if not self.verify_checksum(temp_zip, expected_checksum):
+                    raise RuntimeError(
+                        f"Checksum verification failed for {zip_filename}"
+                    )
+                logger.info("✓ Checksum verification passed")
+
+            # Extract llama-server executable
+            with zipfile.ZipFile(temp_zip, "r") as zip_ref:
+                llama_server_files = [
+                    name
+                    for name in zip_ref.namelist()
+                    if name.endswith(("llama-server", "llama-server.exe"))
+                ]
+
+                if not llama_server_files:
+                    raise RuntimeError(
+                        f"No llama-server executable found in {release_url}"
+                    )
+
+                llama_server_path = llama_server_files[0]
+                logger.info(f"Extracting {llama_server_path} from archive")
+
+                extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
+                shutil.move(extract_path, self.binary_path)
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to download version {version} from {release_url}: {e}"
+            ) from e
+        finally:
+            if temp_zip and temp_zip.exists():
+                temp_zip.unlink()
+
+        # Make executable
+        self.binary_path.chmod(self.binary_path.stat().st_mode | stat.S_IEXEC)
+
+        # Verify it works
+        info = self._get_binary_info(self.binary_path, BinarySource.DOWNLOADED)
+        if not info or not info.is_valid:
+            raise RuntimeError("Downloaded binary failed validation")
+
+        logger.info(f"Successfully installed llama-server {version}")
+        return self.binary_path
+
+    def backup_binary(self) -> Path | None:
+        """
+        Create backup of current binary before update.
+
+        Returns:
+            Path to backup file, or None if no binary to backup
+        """
+        if not self.binary_path.exists():
+            logger.warning("No binary to backup")
+            return None
+
+        # Create backup with timestamp
+        backup_path = self.binary_path.with_suffix(f".backup.{int(time.time())}")
+
+        try:
+            shutil.copy2(self.binary_path, backup_path)
+            logger.info(f"Created backup: {backup_path}")
+            return backup_path
+        except OSError as e:
+            logger.warning(f"Failed to create backup: {e}")
+            return None
+
+    def rollback_binary(self) -> bool:
+        """
+        Restore binary from most recent backup.
+
+        Returns:
+            True if rollback successful, False otherwise
+        """
+        # Find most recent backup
+        backup_files = list(self.bin_dir.glob(f"{self.BINARY_NAME}.backup.*"))
+
+        if not backup_files:
+            logger.warning("No backup files found")
+            return False
+
+        # Sort by timestamp (newest first)
+        backup_files.sort(reverse=True)
+        latest_backup = backup_files[0]
+
+        try:
+            # Restore from backup
+            shutil.copy2(latest_backup, self.binary_path)
+            self.binary_path.chmod(self.binary_path.stat().st_mode | stat.S_IEXEC)
+
+            # Verify restored binary
+            info = self._get_binary_info(self.binary_path, BinarySource.DOWNLOADED)
+            if not info or not info.is_valid:
+                logger.warning("Restored binary failed validation")
+                return False
+
+            logger.info(f"Successfully rolled back to: {latest_backup}")
+            return True
+
+        except OSError as e:
+            logger.warning(f"Failed to rollback: {e}")
+            return False

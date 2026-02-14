@@ -7,8 +7,12 @@ Commands:
 - status: Show status
 - stop: Stop servers
 - models: List available models
+- binary: Binary management commands
 """
 
+from __future__ import annotations
+
+import stat
 import sys
 
 import click
@@ -53,7 +57,12 @@ def cli() -> None:
     type=int,
     help="Maximum context length (default: hardware-dependent)",
 )
-def init(model, backend, adapter_port, context_length) -> None:
+@click.option(
+    "--no-auto-install",
+    is_flag=True,
+    help="Disable automatic binary installation (requires manual setup)",
+)
+def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
     """
     Initialize qwenvert configuration.
 
@@ -90,106 +99,38 @@ def init(model, backend, adapter_port, context_length) -> None:
 
             console.print("\n[yellow]Continuing without dependencies...[/yellow]\n")
 
-    # Step 0.5: Setup llama.cpp binary (if using llamacpp backend)
-    if backend == "llamacpp":
-        from .binary_manager import BinaryManager
-
-        binary_mgr = BinaryManager()
-        binary_info = binary_mgr.detect_binary()
-
-        if binary_info:
-            console.print(
-                f"✓ Found llama-server: [green]{binary_info.path}[/green] "
-                f"(v{binary_info.version}, {binary_info.source.value})"
-            )
-        else:
-            console.print(
-                "\n[yellow]llama-server not found[/yellow] "
-                "(required for llama.cpp backend)\n"
-            )
-            console.print(
-                "[dim]llama-server is 3-7x faster than Ollama for local inference[/dim]"
-            )
-
-            # Offer auto-download
-            should_download = click.confirm(
-                "Download llama-server automatically? (~50MB)", default=True
-            )
-
-            if should_download:
-                # We'll download after hardware detection to show proper arch
-                console.print(
-                    "[cyan]Binary download will start after hardware detection[/cyan]\n"
-                )
-            else:
-                # Offer to switch to Ollama
-                console.print("\n[yellow]Without llama-server, you can:[/yellow]")
-                console.print("  1. Install manually: brew install llama.cpp")
-                console.print("  2. Use Ollama backend instead (slower)")
-
-                use_ollama = click.confirm("\nSwitch to Ollama backend?", default=True)
-
-                if use_ollama:
-                    backend = "ollama"
-                    console.print(
-                        "[cyan]Switched to Ollama backend[/cyan] "
-                        "(you can install llama-server later)\n"
-                    )
-                else:
-                    console.print(
-                        "\n[yellow]Please install llama-server and run 'qwenvert init' again.[/yellow]"
-                    )
-                    sys.exit(1)
-
-    # Step 1: Detect hardware
+    # Step 1: Detect hardware (needed for binary selection)
     with console.status("[cyan]Detecting hardware...", spinner="dots"):
         detector = HardwareDetector()
         hardware = detector.detect()
 
     console.print(f"✓ Detected: [green]{hardware}[/green]")
 
-    # Step 1.5: Download llama-server if needed and user agreed
-    if backend == "llamacpp" and "binary_mgr" in locals() and not binary_info:
-        # User agreed to download earlier
-        console.print(f"\n[cyan]Downloading llama-server for {hardware.chip}...[/cyan]")
-        console.print("[dim]This is a one-time download (~50MB)[/dim]\n")
+    # Step 0.5: Setup llama.cpp binary (if using llamacpp backend)
+    if backend == "llamacpp":
+        from .binary_manager import BinaryManager
+
+        binary_mgr = BinaryManager()
+        console.print("\n[cyan]Step 0.5: Setting up llama-server...[/cyan]")
 
         try:
-            # Show progress with rich progress bar
-            from rich.progress import (
-                DownloadColumn,
-                Progress,
-                TimeRemainingColumn,
-                TransferSpeedColumn,
+            with console.status("[cyan]Installing llama-server...", spinner="dots"):
+                binary_info = binary_mgr.get_or_install_binary(
+                    hardware=hardware,
+                    auto_install=not no_auto_install,  # Zero friction by default!
+                )
+
+            console.print(
+                f"  ✓ llama-server ready: [green]{binary_info.path}[/green] "
+                f"(v{binary_info.version}, {binary_info.source.value})\n"
             )
 
-            with Progress(
-                *Progress.get_default_columns(),
-                DownloadColumn(),
-                TransferSpeedColumn(),
-                TimeRemainingColumn(),
-                console=console,
-            ) as progress:
-                task = progress.add_task("Downloading...", total=None)
-
-                def progress_callback(downloaded: int, total: int) -> None:
-                    if progress.tasks[task].total != total:
-                        progress.update(task, total=total)
-                    progress.update(task, completed=downloaded)
-
-                binary_path = binary_mgr.download_binary(hardware, progress_callback)
-
-            console.print(f"✓ llama-server downloaded: [green]{binary_path}[/green]\n")
-
-        except Exception as e:
-            console.print(f"\n[red]Error downloading llama-server:[/red] {e}")
-            console.print("\n[yellow]Options:[/yellow]")
-            console.print("  1. Check internet connection and try again")
-            console.print("  2. Install manually: brew install llama.cpp")
-            console.print("  3. Use Ollama backend: qwenvert init --backend ollama\n")
-
-            if not click.confirm("Continue with configuration anyway?"):
-                sys.exit(1)
+        except RuntimeError as e:
+            # Graceful fallback to Ollama
+            console.print("\n[yellow]Could not install llama-server:[/yellow]")
+            console.print(f"  {e}\n")
+            console.print("[cyan]Switching to Ollama backend (recommended)[/cyan]")
+            backend = "ollama"
 
     # Step 2: Select model
     registry = ModelRegistry()
@@ -905,6 +846,387 @@ def monitor(adapter_url, refresh_rate, enable_otel) -> None:
     finally:
         if enable_otel:
             shutdown_telemetry()
+
+
+@cli.group()
+def binary() -> None:
+    """Binary management commands for llama-server."""
+
+
+@binary.command("info")
+def binary_info() -> None:
+    """Show information about installed llama-server binary."""
+    from .binary_manager import BinaryManager
+
+    binary_mgr = BinaryManager()
+    binary_info_obj = binary_mgr.detect_binary()
+
+    if not binary_info_obj:
+        console.print("[yellow]No llama-server binary found[/yellow]\n")
+        console.print("Install with: [cyan]qwenvert binary install[/cyan]")
+        console.print("Or use: [cyan]qwenvert init --backend llamacpp[/cyan]\n")
+        sys.exit(1)
+
+    # Display binary information in a table
+    table = Table(title="llama-server Binary Info", show_header=True)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Path", str(binary_info_obj.path))
+    table.add_row("Version", binary_info_obj.version)
+    table.add_row("Source", binary_info_obj.source.value)
+    table.add_row("Architecture", binary_info_obj.architecture)
+    table.add_row("Valid", "✓ Yes" if binary_info_obj.is_valid else "✗ No")
+
+    console.print()
+    console.print(table)
+    console.print()
+
+
+@binary.command("install")
+@click.option("--version", help="Specific version to install (e.g., b3600)")
+@click.option("--force", is_flag=True, help="Force reinstall even if exists")
+def binary_install(version: str | None, force: bool) -> None:
+    """Install llama-server binary."""
+    from .binary_manager import BinaryManager
+    from .hardware import HardwareDetector
+
+    binary_mgr = BinaryManager()
+
+    # Check if already installed
+    if not force:
+        existing = binary_mgr.detect_binary()
+        if existing:
+            console.print(
+                f"[yellow]llama-server already installed:[/yellow] {existing.path}"
+            )
+            console.print(f"Version: {existing.version}")
+            console.print(
+                "\nUse [cyan]--force[/cyan] to reinstall or "
+                "[cyan]qwenvert binary update[/cyan] to upgrade\n"
+            )
+            return
+
+    # Detect hardware
+    with console.status("[cyan]Detecting hardware...", spinner="dots"):
+        detector = HardwareDetector()
+        hardware = detector.detect()
+
+    console.print(f"Hardware: {hardware.chip}, {hardware.total_memory_gb}GB\n")
+
+    # Backup existing if forcing
+    if force and binary_mgr.binary_path.exists():
+        console.print("[cyan]Creating backup...[/cyan]")
+        backup_path = binary_mgr.backup_binary()
+        if backup_path:
+            console.print(f"✓ Backup created: {backup_path}\n")
+
+    # Install
+    try:
+        if version:
+            console.print(f"[cyan]Installing llama-server {version}...[/cyan]\n")
+            binary_path = binary_mgr.download_specific_version(version, hardware)
+        else:
+            console.print("[cyan]Installing latest llama-server...[/cyan]\n")
+            binary_path = binary_mgr.download_binary(hardware)
+
+        console.print(f"✓ Successfully installed: [green]{binary_path}[/green]\n")
+
+        # Show version info
+        info = binary_mgr.detect_binary()
+        if info:
+            console.print(f"Version: {info.version}")
+            console.print(f"Architecture: {info.architecture}\n")
+
+    except Exception as e:
+        console.print(f"[red]Installation failed:[/red] {e}\n")
+        sys.exit(1)
+
+
+@binary.command("update")
+def binary_update() -> None:
+    """Update llama-server to latest version."""
+    from .binary_manager import BinaryManager
+    from .hardware import HardwareDetector
+
+    binary_mgr = BinaryManager()
+
+    # Check current version
+    current = binary_mgr.get_installed_version()
+    if not current:
+        console.print("[yellow]No llama-server currently installed[/yellow]\n")
+        console.print("Install with: [cyan]qwenvert binary install[/cyan]\n")
+        sys.exit(1)
+
+    console.print(f"Current version: {current}")
+
+    # Check latest version
+    with console.status("[cyan]Checking for updates...", spinner="dots"):
+        try:
+            latest = binary_mgr.get_latest_release_version()
+        except Exception as e:
+            console.print(f"[red]Failed to check for updates:[/red] {e}\n")
+            sys.exit(1)
+
+    console.print(f"Latest version: {latest}\n")
+
+    if current == latest:
+        console.print("[green]✓ Already up to date[/green]\n")
+        return
+
+    # Confirm update
+    if not click.confirm(f"Update {current} → {latest}?", default=True):
+        console.print("[yellow]Update cancelled[/yellow]\n")
+        return
+
+    # Backup current binary
+    console.print("\n[cyan]Creating backup...[/cyan]")
+    backup_path = binary_mgr.backup_binary()
+    if backup_path:
+        console.print(f"✓ Backup created: {backup_path}\n")
+
+    # Download latest
+    try:
+        detector = HardwareDetector()
+        hardware = detector.detect()
+
+        console.print(f"[cyan]Downloading llama-server {latest}...[/cyan]\n")
+        _ = binary_mgr.download_binary(hardware)
+
+        console.print(f"✓ Successfully updated to {latest}\n")
+
+        # Verify
+        info = binary_mgr.detect_binary()
+        if info:
+            console.print(f"Version: {info.version}")
+            console.print(f"Path: {info.path}\n")
+
+    except Exception as e:
+        console.print(f"[red]Update failed:[/red] {e}\n")
+        console.print("[yellow]Rollback available:[/yellow] qwenvert binary rollback\n")
+        sys.exit(1)
+
+
+@binary.command("list")
+@click.option("--limit", default=10, help="Number of versions to show (default: 10)")
+def binary_list(limit: int) -> None:
+    """List available llama-server versions from GitHub."""
+    from .binary_manager import BinaryManager
+
+    binary_mgr = BinaryManager()
+
+    with console.status("[cyan]Fetching releases from GitHub...", spinner="dots"):
+        versions = binary_mgr.list_available_versions(limit=limit)
+
+    if not versions:
+        console.print("[yellow]Could not fetch releases from GitHub[/yellow]\n")
+        sys.exit(1)
+
+    # Get currently installed version
+    current = binary_mgr.get_installed_version()
+
+    # Display versions in a table
+    table = Table(title=f"Available llama.cpp Releases (latest {limit})")
+    table.add_column("Version", style="cyan")
+    table.add_column("Date", style="dim")
+    table.add_column("Status", style="green")
+
+    for ver in versions:
+        version_str = ver["version"]
+        date_str = ver["date"].split("T")[0] if "T" in ver["date"] else ver["date"]
+
+        # Mark current version
+        status = ""
+        if version_str == current:
+            status = "✓ Installed"
+
+        # Mark prerelease
+        if ver.get("prerelease"):
+            version_str += " [dim](prerelease)[/dim]"
+
+        table.add_row(version_str, date_str, status)
+
+    console.print()
+    console.print(table)
+    console.print()
+
+    if current:
+        console.print(f"Currently installed: [green]{current}[/green]")
+    console.print(
+        "\nInstall specific version: [cyan]qwenvert binary install --version <version>[/cyan]\n"
+    )
+
+
+@binary.command("verify")
+def binary_verify() -> None:
+    """Verify installed binary integrity."""
+    from .binary_manager import BinaryManager
+
+    binary_mgr = BinaryManager()
+
+    console.print("[cyan]Verifying llama-server binary...[/cyan]\n")
+
+    # Check existence
+    if not binary_mgr.binary_path.exists():
+        console.print(f"✗ Binary not found: {binary_mgr.binary_path}\n")
+        sys.exit(1)
+
+    console.print(f"✓ Binary exists: {binary_mgr.binary_path}")
+
+    # Check if executable
+    if not binary_mgr.binary_path.stat().st_mode & stat.S_IEXEC:
+        console.print("✗ Binary is not executable\n")
+        sys.exit(1)
+
+    console.print("✓ Binary is executable")
+
+    # Test execution
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            [str(binary_mgr.binary_path), "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+
+        if result.returncode == 0:
+            console.print("✓ Binary runs successfully")
+            console.print(f"  Output: {result.stdout.strip()[:100]}")
+        else:
+            console.print(f"✗ Binary execution failed (exit code {result.returncode})")
+            sys.exit(1)
+
+    except Exception as e:
+        console.print(f"✗ Binary execution failed: {e}\n")
+        sys.exit(1)
+
+    # Get full info
+    info = binary_mgr.detect_binary()
+    if info and info.is_valid:
+        console.print("\n[green]✓ Binary verification passed[/green]")
+        console.print(f"  Version: {info.version}")
+        console.print(f"  Architecture: {info.architecture}")
+        console.print(f"  Source: {info.source.value}\n")
+    else:
+        console.print("\n[yellow]⚠ Binary validation warnings detected[/yellow]\n")
+        sys.exit(1)
+
+
+@binary.command("rollback")
+def binary_rollback() -> None:
+    """Rollback to previous binary version from backup."""
+    from .binary_manager import BinaryManager
+
+    binary_mgr = BinaryManager()
+
+    # Check for backups
+    backup_files = list(binary_mgr.bin_dir.glob(f"{binary_mgr.BINARY_NAME}.backup.*"))
+
+    if not backup_files:
+        console.print("[yellow]No backup files found[/yellow]\n")
+        console.print(
+            "Backups are created automatically during updates and forced installs.\n"
+        )
+        return
+
+    # Show available backups
+    backup_files.sort(reverse=True)
+    console.print(f"\nFound {len(backup_files)} backup(s):\n")
+
+    for backup in backup_files[:5]:  # Show up to 5 most recent
+        timestamp = int(backup.suffix.split(".")[-1])
+        import datetime
+
+        date_str = datetime.datetime.fromtimestamp(
+            timestamp, tz=datetime.timezone.utc
+        ).strftime("%Y-%m-%d %H:%M:%S")
+        console.print(f"  {backup.name} ({date_str})")
+
+    console.print()
+
+    # Confirm rollback
+    if not click.confirm("Rollback to most recent backup?", default=True):
+        console.print("[yellow]Rollback cancelled[/yellow]\n")
+        return
+
+    # Perform rollback
+    console.print("\n[cyan]Rolling back...[/cyan]")
+
+    if binary_mgr.rollback_binary():
+        console.print("[green]✓ Successfully rolled back[/green]\n")
+
+        # Show current version
+        info = binary_mgr.detect_binary()
+        if info:
+            console.print(f"Current version: {info.version}")
+            console.print(f"Path: {info.path}\n")
+    else:
+        console.print("[red]✗ Rollback failed[/red]\n")
+        sys.exit(1)
+
+
+@cli.command("backends")
+def backends_command() -> None:
+    """Detect and show available LLM backends."""
+    from .backend_interface import BackendStatus
+    from .backend_manager import BackendManager
+
+    console.print("\n[cyan]Detecting available backends...[/cyan]\n")
+
+    all_backends = BackendManager.detect_all()
+
+    # Display backends in a table
+    table = Table(title="Available Backends")
+    table.add_column("Backend", style="cyan")
+    table.add_column("Status", style="green")
+    table.add_column("Version", style="dim")
+    table.add_column("Path", style="dim")
+    table.add_column("Installation", style="dim")
+
+    for info in all_backends.values():
+        status_icon = {
+            BackendStatus.AVAILABLE: "✓ Available",
+            BackendStatus.MISSING: "✗ Missing",
+            BackendStatus.INSTALLING: "⟳ Installing",
+            BackendStatus.FAILED: "✗ Failed",
+        }.get(info.status, info.status.value)
+
+        # Color code status
+        if info.status == BackendStatus.AVAILABLE:
+            status_str = f"[green]{status_icon}[/green]"
+        elif info.status == BackendStatus.MISSING:
+            status_str = f"[yellow]{status_icon}[/yellow]"
+        else:
+            status_str = f"[red]{status_icon}[/red]"
+
+        table.add_row(
+            info.name,
+            status_str,
+            info.version or "-",
+            str(info.path) if info.path else "-",
+            info.installation_method,
+        )
+
+    console.print(table)
+    console.print()
+
+    # Show recommendation
+    from .hardware import HardwareDetector
+
+    detector = HardwareDetector()
+    hardware = detector.detect()
+    recommended = BackendManager.recommend_backend()
+
+    console.print(f"Recommended backend: [cyan]{recommended.value}[/cyan]")
+    console.print(f"  (Based on: {hardware.chip}, {hardware.total_memory_gb}GB RAM)\n")
+
+    # Show installation commands
+    console.print("[dim]Install missing backends:[/dim]")
+    console.print("  llama.cpp: [cyan]qwenvert binary install[/cyan]")
+    console.print("  Ollama:    [cyan]brew install ollama[/cyan]\n")
 
 
 if __name__ == "__main__":
