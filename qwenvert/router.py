@@ -263,11 +263,21 @@ class BackendRouter:
                             "index": 0,
                         }
 
-                        # Emit message_delta event with usage (required before message_stop)
-                        stop_reason = "end_turn"
-                        if chunk.get("done_reason") == "length":
+                        # Determine stop reason
+                        # NOTE: Ollama limitation - done_reason="stop" covers both natural
+                        # completion and stop sequences. We use a heuristic: if stop_sequences
+                        # were provided in request and Ollama stopped, assume stop_sequence.
+                        done_reason = chunk.get("done_reason")
+                        if done_reason == "length":
                             stop_reason = "max_tokens"
+                        elif done_reason == "stop" and request.stop_sequences:
+                            # Heuristic: likely hit a stop sequence
+                            stop_reason = "stop_sequence"
+                        else:
+                            # Natural completion or no stop sequences configured
+                            stop_reason = "end_turn"
 
+                        # Emit message_delta event with usage (required before message_stop)
                         yield {
                             "type": "message_delta",
                             "delta": {
@@ -338,11 +348,18 @@ class BackendRouter:
         assistant_text = ollama_response.get("message", {}).get("content", "")
 
         # Determine stop reason
-        stop_reason = "end_turn"
-        if ollama_response.get("done_reason") == "stop":
-            stop_reason = "end_turn"
-        elif ollama_response.get("done_reason") == "length":
+        # NOTE: Ollama limitation - done_reason="stop" covers both natural
+        # completion and stop sequences. We use a heuristic: if stop_sequences
+        # were provided in request and Ollama stopped, assume stop_sequence.
+        done_reason = ollama_response.get("done_reason")
+        if done_reason == "length":
             stop_reason = "max_tokens"
+        elif done_reason == "stop" and request.stop_sequences:
+            # Heuristic: likely hit a stop sequence
+            stop_reason = "stop_sequence"
+        else:
+            # Natural completion or no stop sequences configured
+            stop_reason = "end_turn"
 
         return MessagesResponse(
             id=message_id,
