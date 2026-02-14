@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ..backend_interface import BackendInfo, BackendLifecycle, BackendStatus
-from ..binary_manager import BinaryManager
+from qwenvert.backend_interface import BackendInfo, BackendLifecycle, BackendStatus
+from qwenvert.binary_manager import BinaryManager
 
 if TYPE_CHECKING:
-    from ..hardware import HardwareProfile
-    from ..models import Model
+    from qwenvert.hardware import HardwareProfile
+    from qwenvert.models import Model
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ class LlamaCppBackend(BackendLifecycle):
 
     def configure(self, model: Model, hardware: HardwareProfile) -> dict:
         """Generate llama.cpp configuration."""
-        from ..config import ConfigGenerator
+        from qwenvert.config import ConfigGenerator
 
         config_gen = ConfigGenerator(model, hardware)
         flags = config_gen.generate_llamacpp_flags()

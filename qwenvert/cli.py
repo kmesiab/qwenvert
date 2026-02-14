@@ -1140,9 +1140,9 @@ def binary_rollback() -> None:
         timestamp = int(backup.suffix.split(".")[-1])
         import datetime
 
-        date_str = datetime.datetime.fromtimestamp(timestamp).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        date_str = datetime.datetime.fromtimestamp(
+            timestamp, tz=datetime.timezone.utc
+        ).strftime("%Y-%m-%d %H:%M:%S")
         console.print(f"  {backup.name} ({date_str})")
 
     console.print()
@@ -1186,7 +1186,7 @@ def backends_command() -> None:
     table.add_column("Path", style="dim")
     table.add_column("Installation", style="dim")
 
-    for backend_type, info in all_backends.items():
+    for info in all_backends.values():
         status_icon = {
             BackendStatus.AVAILABLE: "✓ Available",
             BackendStatus.MISSING: "✗ Missing",

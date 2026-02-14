@@ -9,11 +9,11 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ..backend_interface import BackendInfo, BackendLifecycle, BackendStatus
+from qwenvert.backend_interface import BackendInfo, BackendLifecycle, BackendStatus
 
 if TYPE_CHECKING:
-    from ..hardware import HardwareProfile
-    from ..models import Model
+    from qwenvert.hardware import HardwareProfile
+    from qwenvert.models import Model
 
 
 logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class OllamaBackend(BackendLifecycle):
 
     def configure(self, model: Model, hardware: HardwareProfile) -> dict:
         """Generate Ollama configuration."""
-        from ..config import ConfigGenerator
+        from qwenvert.config import ConfigGenerator
 
         config_gen = ConfigGenerator(model, hardware)
         modelfile_content = config_gen.generate_ollama_modelfile()
