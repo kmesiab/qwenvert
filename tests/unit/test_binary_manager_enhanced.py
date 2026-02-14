@@ -410,6 +410,8 @@ class TestSecurityValidation:
 
     def test_zip_slip_detection_logic(self, binary_manager, tmp_path):
         """Test that the is_relative_to() check would detect malicious paths."""
+        from qwenvert.binary_manager import SecurityError
+
         # Simulate a path that escaped the target directory
         malicious_path = tmp_path / "outside" / "evil-binary"
         malicious_path.parent.mkdir(parents=True, exist_ok=True)
@@ -426,9 +428,7 @@ class TestSecurityValidation:
         # This is what our code does when path is unsafe
         if not is_safe:
             # Would raise SecurityError
-            with pytest.raises(Exception):  # Our code raises SecurityError
-                from qwenvert.binary_manager import SecurityError
-
+            with pytest.raises(SecurityError):
                 raise SecurityError(
                     f"Zip Slip detected: {extract_path_resolved} is outside {bin_dir_resolved}"
                 )
