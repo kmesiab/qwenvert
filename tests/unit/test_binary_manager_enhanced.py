@@ -125,7 +125,7 @@ class TestOfflineFallback:
             mock_get.side_effect = httpx.HTTPError("Network error")
 
             # Should use cache fallback
-            version = binary_manager._get_latest_release_version(use_cache=True)
+            version = binary_manager.get_latest_release_version(use_cache=True)
             assert version == "b3600"
 
     def test_get_latest_release_without_cache(self, binary_manager):
@@ -137,7 +137,7 @@ class TestOfflineFallback:
             mock_get.side_effect = httpx.HTTPError("Network error")
 
             # Should use hardcoded fallback
-            version = binary_manager._get_latest_release_version(use_cache=False)
+            version = binary_manager.get_latest_release_version(use_cache=False)
             assert version == "b3600"
 
 
