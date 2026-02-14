@@ -182,6 +182,8 @@ ignore = [
     "PERF203", # try-except in loop (sometimes necessary)
     "PERF401", # List comprehension (sometimes less readable)
     "FBT001",  # Boolean positional arg (reasonable pattern)
+    "TID252",  # Relative imports from parent modules (standard Python practice)
+    "TRY400",  # Use .exception over .error (both are acceptable)
     "FBT002",  # Boolean default positional arg (reasonable pattern)
     "FBT003",  # Boolean positional value (reasonable pattern)
     "PLC0415", # Import outside top-level (sometimes necessary)
