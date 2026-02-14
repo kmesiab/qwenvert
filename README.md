@@ -60,17 +60,20 @@ pip install -e .
 >
 > This is due to [PEP 668](https://peps.python.org/pep-0668/) which protects system Python on modern macOS.
 
-### 2. Setup (One Command)
+### 2. Setup (One Command - Zero Friction!)
 
 ```bash
 qwenvert init
 ```
 
-This will:
+This will **automatically** (no prompts!):
 - ✅ Detect your hardware (chip, RAM, cooling)
+- ✅ Install llama-server binary if needed (~50MB)
 - ✅ Pick the best model for your Mac
 - ✅ Download the model from HuggingFace (~4GB)
 - ✅ Configure everything automatically
+
+**First run takes 2-5 minutes** (downloads binaries & models). Subsequent runs are instant.
 
 **Example output:**
 ```
@@ -293,6 +296,59 @@ qwenvert monitor --enable-otel
 See [TELEMETRY_SECURITY.md](./TELEMETRY_SECURITY.md) for complete security details.
 
 Press `Ctrl+C` to exit.
+
+### Binary Management Commands
+
+**Check llama-server installation:**
+```bash
+qwenvert binary info
+```
+
+**Output:**
+```
+┌──────────────┬────────────────────────────────────────┐
+│ Property     │ Value                                  │
+├──────────────┼────────────────────────────────────────┤
+│ Path         │ ~/.cache/qwenvert/bin/llama-server     │
+│ Version      │ b3600                                  │
+│ Source       │ downloaded                             │
+│ Architecture │ arm64                                  │
+│ Valid        │ ✓ Yes                                  │
+└──────────────┴────────────────────────────────────────┘
+```
+
+**List available versions:**
+```bash
+qwenvert binary list
+```
+
+**Install specific version:**
+```bash
+qwenvert binary install --version b3600
+```
+
+**Update to latest:**
+```bash
+qwenvert binary update
+```
+
+**Verify integrity:**
+```bash
+qwenvert binary verify
+```
+
+**Rollback to backup:**
+```bash
+qwenvert binary rollback
+```
+
+### Detect Available Backends
+
+```bash
+qwenvert backends
+```
+
+Shows which backends (llama.cpp, Ollama) are available on your system and recommends the fastest option.
 
 ### List Available Models
 

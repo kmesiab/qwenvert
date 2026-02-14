@@ -1601,6 +1601,153 @@ if __name__ == "__main__":
 
 ---
 
+## Backend Abstraction Layer
+
+### Design Pattern: Abstract Factory + Strategy
+
+**Purpose:** Clean separation between qwenvert core and backend implementations, enabling easy addition of new LLM backends (MLX, vLLM, TensorRT-LLM).
+
+### Architecture
+
+```
+┌─────────────────────────────────────┐
+│       Qwenvert Core                 │
+│   (CLI, Config, Launcher)           │
+└────────────┬────────────────────────┘
+             │ Uses
+             ▼
+┌─────────────────────────────────────┐
+│      BackendManager (Factory)       │
+│  + get_backend(type)                │
+│  + detect_all()                     │
+│  + recommend_backend(hardware)      │
+└────────────┬────────────────────────┘
+             │ Creates
+             ▼
+┌─────────────────────────────────────┐
+│    BackendLifecycle (Interface)     │
+│  + detect() -> BackendInfo          │
+│  + install(auto) -> BackendInfo     │
+│  + configure(model, hw) -> dict     │
+│  + get_server_url() -> str          │
+│  + health_check() -> bool           │
+└────┬────────────────────┬───────────┘
+     │                    │
+     ▼                    ▼
+┌─────────────┐    ┌─────────────┐
+│ LlamaCpp    │    │  Ollama     │
+│ Backend     │    │  Backend    │
+└─────────────┘    └─────────────┘
+```
+
+### Components
+
+**1. BackendLifecycle (Abstract Interface)**
+- File: `qwenvert/backend_interface.py`
+- Defines contract for all backends
+- 5 core methods: detect, install, configure, get_server_url, health_check
+- Ensures consistent behavior across backends
+
+**2. BackendInfo (Data Class)**
+- Metadata about backend availability
+- Fields: name, version, path, status, installation_method
+- Status enum: AVAILABLE, MISSING, INSTALLING, FAILED
+
+**3. LlamaCppBackend (Concrete Implementation)**
+- File: `qwenvert/backends/llamacpp_backend.py`
+- Uses BinaryManager for detection/installation
+- Integrates with ConfigGenerator for flag generation
+- Server URL: localhost:8080
+- Health check: GET /health
+
+**4. OllamaBackend (Concrete Implementation)**
+- File: `qwenvert/backends/ollama_backend.py`
+- Uses shutil.which() for system detection
+- Auto-install via Homebrew
+- Server URL: localhost:11434
+- Health check: GET /api/tags
+
+**5. BackendManager (Factory)**
+- File: `qwenvert/backend_manager.py`
+- Factory pattern for backend selection
+- `get_backend(type)`: Returns backend instance
+- `detect_all()`: Scans all available backends
+- `recommend_backend(hardware)`: Smart recommendation based on:
+  - Priority 1: llama.cpp (3-7x faster, research-backed)
+  - Priority 2: Ollama (easier installation)
+  - Default: llama.cpp (triggers auto-install)
+
+### Key Benefits
+
+**1. Extensibility**
+Adding new backends (MLX, vLLM) requires:
+```python
+class MLXBackend(BackendLifecycle):
+    def detect(self): ...
+    def install(self): ...
+    def configure(self): ...
+    def get_server_url(self): ...
+    def health_check(self): ...
+
+# Register in BackendManager
+_backends = {
+    Backend.MLX: MLXBackend,  # Just add here!
+}
+```
+
+**2. Testability**
+- Clean interfaces enable mocking
+- Each backend tested independently
+- Factory pattern simplifies integration tests
+
+**3. Maintainability**
+- Backend-specific logic isolated
+- Changes don't propagate across backends
+- Clear responsibilities
+
+**4. User Experience**
+- `qwenvert backends` command shows availability
+- Automatic backend detection
+- Hardware-aware recommendations
+
+### Implementation Highlights
+
+**Zero-Friction Installation:**
+```python
+# Old way (manual)
+backend = BinaryManager()
+if not backend.detect():
+    binary = backend.download_binary(hardware)
+
+# New way (abstraction)
+backend = BackendManager.get_backend(Backend.LLAMACPP)
+info = backend.install(auto=True)  # Handles everything!
+```
+
+**Multi-Strategy Detection:**
+```python
+all_backends = BackendManager.detect_all()
+# Returns: {Backend.LLAMACPP: info1, Backend.OLLAMA: info2}
+
+# Smart recommendation
+recommended = BackendManager.recommend_backend(hardware)
+# Considers: availability, performance, hardware compatibility
+```
+
+### Design Principles Applied
+
+1. **Open/Closed Principle**: Open for extension (new backends), closed for modification (interface unchanged)
+
+2. **Dependency Inversion**: Core depends on abstractions (BackendLifecycle), not concrete implementations
+
+3. **Single Responsibility**: Each backend handles only its own lifecycle
+
+4. **Interface Segregation**: BackendLifecycle contains only essential methods
+
+5. **Factory Pattern**: Centralized backend creation and management
+
+---
+
 ## Future Enhancements
 
 1. **Multi-Model Support**
