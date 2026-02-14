@@ -693,7 +693,7 @@ class BinaryManager:
 
         # Strategy 3: Try Homebrew installation
         logger.info("Trying Homebrew installation...")
-        binary_path: Path | None = self.install_via_homebrew()
+        binary_path = self.install_via_homebrew()
         if binary_path:
             binary_info = self._get_binary_info(binary_path, BinarySource.HOMEBREW)
             if binary_info:
