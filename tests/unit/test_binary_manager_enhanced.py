@@ -523,20 +523,34 @@ class TestSecurityValidation:
             mock_response.iter_bytes = Mock(return_value=[zip_content])
             mock_stream.return_value = mock_response
 
-            # Should succeed without raising
-            try:
-                binary_manager._download_and_install_zip(
-                    release_url=f"file://{safe_zip}",
-                    version="safe",
-                    zip_filename="safe.zip",
-                )
-                # Verify binary was created
-                assert binary_manager.binary_path.exists(), "Binary should be extracted"
-                assert (
-                    binary_manager.binary_path.read_bytes() == b"safe binary content"
-                ), "Binary content should match"
-            except Exception as e:
-                pytest.fail(f"Safe archive should not raise exception: {e}")
+            # Mock binary validation to avoid exec format errors with fake binary
+            mock_binary_info = BinaryInfo(
+                path=binary_manager.binary_path,
+                version="safe",
+                source=BinarySource.DOWNLOADED,
+                architecture="arm64",
+                is_valid=True,
+            )
+
+            with patch.object(
+                binary_manager, "_get_binary_info", return_value=mock_binary_info
+            ):
+                # Should succeed without raising
+                try:
+                    binary_manager._download_and_install_zip(
+                        release_url=f"file://{safe_zip}",
+                        version="safe",
+                        zip_filename="safe.zip",
+                    )
+                    # Verify binary was created
+                    assert (
+                        binary_manager.binary_path.exists()
+                    ), "Binary should be extracted"
+                    assert (
+                        binary_manager.binary_path.read_bytes() == b"safe binary content"
+                    ), "Binary content should match"
+                except Exception as e:
+                    pytest.fail(f"Safe archive should not raise exception: {e}")
 
     def test_zip_slip_functional_absolute_path(self, binary_manager, tmp_path):
         """Functional test: Verify absolute paths in archive are blocked."""
