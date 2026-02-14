@@ -87,6 +87,28 @@ def mock_backend_dependencies():
         yield mock_check
 
 
+@pytest.fixture(autouse=True)
+def mock_binary_manager():
+    """Auto-mock BinaryManager for all tests."""
+    from pathlib import Path
+
+    from qwenvert.binary_manager import BinaryInfo, BinarySource
+
+    mock_binary_info = BinaryInfo(
+        path=Path("/usr/local/bin/llama-server"),
+        version="b3600",
+        source=BinarySource.SYSTEM,
+        architecture="arm64",
+        is_valid=True,
+    )
+
+    with patch("qwenvert.binary_manager.BinaryManager") as mock_mgr_cls:
+        mock_mgr = MagicMock()
+        mock_mgr.detect_binary.return_value = mock_binary_info
+        mock_mgr_cls.return_value = mock_mgr
+        yield mock_mgr
+
+
 class TestInitCommand:
     """Test 'qwenvert init' command."""
 

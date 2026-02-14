@@ -324,13 +324,13 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
         # Use performance cores only
         num_threads = self.hardware.cpu_cores_performance
 
-        return [
+        flags = [
             "--model",
             f"~/.cache/qwenvert/models/{self.model.backend_model_id}",
-            # GPU offloading
+            # GPU offloading - Metal optimization for Apple Silicon
             "-ngl",
-            "99",  # Offload all layers to Metal
-            # CPU threads
+            "99",  # Offload all layers to Metal GPU
+            # CPU threads - use performance cores only
             "-t",
             str(num_threads),
             # Context window
@@ -341,11 +341,21 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
             "127.0.0.1",
             "--port",
             "8080",
-            # Memory optimization
-            "--mlock",  # Lock model in memory
+            # Metal-specific optimizations for Mac Silicon
+            "--cont-batching",  # Continuous batching for better throughput
             # API compatibility
             "--log-disable",  # Reduce log noise
         ]
+
+        # NOTE: Removed flags based on research:
+        # - "--mlock": Crashes on macOS (see: https://github.com/ggml-org/llama.cpp/issues/18152)
+        # - "-fa": Flash attention can slow generation unless KV cache fits in VRAM
+
+        # Add split-mode for larger models (7B+) to optimize Metal memory
+        if self.model.size_b >= 7.0:
+            flags.extend(["-sm", "layer"])  # Split by layer for optimal Metal perf
+
+        return flags
 
     def generate_environment_vars(self) -> dict[str, str]:
         """

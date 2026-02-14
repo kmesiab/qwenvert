@@ -745,6 +745,73 @@ Qwenvert provides:
 - ✅ Hardware-aware model selection
 - ✅ Easy to extend with new backends
 
+### Performance & Backend Comparison
+
+Qwenvert supports two backends for running local LLMs: **llama.cpp** (default, faster) and **Ollama** (easier setup). Based on extensive research and benchmarking, **llama.cpp is 3-7x faster** than Ollama for local inference on Apple Silicon.
+
+#### Benchmark Results
+
+| Backend | Throughput | Performance vs Ollama | Best For |
+|---------|-----------|----------------------|----------|
+| **llama.cpp** | ~150 tok/s | **Baseline (fastest)** | Production, performance-critical |
+| Ollama | 20-40 tok/s | 3-7x slower | Quick testing, simple setup |
+| MLX¹ | ~230 tok/s | 1.5x faster than llama.cpp | Advanced users, Python integration |
+
+*Benchmarks from [Comparative Study (2025)](https://arxiv.org/pdf/2511.05502)*
+
+¹ MLX (Apple's ML framework) is fastest but not yet integrated into qwenvert.
+
+#### Why llama.cpp is Faster
+
+llama.cpp provides **direct Metal GPU acceleration** for Apple Silicon, while Ollama adds a Go wrapper layer that introduces overhead:
+
+- **Metal Acceleration**: 2.4x speedup over CPU-only inference ([source](https://github.com/ggml-org/llama.cpp/discussions/4167))
+- **Optimized for Apple Silicon**: Full GPU layer offload (`-ngl 99`)
+- **Continuous Batching**: Better throughput for multiple requests
+- **Lower Memory Overhead**: Direct model access without wrapper
+
+#### Apple Silicon Performance by Model
+
+| Mac Model | RAM | Model Size | llama.cpp Throughput | Expected Response Time |
+|-----------|-----|------------|---------------------|----------------------|
+| M1 Air | 8GB | 1.5B Q4 | 30-40 tok/s | 1-2 seconds |
+| M1 Pro | 16GB | 7B Q4 | 28-35 tok/s | 2-4 seconds |
+| M2 Max | 32GB | 14B Q4 | 22-30 tok/s | 3-5 seconds |
+| M3 Pro/Max | 18GB+ | 7B Q4 | 28-35 tok/s | 2-3 seconds |
+
+*Performance data from [llama.cpp Apple Silicon benchmarks](https://github.com/ggml-org/llama.cpp/discussions/4167)*
+
+#### Research-Backed Optimizations
+
+Qwenvert's llama.cpp configuration includes several **research-backed optimizations** for Apple Silicon:
+
+- **Full GPU Offload** (`-ngl 99`): Offloads all model layers to Metal GPU
+- **Performance Core Threading**: Uses only P-cores (E-cores reduce performance)
+- **Continuous Batching** (`--cont-batching`): Improves throughput for concurrent requests
+- **Metal Split Mode**: Optimizes VRAM usage for 7B+ models on limited memory
+
+**Removed flags** (based on community research):
+- ❌ `--mlock`: Causes crashes on macOS ([issue #18152](https://github.com/ggml-org/llama.cpp/issues/18152))
+- ❌ `-fa` (flash attention): Can slow generation unless KV cache fits in VRAM ([discussion](https://github.com/ggml-org/llama.cpp/discussions/15650))
+
+#### Choosing a Backend
+
+**Use llama.cpp (default)** if:
+- ✅ You want maximum performance (3-7x faster)
+- ✅ You're comfortable with command-line tools
+- ✅ You need the best inference speed
+
+**Use Ollama** if:
+- ✅ You prefer simpler setup (one-line install)
+- ✅ You already have Ollama installed
+- ✅ Performance is not critical
+
+To switch backends:
+```bash
+qwenvert init --backend ollama    # Use Ollama
+qwenvert init --backend llamacpp  # Use llama.cpp (default)
+```
+
 ### Architecture
 
 ```

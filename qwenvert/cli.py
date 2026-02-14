@@ -39,7 +39,8 @@ def cli() -> None:
 @click.option(
     "--backend",
     type=click.Choice(["ollama", "llamacpp"]),
-    help="Backend to use",
+    default="llamacpp",  # Default to llamacpp (3-7x faster than Ollama)
+    help="Backend to use (default: llamacpp)",
 )
 @click.option(
     "--adapter-port",
@@ -89,12 +90,106 @@ def init(model, backend, adapter_port, context_length) -> None:
 
             console.print("\n[yellow]Continuing without dependencies...[/yellow]\n")
 
+    # Step 0.5: Setup llama.cpp binary (if using llamacpp backend)
+    if backend == "llamacpp":
+        from .binary_manager import BinaryManager
+
+        binary_mgr = BinaryManager()
+        binary_info = binary_mgr.detect_binary()
+
+        if binary_info:
+            console.print(
+                f"✓ Found llama-server: [green]{binary_info.path}[/green] "
+                f"(v{binary_info.version}, {binary_info.source.value})"
+            )
+        else:
+            console.print(
+                "\n[yellow]llama-server not found[/yellow] "
+                "(required for llama.cpp backend)\n"
+            )
+            console.print(
+                "[dim]llama-server is 3-7x faster than Ollama for local inference[/dim]"
+            )
+
+            # Offer auto-download
+            should_download = click.confirm(
+                "Download llama-server automatically? (~50MB)", default=True
+            )
+
+            if should_download:
+                # We'll download after hardware detection to show proper arch
+                console.print(
+                    "[cyan]Binary download will start after hardware detection[/cyan]\n"
+                )
+            else:
+                # Offer to switch to Ollama
+                console.print("\n[yellow]Without llama-server, you can:[/yellow]")
+                console.print("  1. Install manually: brew install llama.cpp")
+                console.print("  2. Use Ollama backend instead (slower)")
+
+                use_ollama = click.confirm("\nSwitch to Ollama backend?", default=True)
+
+                if use_ollama:
+                    backend = "ollama"
+                    console.print(
+                        "[cyan]Switched to Ollama backend[/cyan] "
+                        "(you can install llama-server later)\n"
+                    )
+                else:
+                    console.print(
+                        "\n[yellow]Please install llama-server and run 'qwenvert init' again.[/yellow]"
+                    )
+                    sys.exit(1)
+
     # Step 1: Detect hardware
     with console.status("[cyan]Detecting hardware...", spinner="dots"):
         detector = HardwareDetector()
         hardware = detector.detect()
 
     console.print(f"✓ Detected: [green]{hardware}[/green]")
+
+    # Step 1.5: Download llama-server if needed and user agreed
+    if backend == "llamacpp" and "binary_mgr" in locals() and not binary_info:
+        # User agreed to download earlier
+        console.print(f"\n[cyan]Downloading llama-server for {hardware.chip}...[/cyan]")
+        console.print("[dim]This is a one-time download (~50MB)[/dim]\n")
+
+        try:
+            # Show progress with rich progress bar
+            from rich.progress import (
+                DownloadColumn,
+                Progress,
+                TimeRemainingColumn,
+                TransferSpeedColumn,
+            )
+
+            with Progress(
+                *Progress.get_default_columns(),
+                DownloadColumn(),
+                TransferSpeedColumn(),
+                TimeRemainingColumn(),
+                console=console,
+            ) as progress:
+                task = progress.add_task("Downloading...", total=None)
+
+                def progress_callback(downloaded: int, total: int) -> None:
+                    if progress.tasks[task].total != total:
+                        progress.update(task, total=total)
+                    progress.update(task, completed=downloaded)
+
+                binary_path = binary_mgr.download_binary(hardware, progress_callback)
+
+            console.print(f"✓ llama-server downloaded: [green]{binary_path}[/green]\n")
+
+        except Exception as e:
+            console.print(f"\n[red]Error downloading llama-server:[/red] {e}")
+            console.print("\n[yellow]Options:[/yellow]")
+            console.print("  1. Check internet connection and try again")
+            console.print("  2. Install manually: brew install llama.cpp")
+            console.print("  3. Use Ollama backend: qwenvert init --backend ollama\n")
+
+            if not click.confirm("Continue with configuration anyway?"):
+                sys.exit(1)
 
     # Step 2: Select model
     registry = ModelRegistry()

@@ -440,210 +440,232 @@ class TestStartLlamaCpp:
         """Test error when llama-server is not found."""
         launcher = ServerLauncher(llamacpp_config)
 
-        with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            mock_result = DependencyCheckResult(
-                name="llama.cpp",
-                status=DependencyStatus.MISSING,
-                error_message="llama.cpp is not installed",
-            )
-            mock_check.return_value = mock_result
-            with pytest.raises(DependencyError):
-                await launcher._start_llamacpp()
+        with patch("qwenvert.binary_manager.BinaryManager") as mock_binary_mgr_cls:
+            mock_binary_mgr = MagicMock()
+            mock_binary_mgr.detect_binary.return_value = None  # Binary not found
+            mock_binary_mgr_cls.return_value = mock_binary_mgr
+
+            with patch("qwenvert.launcher.check_llamacpp") as mock_check:
+                mock_result = DependencyCheckResult(
+                    name="llama.cpp",
+                    status=DependencyStatus.MISSING,
+                    error_message="llama.cpp is not installed",
+                )
+                mock_check.return_value = mock_result
+
+                with pytest.raises(DependencyError):
+                    await launcher._start_llamacpp()
 
     @pytest.mark.asyncio
     async def test_start_llamacpp_success(
         self, llamacpp_config, mock_process, mock_model
     ):
         """Test successfully starting llama.cpp server."""
+        from qwenvert.binary_manager import BinaryInfo, BinarySource
+
         launcher = ServerLauncher(llamacpp_config)
 
-        with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            mock_result = DependencyCheckResult(
-                name="llama.cpp",
-                status=DependencyStatus.INSTALLED,
-                path="/usr/local/bin/llama-server",
-            )
-            mock_check.return_value = mock_result
-            # Mock Path.exists to return True for llama-server path
-            with patch("pathlib.Path.exists", return_value=True):
-                # Mock the imports that happen inside the method
-                with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
-                    mock_registry = MagicMock()
-                    mock_registry.get_model.return_value = mock_model
-                    mock_registry_cls.return_value = mock_registry
+        # Mock BinaryManager to return valid binary
+        mock_binary_info = BinaryInfo(
+            path=Path("/usr/local/bin/llama-server"),
+            version="b3600",
+            source=BinarySource.SYSTEM,
+            architecture="arm64",
+            is_valid=True,
+        )
 
+        with patch("qwenvert.binary_manager.BinaryManager") as mock_binary_mgr_cls:
+            mock_binary_mgr = MagicMock()
+            mock_binary_mgr.detect_binary.return_value = mock_binary_info
+            mock_binary_mgr_cls.return_value = mock_binary_mgr
+
+            # Mock the imports that happen inside the method
+            with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
+                mock_registry = MagicMock()
+                mock_registry.get_model.return_value = mock_model
+                mock_registry_cls.return_value = mock_registry
+
+                with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
+                    mock_config_gen = MagicMock()
+                    mock_config_gen.generate_llamacpp_flags.return_value = [
+                        "--model",
+                        "/path/to/model.gguf",
+                        "--host",
+                        "127.0.0.1",
+                        "--port",
+                        "8080",
+                    ]
+                    mock_config_gen_cls.return_value = mock_config_gen
+
+                    # Mock hardware detection to prevent subprocess call
                     with patch(
-                        "qwenvert.config.ConfigGenerator"
-                    ) as mock_config_gen_cls:
-                        mock_config_gen = MagicMock()
-                        mock_config_gen.generate_llamacpp_flags.return_value = [
-                            "--model",
-                            "/path/to/model.gguf",
-                            "--host",
-                            "127.0.0.1",
-                            "--port",
-                            "8080",
-                        ]
-                        mock_config_gen_cls.return_value = mock_config_gen
+                        "qwenvert.hardware.HardwareDetector.detect"
+                    ) as mock_detect:
+                        from qwenvert.hardware import HardwareProfile
 
-                        # Mock hardware detection to prevent subprocess call
-                        with patch(
-                            "qwenvert.hardware.HardwareDetector.detect"
-                        ) as mock_detect:
-                            from qwenvert.hardware import HardwareProfile
+                        mock_detect.return_value = HardwareProfile(
+                            chip="Apple M1",
+                            chip_family="M1",
+                            total_memory_gb=16,
+                            gpu_cores=8,
+                            cpu_cores_performance=4,
+                            cpu_cores_efficiency=4,
+                            has_active_cooling=False,
+                            neural_engine_cores=16,
+                            model_identifier="MacBookPro18,1",
+                        )
 
-                            mock_detect.return_value = HardwareProfile(
-                                chip="Apple M1",
-                                chip_family="M1",
-                                total_memory_gb=16,
-                                gpu_cores=8,
-                                cpu_cores_performance=4,
-                                cpu_cores_efficiency=4,
-                                has_active_cooling=False,
-                                neural_engine_cores=16,
-                                model_identifier="MacBookPro18,1",
-                            )
+                        with patch.object(
+                            launcher, "_wait_for_health", new_callable=AsyncMock
+                        ) as mock_wait:
+                            mock_wait.return_value = True
 
-                            with patch.object(
-                                launcher, "_wait_for_health", new_callable=AsyncMock
-                            ) as mock_wait:
-                                mock_wait.return_value = True
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen"
+                            ) as mock_popen:
+                                mock_popen.return_value = mock_process
 
-                                with patch(
-                                    "qwenvert.launcher.subprocess.Popen"
-                                ) as mock_popen:
-                                    mock_popen.return_value = mock_process
+                                handle = await launcher._start_llamacpp()
 
-                                    handle = await launcher._start_llamacpp()
-
-                                    assert handle.name == "llama-cpp"
-                                    assert handle.pid == 12345
-                                    mock_popen.assert_called_once()
+                                assert handle.name == "llama-cpp"
+                                assert handle.pid == 12345
+                                mock_popen.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_start_llamacpp_alternative_path(
         self, llamacpp_config, mock_process, mock_model
     ):
         """Test finding llama-server in alternative location."""
+        from qwenvert.binary_manager import BinaryInfo, BinarySource
+
         launcher = ServerLauncher(llamacpp_config)
 
-        with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            mock_result = DependencyCheckResult(
-                name="llama.cpp",
-                status=DependencyStatus.INSTALLED,
-                path="/usr/local/bin/llama-server",
-            )
-            mock_check.return_value = mock_result
-            # Mock Path.exists to return False for first path, True for alternative
-            call_count = [0]
+        # Mock BinaryManager to return valid binary in alternative path
+        mock_binary_info = BinaryInfo(
+            path=Path("/usr/local/bin/llama-server"),
+            version="b3600",
+            source=BinarySource.HOMEBREW,
+            architecture="arm64",
+            is_valid=True,
+        )
 
-            def exists_side_effect(self):
-                call_count[0] += 1
-                # First call checks ~/.local/bin/llama-server (False)
-                # Second call checks /usr/local/bin/llama-server (True)
-                return call_count[0] > 1
+        with patch("qwenvert.binary_manager.BinaryManager") as mock_binary_mgr_cls:
+            mock_binary_mgr = MagicMock()
+            mock_binary_mgr.detect_binary.return_value = mock_binary_info
+            mock_binary_mgr_cls.return_value = mock_binary_mgr
 
-            with patch("pathlib.Path.exists", exists_side_effect):
-                with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
-                    mock_registry = MagicMock()
-                    mock_registry.get_model.return_value = mock_model
-                    mock_registry_cls.return_value = mock_registry
+            with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
+                mock_registry = MagicMock()
+                mock_registry.get_model.return_value = mock_model
+                mock_registry_cls.return_value = mock_registry
 
-                    with patch(
-                        "qwenvert.config.ConfigGenerator"
-                    ) as mock_config_gen_cls:
-                        mock_config_gen = MagicMock()
-                        mock_config_gen.generate_llamacpp_flags.return_value = [
-                            "--model",
-                            "test",
-                        ]
-                        mock_config_gen_cls.return_value = mock_config_gen
+                with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
+                    mock_config_gen = MagicMock()
+                    mock_config_gen.generate_llamacpp_flags.return_value = [
+                        "--model",
+                        "test",
+                    ]
+                    mock_config_gen_cls.return_value = mock_config_gen
 
-                        with patch("qwenvert.hardware.HardwareProfile"):
-                            with patch.object(
-                                launcher, "_wait_for_health", new_callable=AsyncMock
-                            ) as mock_wait:
-                                mock_wait.return_value = True
+                    with patch("qwenvert.hardware.HardwareProfile"):
+                        with patch.object(
+                            launcher, "_wait_for_health", new_callable=AsyncMock
+                        ) as mock_wait:
+                            mock_wait.return_value = True
 
-                                with patch(
-                                    "qwenvert.launcher.subprocess.Popen"
-                                ) as mock_popen:
-                                    mock_popen.return_value = mock_process
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen"
+                            ) as mock_popen:
+                                mock_popen.return_value = mock_process
 
-                                    handle = await launcher._start_llamacpp()
+                                handle = await launcher._start_llamacpp()
 
-                                    assert handle.name == "llama-cpp"
+                                assert handle.name == "llama-cpp"
 
     @pytest.mark.asyncio
     async def test_start_llamacpp_model_not_found(self, llamacpp_config):
         """Test error when model is not found in registry."""
+        from qwenvert.binary_manager import BinaryInfo, BinarySource
+
         launcher = ServerLauncher(llamacpp_config)
 
-        with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            mock_result = DependencyCheckResult(
-                name="llama.cpp",
-                status=DependencyStatus.INSTALLED,
-                path="/usr/local/bin/llama-server",
-            )
-            mock_check.return_value = mock_result
-            with patch.object(Path, "exists", return_value=True):
-                with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
-                    mock_registry = MagicMock()
-                    mock_registry.get_model.return_value = None  # Model not found
-                    mock_registry_cls.return_value = mock_registry
+        # Mock BinaryManager to return valid binary
+        mock_binary_info = BinaryInfo(
+            path=Path("/usr/local/bin/llama-server"),
+            version="b3600",
+            source=BinarySource.SYSTEM,
+            architecture="arm64",
+            is_valid=True,
+        )
 
-                    with pytest.raises(RuntimeError, match=r"Model .* not found"):
-                        await launcher._start_llamacpp()
+        with patch("qwenvert.binary_manager.BinaryManager") as mock_binary_mgr_cls:
+            mock_binary_mgr = MagicMock()
+            mock_binary_mgr.detect_binary.return_value = mock_binary_info
+            mock_binary_mgr_cls.return_value = mock_binary_mgr
+
+            with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
+                mock_registry = MagicMock()
+                mock_registry.get_model.return_value = None  # Model not found
+                mock_registry_cls.return_value = mock_registry
+
+                with pytest.raises(RuntimeError, match=r"Model .* not found"):
+                    await launcher._start_llamacpp()
 
     @pytest.mark.asyncio
     async def test_start_llamacpp_health_check_timeout(
         self, llamacpp_config, mock_process, mock_model
     ):
         """Test llama.cpp startup failure due to health check timeout."""
+        from qwenvert.binary_manager import BinaryInfo, BinarySource
+
         launcher = ServerLauncher(llamacpp_config)
 
-        with patch("qwenvert.launcher.check_llamacpp") as mock_check:
-            mock_result = DependencyCheckResult(
-                name="llama.cpp",
-                status=DependencyStatus.INSTALLED,
-                path="/usr/local/bin/llama-server",
-            )
-            mock_check.return_value = mock_result
-            with patch.object(Path, "exists", return_value=True):
-                with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
-                    mock_registry = MagicMock()
-                    mock_registry.get_model.return_value = mock_model
-                    mock_registry_cls.return_value = mock_registry
+        # Mock BinaryManager to return valid binary
+        mock_binary_info = BinaryInfo(
+            path=Path("/usr/local/bin/llama-server"),
+            version="b3600",
+            source=BinarySource.SYSTEM,
+            architecture="arm64",
+            is_valid=True,
+        )
 
-                    with patch(
-                        "qwenvert.config.ConfigGenerator"
-                    ) as mock_config_gen_cls:
-                        mock_config_gen = MagicMock()
-                        mock_config_gen.generate_llamacpp_flags.return_value = [
-                            "--model",
-                            "test",
-                        ]
-                        mock_config_gen_cls.return_value = mock_config_gen
+        with patch("qwenvert.binary_manager.BinaryManager") as mock_binary_mgr_cls:
+            mock_binary_mgr = MagicMock()
+            mock_binary_mgr.detect_binary.return_value = mock_binary_info
+            mock_binary_mgr_cls.return_value = mock_binary_mgr
 
-                        with patch("qwenvert.hardware.HardwareProfile"):
-                            with patch.object(
-                                launcher, "_wait_for_health", new_callable=AsyncMock
-                            ) as mock_wait:
-                                mock_wait.return_value = False  # Health check times out
+            with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
+                mock_registry = MagicMock()
+                mock_registry.get_model.return_value = mock_model
+                mock_registry_cls.return_value = mock_registry
 
-                                with patch(
-                                    "qwenvert.launcher.subprocess.Popen"
-                                ) as mock_popen:
-                                    mock_popen.return_value = mock_process
+                with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
+                    mock_config_gen = MagicMock()
+                    mock_config_gen.generate_llamacpp_flags.return_value = [
+                        "--model",
+                        "test",
+                    ]
+                    mock_config_gen_cls.return_value = mock_config_gen
 
-                                    with pytest.raises(
-                                        RuntimeError,
-                                        match=r"llama\.cpp server failed to start",
-                                    ):
-                                        await launcher._start_llamacpp()
+                    with patch("qwenvert.hardware.HardwareProfile"):
+                        with patch.object(
+                            launcher, "_wait_for_health", new_callable=AsyncMock
+                        ) as mock_wait:
+                            mock_wait.return_value = False  # Health check times out
 
-                                    # Verify process was terminated
-                                    mock_process.terminate.assert_called_once()
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen"
+                            ) as mock_popen:
+                                mock_popen.return_value = mock_process
+
+                                with pytest.raises(
+                                    RuntimeError,
+                                    match=r"llama\.cpp server failed to start",
+                                ):
+                                    await launcher._start_llamacpp()
+
+                                # Verify process was terminated
+                                mock_process.terminate.assert_called_once()
 
 
 # ============================================================================
@@ -1251,44 +1273,51 @@ class TestEdgeCases:
                             assert handle1.name == "ollama"
 
         # Then llama.cpp
+        from qwenvert.binary_manager import BinaryInfo, BinarySource
+
         launcher2 = ServerLauncher(llamacpp_config)
-        with patch("qwenvert.launcher.check_llamacpp") as mock_check_cpp:
-            mock_result_cpp = DependencyCheckResult(
-                name="llama.cpp",
-                status=DependencyStatus.INSTALLED,
-                path="/usr/local/bin/llama-server",
-            )
-            mock_check_cpp.return_value = mock_result_cpp
-            with patch.object(Path, "exists", return_value=True):
-                with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
-                    mock_registry = MagicMock()
-                    mock_model = MagicMock()
-                    mock_registry.get_model.return_value = mock_model
-                    mock_registry_cls.return_value = mock_registry
 
-                    with patch(
-                        "qwenvert.config.ConfigGenerator"
-                    ) as mock_config_gen_cls:
-                        mock_config_gen = MagicMock()
-                        mock_config_gen.generate_llamacpp_flags.return_value = [
-                            "--model",
-                            "test",
-                        ]
-                        mock_config_gen_cls.return_value = mock_config_gen
+        # Mock BinaryManager to return valid binary
+        mock_binary_info = BinaryInfo(
+            path=Path("/usr/local/bin/llama-server"),
+            version="b3600",
+            source=BinarySource.SYSTEM,
+            architecture="arm64",
+            is_valid=True,
+        )
 
-                        with patch("qwenvert.hardware.HardwareProfile"):
-                            with patch.object(
-                                launcher2,
-                                "_wait_for_health",
-                                new_callable=AsyncMock,
-                                return_value=True,
+        with patch("qwenvert.binary_manager.BinaryManager") as mock_binary_mgr_cls:
+            mock_binary_mgr = MagicMock()
+            mock_binary_mgr.detect_binary.return_value = mock_binary_info
+            mock_binary_mgr_cls.return_value = mock_binary_mgr
+
+            with patch("qwenvert.models.ModelRegistry") as mock_registry_cls:
+                mock_registry = MagicMock()
+                mock_model = MagicMock()
+                mock_registry.get_model.return_value = mock_model
+                mock_registry_cls.return_value = mock_registry
+
+                with patch("qwenvert.config.ConfigGenerator") as mock_config_gen_cls:
+                    mock_config_gen = MagicMock()
+                    mock_config_gen.generate_llamacpp_flags.return_value = [
+                        "--model",
+                        "test",
+                    ]
+                    mock_config_gen_cls.return_value = mock_config_gen
+
+                    with patch("qwenvert.hardware.HardwareProfile"):
+                        with patch.object(
+                            launcher2,
+                            "_wait_for_health",
+                            new_callable=AsyncMock,
+                            return_value=True,
+                        ):
+                            with patch(
+                                "qwenvert.launcher.subprocess.Popen",
+                                return_value=mock_process,
                             ):
-                                with patch(
-                                    "qwenvert.launcher.subprocess.Popen",
-                                    return_value=mock_process,
-                                ):
-                                    handle2 = await launcher2._start_llamacpp()
-                                    assert handle2.name == "llama-cpp"
+                                handle2 = await launcher2._start_llamacpp()
+                                assert handle2.name == "llama-cpp"
 
     def test_process_handle_with_different_pids(self):
         """Test ProcessHandle with various PID values."""

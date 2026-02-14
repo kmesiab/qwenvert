@@ -59,8 +59,8 @@ class BackendRouter:
         self.model = model
         self.backend_url = backend_url.rstrip("/")
         self.client = httpx.AsyncClient(
-            timeout=300.0
-        )  # 5 min timeout for long generations
+            timeout=600.0
+        )  # 10 min timeout for long generations and initial model load
 
     def _cap_max_tokens(self, request: MessagesRequest) -> MessagesRequest:
         """

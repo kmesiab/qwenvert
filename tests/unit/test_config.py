@@ -69,7 +69,7 @@ class TestConfigGenerator:
         assert "99" in flags  # Offload all layers
         assert "-t" in flags
         assert "4" in flags  # P-core count
-        assert "--mlock" in flags
+        # NOTE: --mlock removed - crashes on macOS (see config.py comments)
 
     def test_environment_vars_generation(
         self, sample_model_7b_q4, mock_hardware_m1_16gb

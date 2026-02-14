@@ -172,12 +172,12 @@ class ModelRegistry:
                 backend_model_id="qwen2.5-coder:7b-instruct-q4_K_M",
                 context_length=32768,
                 max_output_tokens=12288,
-                min_ram_gb=8,
+                min_ram_gb=12,
                 recommended_ram_gb=16,
                 is_coder_model=True,
                 is_default_candidate=True,
                 huggingface_repo="Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
-                notes="Best balance for most systems",
+                notes="Best balance for most systems. Requires 12GB+ RAM to avoid swapping.",
             ),
             Model(
                 id="qwen2.5-coder-7b-q5-ollama",
@@ -413,13 +413,14 @@ class ModelSelector:
 
         # Decision logic based on hardware constraints
         if hardware.is_memory_constrained():
-            # 8GB or less: choose smallest compatible model with good quantization
-            # Prefer Q4_K_M for memory efficiency
-            candidates = [m for m in compatible if m.quantization == "Q4_K_M"]
-            if candidates:
-                return min(candidates, key=lambda m: m.size_b)
-            # Fallback: smallest compatible model
-            return min(compatible, key=lambda m: m.size_b)
+            # 8GB or less: PRIORITIZE SMALLEST model to avoid swapping
+            # Size is more important than quantization quality on constrained systems
+            # Sort by size first, then prefer Q4_K_M for efficiency
+            compatible_sorted = sorted(
+                compatible,
+                key=lambda m: (m.size_b, 0 if m.quantization == "Q4_K_M" else 1),
+            )
+            return compatible_sorted[0] if compatible_sorted else None
 
         if hardware.is_thermally_constrained():
             # Fanless Mac: prefer smaller models to reduce thermal load
