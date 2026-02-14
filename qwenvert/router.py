@@ -275,7 +275,10 @@ class BackendRouter:
                                 "stop_reason": stop_reason,
                                 "stop_sequence": None,
                             },
-                            "usage": {"output_tokens": output_tokens},
+                            "usage": {
+                                "input_tokens": input_tokens,
+                                "output_tokens": output_tokens,
+                            },
                         }
 
                         # Emit message_stop event (required final event)
@@ -478,7 +481,10 @@ class BackendRouter:
                                 "stop_reason": stop_reason,
                                 "stop_sequence": None,
                             },
-                            "usage": {"output_tokens": tokens_predicted},
+                            "usage": {
+                                "input_tokens": tokens_evaluated,
+                                "output_tokens": tokens_predicted,
+                            },
                         }
 
                         # Emit message_stop event (required final event)
