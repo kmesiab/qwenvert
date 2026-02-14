@@ -533,6 +533,11 @@ async def start_qwenvert() -> None:
         # CLI will handle displaying the clean error message
         await launcher.stop_all()
         raise
+    except RuntimeError:
+        # Re-raise runtime errors without logging traceback
+        # CLI will handle displaying the clean error message
+        await launcher.stop_all()
+        raise
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
         await launcher.stop_all()
