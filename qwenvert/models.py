@@ -413,13 +413,14 @@ class ModelSelector:
 
         # Decision logic based on hardware constraints
         if hardware.is_memory_constrained():
-            # 8GB or less: choose smallest compatible model with good quantization
-            # Prefer Q4_K_M for memory efficiency
-            candidates = [m for m in compatible if m.quantization == "Q4_K_M"]
-            if candidates:
-                return min(candidates, key=lambda m: m.size_b)
-            # Fallback: smallest compatible model
-            return min(compatible, key=lambda m: m.size_b)
+            # 8GB or less: PRIORITIZE SMALLEST model to avoid swapping
+            # Size is more important than quantization quality on constrained systems
+            # Sort by size first, then prefer Q4_K_M for efficiency
+            compatible_sorted = sorted(
+                compatible,
+                key=lambda m: (m.size_b, 0 if m.quantization == "Q4_K_M" else 1),
+            )
+            return compatible_sorted[0] if compatible_sorted else None
 
         if hardware.is_thermally_constrained():
             # Fanless Mac: prefer smaller models to reduce thermal load

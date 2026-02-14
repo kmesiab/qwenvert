@@ -324,13 +324,13 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
         # Use performance cores only
         num_threads = self.hardware.cpu_cores_performance
 
-        return [
+        flags = [
             "--model",
             f"~/.cache/qwenvert/models/{self.model.backend_model_id}",
-            # GPU offloading
+            # GPU offloading - Metal optimization for Apple Silicon
             "-ngl",
-            "99",  # Offload all layers to Metal
-            # CPU threads
+            "99",  # Offload all layers to Metal GPU
+            # CPU threads - use performance cores only
             "-t",
             str(num_threads),
             # Context window
@@ -342,10 +342,19 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
             "--port",
             "8080",
             # Memory optimization
-            "--mlock",  # Lock model in memory
+            "--mlock",  # Lock model in memory (prevent swapping)
+            # Metal-specific optimizations for Mac Silicon
+            "-fa",  # Flash attention (20-30% faster on Metal)
+            "--cont-batching",  # Continuous batching for better throughput
             # API compatibility
             "--log-disable",  # Reduce log noise
         ]
+
+        # Add split-mode for larger models (7B+) to optimize Metal memory
+        if self.model.size_b >= 7.0:
+            flags.extend(["-sm", "layer"])  # Split by layer for optimal Metal perf
+
+        return flags
 
     def generate_environment_vars(self) -> dict[str, str]:
         """
