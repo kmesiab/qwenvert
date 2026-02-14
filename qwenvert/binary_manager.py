@@ -12,6 +12,8 @@ import logging
 import shutil
 import stat
 import subprocess
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -234,13 +236,50 @@ class BinaryManager:
         # Get release URL
         release_url = self._get_release_url(hardware)
 
-        # Download binary
+        # Download zip to temporary file
+        temp_zip = None
         try:
-            self._download_file(release_url, self.binary_path, progress_callback)
+            # Create temporary file for zip download
+            with tempfile.NamedTemporaryFile(
+                suffix=".zip", delete=False
+            ) as temp_file:
+                temp_zip = Path(temp_file.name)
+
+            # Download zip archive
+            self._download_file(release_url, temp_zip, progress_callback)
+
+            # Extract llama-server executable from zip
+            with zipfile.ZipFile(temp_zip, "r") as zip_ref:
+                # Find llama-server executable in the archive
+                llama_server_files = [
+                    name
+                    for name in zip_ref.namelist()
+                    if name.endswith("llama-server") or name.endswith("llama-server.exe")
+                ]
+
+                if not llama_server_files:
+                    raise RuntimeError(
+                        f"No llama-server executable found in {release_url}"
+                    )
+
+                # Extract the executable
+                llama_server_path = llama_server_files[0]
+                logger.info(f"Extracting {llama_server_path} from archive")
+
+                # Extract to temporary location first
+                extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
+
+                # Move to final location
+                shutil.move(extract_path, self.binary_path)
+
         except Exception as e:
             raise RuntimeError(
                 f"Failed to download llama-server from {release_url}: {e}"
             ) from e
+        finally:
+            # Clean up temporary zip file
+            if temp_zip and temp_zip.exists():
+                temp_zip.unlink()
 
         # Make executable
         self.binary_path.chmod(self.binary_path.stat().st_mode | stat.S_IEXEC)
