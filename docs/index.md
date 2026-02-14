@@ -35,15 +35,16 @@ Real-time dashboard tracks performance, thermal behavior, and token throughput.
 ### Installation
 
 ```bash
-# Clone the repository
+# Install from PyPI (recommended)
+pip install qwenvert
+
+# Or install from source
 git clone https://github.com/kmesiab/qwenvert
 cd qwenvert
-
-# Install with pip
 pip install -e .
 ```
 
-> **Note:** Qwenvert is not yet published on PyPI. Install from source as shown above.
+> **Note:** Qwenvert v0.2.8 is published on PyPI. Python 3.9-3.12 required.
 
 ### Initialize & Start
 
@@ -104,18 +105,45 @@ Qwenvert is an HTTP adapter that translates between Claude Code and local LLM ba
 ### What Qwenvert Does
 
 - **Translates APIs**: Converts Anthropic Messages API → Ollama/llama.cpp format
-- **Validates Security**: All URLs/hosts checked for localhost-only access (93 tests)
+- **Validates Security**: All URLs/hosts checked for localhost-only access (93+ tests)
+- **Auto-Downloads Binaries**: Fetches llama-server with checksum verification (v0.2.8)
+- **Protects Against Attacks**: Zip Slip prevention, fail-closed security (v0.2.8)
 - **Manages Backends**: Launches and monitors Ollama or llama.cpp servers
-- **Streams Responses**: Server-Sent Events for real-time token streaming
-- **Optimizes Hardware**: Auto-configures for your Mac's specs and thermal profile
+- **Streams Responses**: Complete 6-event SSE sequence for Claude CLI compatibility
+- **Optimizes Hardware**: Auto-configures Metal flags based on your Mac's specs
+- **Monitors Thermals**: Intelligent pacing for fanless MacBook Air models
 
 ---
 
-## 📊 Performance
+## 📊 Performance & Optimizations
+
+### Research-Backed Speed Improvements
+
+Qwenvert uses **llama.cpp** as the default backend, which is **3-7x faster** than Ollama on Apple Silicon based on comparative benchmarking:
+
+> **"Comparative Study of LLM Inference Engines on Apple Silicon"**
+> arXiv:2511.05502 (2025)
+> [https://arxiv.org/pdf/2511.05502](https://arxiv.org/pdf/2511.05502)
+
+### Apple Silicon Optimizations
+
+Our configuration includes research-backed optimizations:
+- **Full GPU Offload** (`-ngl 99`): All layers on Metal GPU
+- **Performance Core Threading**: P-cores only (E-cores reduce performance)
+- **Continuous Batching**: Better throughput for streaming
+- **Layer-Split Mode**: Optimal Metal memory usage (7B+ models)
+
+**Removed flags** based on empirical testing:
+- ❌ `--mlock`: Crashes on macOS ([llama.cpp #18152](https://github.com/ggml-org/llama.cpp/issues/18152))
+- ❌ `-fa` (flash attention): Slows generation unless KV cache fits in VRAM
+
+### Security Guarantees
 
 - **100% Private**: Zero cloud dependencies, all inference local
+- **Localhost-Only**: Comprehensive validation with 93+ security tests
+- **Zip Slip Protection**: Path validation prevents malicious archive extraction (v0.2.8)
+- **Checksum Enforcement**: Fail-closed binary verification (v0.2.8)
 - **$0 API Fees**: No subscription, no per-token costs
-- **93 Security Tests**: Comprehensive localhost-only validation
 - **Metal Accelerated**: Optimized for Apple Silicon unified memory
 - **Thermal Aware**: Pacing for fanless MacBook Air models
 
@@ -166,17 +194,39 @@ Technically yes - any Ollama/llama.cpp model works. But qwenvert is tuned for Qw
 
 ---
 
-## 📖 Research
+## 📖 Research & Citations
 
-This project implements research-backed development practices. Our [AGENTS.md](https://github.com/kmesiab/qwenvert/blob/main/AGENTS.md) follows findings from:
+Qwenvert implements research-backed optimizations and development practices:
+
+### Performance Optimization Research
+
+> **"Comparative Study of LLM Inference Engines on Apple Silicon"**
+> arXiv:2511.05502 (2025)
+> [https://arxiv.org/pdf/2511.05502](https://arxiv.org/pdf/2511.05502)
+
+**Key findings applied to qwenvert:**
+- llama.cpp is **3-7x faster** than Ollama on Apple Silicon
+- Metal GPU acceleration provides significant speedup for unified memory
+- Performance core threading outperforms E-core usage
+- Flash attention can degrade performance unless KV cache fits in VRAM
+
+### Development Workflow Research
 
 > **"Repository-Level Instructions Enhance AI Assistant Completion and Efficiency"**
 > Li et al., 2025. [arXiv:2601.20404](https://arxiv.org/abs/2601.20404)
 
-**Key findings:**
+**Key findings implemented in [AGENTS.md](https://github.com/kmesiab/qwenvert/blob/main/AGENTS.md):**
 - **28.64% reduction** in AI agent task completion time
 - **16.58% reduction** in token usage
 - Repository-level instructions significantly improve code generation accuracy
+- Structured conventions reduce errors and improve maintainability
+
+### Security Research & Best Practices
+
+- **Zip Slip Prevention**: Path validation based on OWASP guidelines (v0.2.8)
+- **Fail-Closed Security**: Checksum enforcement prevents compromised binaries (v0.2.8)
+- **Localhost-Only Validation**: 93+ tests ensure no external network access
+- **Supply Chain Security**: GitHub checksums verified for all binary downloads
 
 ---
 
