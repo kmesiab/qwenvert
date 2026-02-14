@@ -237,6 +237,7 @@ jobs:
           source test_env/bin/activate
 
           # Retry loop: 5 attempts with 30-second sleep between attempts
+          # Use --index-url to force canonical PyPI index (bypasses edge caches)
           for i in {1..5}; do
             echo "🔄 Attempt $i of 5..."
             
