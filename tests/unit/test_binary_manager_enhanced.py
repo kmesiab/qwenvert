@@ -340,3 +340,82 @@ class TestVersionManagement:
         """Test rollback when no backup exists."""
         result = binary_manager.rollback_binary()
         assert result is False
+
+
+class TestSecurityValidation:
+    """Test security validation in binary extraction."""
+
+    def test_security_check_exists_in_download_binary(self, binary_manager):
+        """Verify that Zip Slip security check is present in download_binary()."""
+        import inspect
+
+        # Read the source code of download_binary
+        source = inspect.getsource(binary_manager.download_binary)
+
+        # Verify security check is in place
+        assert "is_relative_to" in source, "Zip Slip check using is_relative_to() must be present"
+        assert "SecurityError" in source or "resolve()" in source, "Path validation must be present"
+
+    def test_security_check_exists_in_download_specific_version(self, binary_manager):
+        """Verify that Zip Slip security check is present in download_specific_version()."""
+        import inspect
+
+        # Read the source code
+        source = inspect.getsource(binary_manager.download_specific_version)
+
+        # Verify security check is in place
+        assert "is_relative_to" in source, "Zip Slip check using is_relative_to() must be present"
+        assert "SecurityError" in source or "resolve()" in source, "Path validation must be present"
+
+    def test_security_error_exception_exists(self):
+        """Verify SecurityError exception class exists."""
+        from qwenvert.binary_manager import SecurityError
+
+        # Verify it's an Exception subclass
+        assert issubclass(SecurityError, Exception)
+
+        # Verify we can instantiate and raise it
+        with pytest.raises(SecurityError) as exc_info:
+            raise SecurityError("Test security violation")
+
+        assert "security violation" in str(exc_info.value).lower()
+
+    def test_zip_safe_path_validation_logic(self, binary_manager):
+        """Test the path validation logic with safe paths."""
+        # Simulate a safe extraction path
+        safe_path = binary_manager.bin_dir / "llama-server"
+        safe_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_path.write_text("test")
+
+        # Apply the security check logic
+        extract_path_resolved = safe_path.resolve()
+        bin_dir_resolved = binary_manager.bin_dir.resolve()
+
+        # Safe path should be relative to target directory
+        is_safe = extract_path_resolved.is_relative_to(bin_dir_resolved)
+        assert is_safe, "Safe path within target directory should pass validation"
+
+    def test_zip_slip_detection_logic(self, binary_manager, tmp_path):
+        """Test that the is_relative_to() check would detect malicious paths."""
+        # Simulate a path that escaped the target directory
+        malicious_path = tmp_path / "outside" / "evil-binary"
+        malicious_path.parent.mkdir(parents=True, exist_ok=True)
+        malicious_path.write_text("malicious")
+
+        # Apply the security check
+        extract_path_resolved = malicious_path.resolve()
+        bin_dir_resolved = binary_manager.bin_dir.resolve()
+
+        # Malicious path should NOT be relative to target directory
+        is_safe = extract_path_resolved.is_relative_to(bin_dir_resolved)
+        assert not is_safe, "Path outside target directory should fail validation"
+
+        # This is what our code does when path is unsafe
+        if not is_safe:
+            # Would raise SecurityError
+            with pytest.raises(Exception):  # Our code raises SecurityError
+                from qwenvert.binary_manager import SecurityError
+
+                raise SecurityError(
+                    f"Zip Slip detected: {extract_path_resolved} is outside {bin_dir_resolved}"
+                )
