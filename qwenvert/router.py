@@ -195,8 +195,6 @@ class BackendRouter:
         if request.temperature is not None:
             ollama_request["options"]["temperature"] = request.temperature
         if request.top_p is not None:
-            ollama_request["options"]["temperature"] = request.temperature
-        if request.top_p is not None:
             ollama_request["options"]["top_p"] = request.top_p
         if request.top_k is not None:
             ollama_request["options"]["top_k"] = request.top_k
