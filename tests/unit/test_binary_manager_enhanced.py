@@ -111,6 +111,8 @@ class TestOfflineFallback:
 
     def test_get_latest_release_with_cache_fallback(self, binary_manager):
         """Test fallback to cache when GitHub API unavailable."""
+        import httpx
+
         # Save cache
         binary_manager._save_version_cache(
             version="b3600",
@@ -120,7 +122,7 @@ class TestOfflineFallback:
 
         # Mock GitHub API to fail
         with patch("httpx.get") as mock_get:
-            mock_get.side_effect = Exception("Network error")
+            mock_get.side_effect = httpx.HTTPError("Network error")
 
             # Should use cache fallback
             version = binary_manager._get_latest_release_version(use_cache=True)
@@ -128,9 +130,11 @@ class TestOfflineFallback:
 
     def test_get_latest_release_without_cache(self, binary_manager):
         """Test fallback to hardcoded version without cache."""
+        import httpx
+
         # Mock GitHub API to fail
         with patch("httpx.get") as mock_get:
-            mock_get.side_effect = Exception("Network error")
+            mock_get.side_effect = httpx.HTTPError("Network error")
 
             # Should use hardcoded fallback
             version = binary_manager._get_latest_release_version(use_cache=False)

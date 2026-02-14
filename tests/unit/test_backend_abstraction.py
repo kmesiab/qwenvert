@@ -35,6 +35,10 @@ def mock_model():
     """Create mock Model."""
     return Model(
         id="qwen2.5-coder-7b-q4-llamacpp",
+        display_name="Qwen2.5 Coder 7B Q4",
+        family="Qwen2.5",
+        size_b=7,
+        quantization="Q4_K_M",
         backend=Backend.LLAMACPP,
         backend_model_id="qwen2.5-coder-7b-instruct-q4_K_M.gguf",
         context_length=32768,
@@ -119,7 +123,7 @@ class TestLlamaCppBackend:
         """Test configuration generation."""
         backend = LlamaCppBackend()
 
-        with patch("qwenvert.backends.llamacpp_backend.ConfigGenerator") as mock_gen_cls:
+        with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
             mock_gen = Mock()
             mock_gen.generate_llamacpp_flags.return_value = [
                 "--model",
@@ -150,9 +154,11 @@ class TestLlamaCppBackend:
 
     def test_health_check_unhealthy(self):
         """Test health check when server is unhealthy."""
+        import httpx
+
         backend = LlamaCppBackend()
 
-        with patch("httpx.get", side_effect=Exception("Connection error")):
+        with patch("httpx.get", side_effect=httpx.HTTPError("Connection error")):
             result = backend.health_check()
             assert result is False
 
@@ -224,6 +230,10 @@ class TestOllamaBackend:
 
         ollama_model = Model(
             id="qwen2.5-coder-7b-q4-ollama",
+            display_name="Qwen2.5 Coder 7B Q4",
+            family="Qwen2.5",
+            size_b=7,
+            quantization="Q4_K_M",
             backend=Backend.OLLAMA,
             backend_model_id="qwen2.5-coder:7b-instruct-q4_K_M",
             context_length=32768,
@@ -232,7 +242,7 @@ class TestOllamaBackend:
             recommended_ram_gb=12,
         )
 
-        with patch("qwenvert.backends.ollama_backend.ConfigGenerator") as mock_gen_cls:
+        with patch("qwenvert.config.ConfigGenerator") as mock_gen_cls:
             mock_gen = Mock()
             mock_gen.generate_ollama_modelfile.return_value = "FROM qwen2.5-coder:7b"
             mock_gen_cls.return_value = mock_gen
