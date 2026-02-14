@@ -681,13 +681,16 @@ class BinaryManager:
         logger.info("Binary not found - attempting automatic installation...")
         try:
             binary_path: Path | None = self.download_binary(hardware)
-            binary_info = self._get_binary_info(binary_path, BinarySource.DOWNLOADED)
-            if binary_info:
-                # Cache successful download info for offline use
-                version = binary_info.version
-                url = self._get_release_url(hardware)
-                self._save_version_cache(version, url)
-                return binary_info
+            if binary_path:
+                binary_info = self._get_binary_info(
+                    binary_path, BinarySource.DOWNLOADED
+                )
+                if binary_info:
+                    # Cache successful download info for offline use
+                    version = binary_info.version
+                    url = self._get_release_url(hardware)
+                    self._save_version_cache(version, url)
+                    return binary_info
         except Exception as e:
             logger.warning(f"GitHub download failed: {e}")
 
