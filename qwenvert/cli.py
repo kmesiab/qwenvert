@@ -83,15 +83,11 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
 
         dep_check = check_backend_dependencies(backend)
         if not dep_check.is_available:
+            # ZERO-FRICTION: Show clear warning with installation instructions
             console.print(
-                f"[yellow]Warning:[/yellow] {dep_check.name} is not installed\n"
+                f"\n[yellow]Warning:[/yellow] {dep_check.name} is not installed but continuing with configuration.\n"
             )
             console.print(format_missing_dependency_message(dep_check))
-
-            # ZERO-FRICTION: Auto-continue with warning instead of prompting
-            console.print(
-                f"\n[yellow]Warning:[/yellow] {dep_check.name} is not installed but continuing with configuration."
-            )
             console.print(
                 f"[dim]Tip: Install {dep_check.name} before running 'qwenvert start'.[/dim]\n"
             )
