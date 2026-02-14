@@ -345,27 +345,36 @@ class TestVersionManagement:
 class TestSecurityValidation:
     """Test security validation in binary extraction."""
 
-    def test_security_check_exists_in_download_binary(self, binary_manager):
-        """Verify that Zip Slip security check is present in download_binary()."""
+    def test_security_check_exists_in_download_helper(self, binary_manager):
+        """Verify that Zip Slip security check is present in _download_and_install_zip()."""
         import inspect
 
-        # Read the source code of download_binary
-        source = inspect.getsource(binary_manager.download_binary)
+        # Read the source code of the common download helper
+        source = inspect.getsource(binary_manager._download_and_install_zip)
 
         # Verify security check is in place
         assert "is_relative_to" in source, "Zip Slip check using is_relative_to() must be present"
-        assert "SecurityError" in source or "resolve()" in source, "Path validation must be present"
+        assert "SecurityError" in source, "SecurityError exception must be raised"
+        assert "resolve()" in source, "Path resolution must be present"
+        assert "Zip Slip attack detected" in source, "Clear error message must be present"
 
-    def test_security_check_exists_in_download_specific_version(self, binary_manager):
-        """Verify that Zip Slip security check is present in download_specific_version()."""
+    def test_download_methods_use_secure_helper(self, binary_manager):
+        """Verify that both download methods use the secure helper."""
         import inspect
 
-        # Read the source code
-        source = inspect.getsource(binary_manager.download_specific_version)
+        # Check download_binary uses the helper
+        download_binary_source = inspect.getsource(binary_manager.download_binary)
+        assert (
+            "_download_and_install_zip" in download_binary_source
+        ), "download_binary must use secure helper"
 
-        # Verify security check is in place
-        assert "is_relative_to" in source, "Zip Slip check using is_relative_to() must be present"
-        assert "SecurityError" in source or "resolve()" in source, "Path validation must be present"
+        # Check download_specific_version uses the helper
+        download_specific_source = inspect.getsource(
+            binary_manager.download_specific_version
+        )
+        assert (
+            "_download_and_install_zip" in download_specific_source
+        ), "download_specific_version must use secure helper"
 
     def test_security_error_exception_exists(self):
         """Verify SecurityError exception class exists."""
