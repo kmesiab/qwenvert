@@ -547,7 +547,8 @@ class TestSecurityValidation:
                         binary_manager.binary_path.exists()
                     ), "Binary should be extracted"
                     assert (
-                        binary_manager.binary_path.read_bytes() == b"safe binary content"
+                        binary_manager.binary_path.read_bytes()
+                        == b"safe binary content"
                     ), "Binary content should match"
                 except Exception as e:
                     pytest.fail(f"Safe archive should not raise exception: {e}")
