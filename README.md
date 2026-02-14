@@ -34,10 +34,6 @@ Qwenvert lets you use Claude Code CLI with a completely local LLM (Qwen2.5-Coder
 pip install qwenvert
 ```
 
-**Or with Homebrew (coming soon):**
-
-> Homebrew formula is not published yet. See [PUBLISHING.md](./PUBLISHING.md#homebrew) for instructions on creating a Homebrew tap.
-
 **Or install from source:**
 ```bash
 git clone https://github.com/kmesiab/qwenvert.git
