@@ -680,7 +680,7 @@ class BinaryManager:
         # Strategy 2: Try to download from GitHub
         logger.info("Binary not found - attempting automatic installation...")
         try:
-            binary_path = self.download_binary(hardware)
+            binary_path: Path | None = self.download_binary(hardware)
             binary_info = self._get_binary_info(binary_path, BinarySource.DOWNLOADED)
             if binary_info:
                 # Cache successful download info for offline use
