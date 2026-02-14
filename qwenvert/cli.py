@@ -157,11 +157,10 @@ def init(model, backend, adapter_port, context_length) -> None:
         try:
             # Show progress with rich progress bar
             from rich.progress import (
-                Progress,
-                BarColumn,
                 DownloadColumn,
-                TransferSpeedColumn,
+                Progress,
                 TimeRemainingColumn,
+                TransferSpeedColumn,
             )
 
             with Progress(
@@ -173,7 +172,7 @@ def init(model, backend, adapter_port, context_length) -> None:
             ) as progress:
                 task = progress.add_task("Downloading...", total=None)
 
-                def progress_callback(downloaded, total):
+                def progress_callback(downloaded: int, total: int) -> None:
                     if progress.tasks[task].total != total:
                         progress.update(task, total=total)
                     progress.update(task, completed=downloaded)

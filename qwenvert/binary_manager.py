@@ -267,7 +267,7 @@ class BinaryManager:
             RuntimeError: If unable to determine release URL
         """
         # For now, use a fixed known-good release
-        # TODO: Fetch from GitHub API for latest stable
+        # NOTE: Future enhancement - fetch from GitHub API for latest stable
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
 
         # Determine architecture
@@ -277,7 +277,7 @@ class BinaryManager:
             arch = "x86_64"
 
         # Use a known stable release
-        # TODO: Make this dynamic based on GitHub API
+        # NOTE: Future enhancement - make this dynamic based on GitHub API
         version = "b3600"  # Example release
 
         # Construct URL
