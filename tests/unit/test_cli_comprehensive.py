@@ -102,7 +102,7 @@ def mock_binary_manager():
         is_valid=True,
     )
 
-    with patch("qwenvert.cli.BinaryManager") as mock_mgr_cls:
+    with patch("qwenvert.binary_manager.BinaryManager") as mock_mgr_cls:
         mock_mgr = MagicMock()
         mock_mgr.detect_binary.return_value = mock_binary_info
         mock_mgr_cls.return_value = mock_mgr

@@ -46,7 +46,9 @@ class BinaryInfo:
 
     def __str__(self) -> str:
         """Human-readable representation."""
-        return f"{self.path} (v{self.version}, {self.source.value}, {self.architecture})"
+        return (
+            f"{self.path} (v{self.version}, {self.source.value}, {self.architecture})"
+        )
 
 
 class BinaryManager:
@@ -300,7 +302,9 @@ class BinaryManager:
             RuntimeError: If download fails
         """
         try:
-            with httpx.stream("GET", url, follow_redirects=True, timeout=300) as response:
+            with httpx.stream(
+                "GET", url, follow_redirects=True, timeout=300
+            ) as response:
                 response.raise_for_status()
 
                 total_size = int(response.headers.get("content-length", 0))

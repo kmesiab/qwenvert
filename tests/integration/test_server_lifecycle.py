@@ -98,7 +98,9 @@ class TestServerLauncher:
             is_valid=True,
         )
 
-        with patch("qwenvert.launcher.BinaryManager") as mock_binary_manager_class:
+        with patch(
+            "qwenvert.binary_manager.BinaryManager"
+        ) as mock_binary_manager_class:
             mock_binary_manager = MagicMock()
             mock_binary_manager.detect_binary.return_value = mock_binary_info
             mock_binary_manager_class.return_value = mock_binary_manager
@@ -113,9 +115,7 @@ class TestServerLauncher:
                 mock_popen.return_value = mock_process
 
                 with patch.object(launcher, "_check_health", return_value=False):
-                    with patch.object(
-                        launcher, "_wait_for_health", return_value=True
-                    ):
+                    with patch.object(launcher, "_wait_for_health", return_value=True):
                         handle = await launcher.start_backend()
 
                         assert handle is not None

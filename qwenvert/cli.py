@@ -123,15 +123,11 @@ def init(model, backend, adapter_port, context_length) -> None:
                 )
             else:
                 # Offer to switch to Ollama
-                console.print(
-                    "\n[yellow]Without llama-server, you can:[/yellow]"
-                )
+                console.print("\n[yellow]Without llama-server, you can:[/yellow]")
                 console.print("  1. Install manually: brew install llama.cpp")
                 console.print("  2. Use Ollama backend instead (slower)")
 
-                use_ollama = click.confirm(
-                    "\nSwitch to Ollama backend?", default=True
-                )
+                use_ollama = click.confirm("\nSwitch to Ollama backend?", default=True)
 
                 if use_ollama:
                     backend = "ollama"
@@ -153,16 +149,20 @@ def init(model, backend, adapter_port, context_length) -> None:
     console.print(f"✓ Detected: [green]{hardware}[/green]")
 
     # Step 1.5: Download llama-server if needed and user agreed
-    if backend == "llamacpp" and 'binary_mgr' in locals() and not binary_info:
+    if backend == "llamacpp" and "binary_mgr" in locals() and not binary_info:
         # User agreed to download earlier
-        console.print(
-            f"\n[cyan]Downloading llama-server for {hardware.chip}...[/cyan]"
-        )
+        console.print(f"\n[cyan]Downloading llama-server for {hardware.chip}...[/cyan]")
         console.print("[dim]This is a one-time download (~50MB)[/dim]\n")
 
         try:
             # Show progress with rich progress bar
-            from rich.progress import Progress, BarColumn, DownloadColumn, TransferSpeedColumn, TimeRemainingColumn
+            from rich.progress import (
+                Progress,
+                BarColumn,
+                DownloadColumn,
+                TransferSpeedColumn,
+                TimeRemainingColumn,
+            )
 
             with Progress(
                 *Progress.get_default_columns(),
@@ -180,15 +180,11 @@ def init(model, backend, adapter_port, context_length) -> None:
 
                 binary_path = binary_mgr.download_binary(hardware, progress_callback)
 
-            console.print(
-                f"✓ llama-server downloaded: [green]{binary_path}[/green]\n"
-            )
+            console.print(f"✓ llama-server downloaded: [green]{binary_path}[/green]\n")
 
         except Exception as e:
             console.print(f"\n[red]Error downloading llama-server:[/red] {e}")
-            console.print(
-                "\n[yellow]Options:[/yellow]"
-            )
+            console.print("\n[yellow]Options:[/yellow]")
             console.print("  1. Check internet connection and try again")
             console.print("  2. Install manually: brew install llama.cpp")
             console.print("  3. Use Ollama backend: qwenvert init --backend ollama\n")
