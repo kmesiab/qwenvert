@@ -18,7 +18,7 @@ Qwenvert is a production-grade local LLM inference system designed to bridge Cla
 
 ## High-Level Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Claude Code CLI                         │
 └────────────────────────┬────────────────────────────────────┘
@@ -1609,7 +1609,7 @@ if __name__ == "__main__":
 
 ### Architecture
 
-```
+```text
 ┌─────────────────────────────────────┐
 │       Qwenvert Core                 │
 │   (CLI, Config, Launcher)           │
@@ -1620,7 +1620,7 @@ if __name__ == "__main__":
 │      BackendManager (Factory)       │
 │  + get_backend(type)                │
 │  + detect_all()                     │
-│  + recommend_backend(hardware)      │
+│  + recommend_backend()              │
 └────────────┬────────────────────────┘
              │ Creates
              ▼
@@ -1672,7 +1672,7 @@ if __name__ == "__main__":
 - Factory pattern for backend selection
 - `get_backend(type)`: Returns backend instance
 - `detect_all()`: Scans all available backends
-- `recommend_backend(hardware)`: Smart recommendation based on:
+- `recommend_backend()`: Smart recommendation based on:
   - Priority 1: llama.cpp (3-7x faster, research-backed)
   - Priority 2: Ollama (easier installation)
   - Default: llama.cpp (triggers auto-install)
@@ -1730,7 +1730,7 @@ all_backends = BackendManager.detect_all()
 # Returns: {Backend.LLAMACPP: info1, Backend.OLLAMA: info2}
 
 # Smart recommendation
-recommended = BackendManager.recommend_backend(hardware)
+recommended = BackendManager.recommend_backend()
 # Considers: availability, performance, hardware compatibility
 ```
 
