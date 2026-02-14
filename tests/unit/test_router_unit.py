@@ -892,6 +892,156 @@ class TestLlamaCppStreaming:
             assert has_delta or has_stop
 
     @pytest.mark.asyncio
+    async def test_stream_stop_reason_max_tokens(self, llamacpp_model):
+        """Test llama.cpp streaming with stopped_limit (max_tokens)."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=10,
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_predicted":5}'
+                yield 'data: {"content":" world","tokens_predicted":10,"stop":true,"stopped_limit":true}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+            assert (
+                message_delta["delta"]["stop_reason"] == "max_tokens"
+            ), f"Expected stop_reason='max_tokens', got {message_delta['delta']['stop_reason']}"
+
+    @pytest.mark.asyncio
+    async def test_stream_stop_reason_stop_sequence(self, llamacpp_model):
+        """Test llama.cpp streaming with stopped_word (stop_sequence)."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+            stop_sequences=["###"],
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_predicted":3}'
+                yield 'data: {"content":" ###","tokens_predicted":4,"stop":true,"stopped_word":true}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+            assert (
+                message_delta["delta"]["stop_reason"] == "stop_sequence"
+            ), f"Expected stop_reason='stop_sequence', got {message_delta['delta']['stop_reason']}"
+
+    @pytest.mark.asyncio
+    async def test_stream_stop_reason_end_turn(self, llamacpp_model):
+        """Test llama.cpp streaming with end_turn (natural completion)."""
+        request = MessagesRequest(
+            model="qwenvert-default",
+            messages=[Message(role="user", content="Test")],
+            max_tokens=100,
+        )
+
+        router = BackendRouter(
+            model=llamacpp_model, backend_url="http://localhost:8080"
+        )
+
+        class MockStreamResponse:
+            def __init__(self):
+                self.status_code = 200
+
+            async def aiter_lines(self):
+                yield 'data: {"content":"Hello","tokens_predicted":2}'
+                yield 'data: {"content":" world!","tokens_predicted":4,"stop":false}'
+                yield "data: [DONE]"
+
+            def raise_for_status(self):
+                pass
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        mock_stream_response = MockStreamResponse()
+
+        with patch.object(router.client, "stream") as mock_stream:
+            mock_stream.return_value = mock_stream_response
+
+            chunks = []
+            async for chunk in router.generate_stream(request):
+                chunks.append(chunk)
+
+            # Find message_delta event
+            message_delta = next(
+                (c for c in chunks if c.get("type") == "message_delta"), None
+            )
+            assert message_delta is not None, "message_delta event not found"
+            assert (
+                message_delta["delta"]["stop_reason"] == "end_turn"
+            ), f"Expected stop_reason='end_turn', got {message_delta['delta']['stop_reason']}"
+            # Verify usage tokens are tracked
+            assert message_delta["usage"]["output_tokens"] == 4
+
+    @pytest.mark.asyncio
     async def test_stream_unknown_backend(self, ollama_model):
         """Test streaming with unknown backend."""
         request = MessagesRequest(

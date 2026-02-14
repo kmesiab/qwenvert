@@ -439,9 +439,12 @@ class BackendRouter:
             "content_block": {"type": "text", "text": ""},
         }
 
-        # Track tokens for usage stats
+        # Track tokens and stop metadata for final events
         tokens_evaluated = 0
         tokens_predicted = 0
+        stop = False
+        stopped_limit = False
+        stopped_word = False
 
         async with self.client.stream(
             "POST", f"{self.backend_url}/completion", json=llamacpp_request
@@ -460,10 +463,21 @@ class BackendRouter:
                             "index": 0,
                         }
 
+                        # Map llama.cpp stop metadata to Anthropic stop_reason
+                        stop_reason = "end_turn"
+                        if stop:
+                            if stopped_limit:
+                                stop_reason = "max_tokens"
+                            elif stopped_word:
+                                stop_reason = "stop_sequence"
+
                         # Emit message_delta event with usage (required before message_stop)
                         yield {
                             "type": "message_delta",
-                            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+                            "delta": {
+                                "stop_reason": stop_reason,
+                                "stop_sequence": None,
+                            },
                             "usage": {"output_tokens": tokens_predicted},
                         }
 
@@ -480,11 +494,17 @@ class BackendRouter:
                             "delta": {"type": "text_delta", "text": chunk["content"]},
                         }
 
-                    # Track token counts if available
+                    # Track token counts and stop metadata from each chunk
                     if "tokens_evaluated" in chunk:
                         tokens_evaluated = chunk["tokens_evaluated"]
                     if "tokens_predicted" in chunk:
                         tokens_predicted = chunk["tokens_predicted"]
+                    if "stop" in chunk:
+                        stop = chunk["stop"]
+                    if "stopped_limit" in chunk:
+                        stopped_limit = chunk["stopped_limit"]
+                    if "stopped_word" in chunk:
+                        stopped_word = chunk["stopped_word"]
 
     def _anthropic_to_llamacpp_prompt(
         self, messages: list[Message], system: str | None = None
