@@ -294,6 +294,42 @@ class BinaryManager:
         logger.info(f"Successfully downloaded llama-server: {info}")
         return self.binary_path
 
+    def _get_latest_release_version(self) -> str:
+        """
+        Fetch latest stable release version from GitHub API.
+
+        Returns:
+            Latest release version tag (e.g., "b3600")
+
+        Raises:
+            RuntimeError: If unable to fetch from API
+        """
+        try:
+            response = httpx.get(
+                self.GITHUB_API_URL,
+                headers={"Accept": "application/vnd.github.v3+json"},
+                timeout=10.0,
+                follow_redirects=True,
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            version = data.get("tag_name", "")
+
+            if not version:
+                raise RuntimeError("No tag_name in GitHub API response")
+
+            logger.info(f"Latest llama.cpp release: {version}")
+            return version
+
+        except Exception as e:
+            # Fall back to known-good version
+            logger.warning(
+                f"Failed to fetch latest release from GitHub API: {e}. "
+                f"Falling back to b3600"
+            )
+            return "b3600"
+
     def _get_release_url(self, hardware: HardwareProfile) -> str:
         """
         Get download URL for appropriate binary.
@@ -307,19 +343,23 @@ class BinaryManager:
         Raises:
             RuntimeError: If unable to determine release URL
         """
-        # For now, use a fixed known-good release
-        # NOTE: Future enhancement - fetch from GitHub API for latest stable
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
 
-        # Determine architecture
-        if "M1" in hardware.chip or "M2" in hardware.chip or "M3" in hardware.chip:
+        # Determine architecture - robust check for Apple Silicon
+        import platform
+
+        chip_lower = hardware.chip.lower()
+        machine_lower = platform.machine().lower()
+
+        if "arm" in chip_lower or "aarch64" in machine_lower:
             arch = "arm64"
         else:
             arch = "x86_64"
 
-        # Use a known stable release
-        # NOTE: Future enhancement - make this dynamic based on GitHub API
-        version = "b3600"  # Example release
+        logger.info(f"Detected architecture: {arch} (chip={hardware.chip}, machine={platform.machine()})")
+
+        # Get latest release version dynamically
+        version = self._get_latest_release_version()
 
         # Construct URL
         # Example: https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip
