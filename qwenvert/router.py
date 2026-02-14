@@ -7,6 +7,7 @@ Translates Anthropic Messages API requests to backend-specific formats
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -237,8 +238,6 @@ class BackendRouter:
 
             async for line in response.aiter_lines():
                 if line:
-                    import json
-
                     chunk = json.loads(line)
 
                     # Ollama streams message chunks
@@ -471,8 +470,6 @@ class BackendRouter:
             async for line in response.aiter_lines():
                 if not line.startswith("data: "):
                     continue
-
-                import json
 
                 data = line[6:]  # Remove "data: " prefix
                 if data == "[DONE]":
