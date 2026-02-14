@@ -476,10 +476,12 @@ class TestSecurityValidation:
 
         # Mock download to return our malicious zip
         with patch("httpx.stream") as mock_stream:
+            zip_content = malicious_zip.read_bytes()
             mock_response = Mock()
             mock_response.__enter__ = Mock(return_value=mock_response)
             mock_response.__exit__ = Mock(return_value=None)
-            mock_response.iter_bytes = Mock(return_value=[malicious_zip.read_bytes()])
+            mock_response.headers = {"content-length": str(len(zip_content))}
+            mock_response.iter_bytes = Mock(return_value=[zip_content])
             mock_stream.return_value = mock_response
 
             # Should raise RuntimeError (which wraps SecurityError)
@@ -513,10 +515,12 @@ class TestSecurityValidation:
 
         # Mock download to return our safe zip
         with patch("httpx.stream") as mock_stream:
+            zip_content = safe_zip.read_bytes()
             mock_response = Mock()
             mock_response.__enter__ = Mock(return_value=mock_response)
             mock_response.__exit__ = Mock(return_value=None)
-            mock_response.iter_bytes = Mock(return_value=[safe_zip.read_bytes()])
+            mock_response.headers = {"content-length": str(len(zip_content))}
+            mock_response.iter_bytes = Mock(return_value=[zip_content])
             mock_stream.return_value = mock_response
 
             # Should succeed without raising
@@ -550,10 +554,12 @@ class TestSecurityValidation:
 
         # Mock download
         with patch("httpx.stream") as mock_stream:
+            zip_content = malicious_zip.read_bytes()
             mock_response = Mock()
             mock_response.__enter__ = Mock(return_value=mock_response)
             mock_response.__exit__ = Mock(return_value=None)
-            mock_response.iter_bytes = Mock(return_value=[malicious_zip.read_bytes()])
+            mock_response.headers = {"content-length": str(len(zip_content))}
+            mock_response.iter_bytes = Mock(return_value=[zip_content])
             mock_stream.return_value = mock_response
 
             # Should raise RuntimeError wrapping SecurityError
