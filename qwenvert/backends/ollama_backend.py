@@ -5,10 +5,15 @@ from __future__ import annotations
 import logging
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 
 from ..backend_interface import BackendInfo, BackendLifecycle, BackendStatus
+
+if TYPE_CHECKING:
+    from ..hardware import HardwareProfile
+    from ..models import Model
 
 
 logger = logging.getLogger(__name__)
@@ -127,7 +132,7 @@ class OllamaBackend(BackendLifecycle):
                 installation_method="none",
             )
 
-    def configure(self, model, hardware) -> dict:
+    def configure(self, model: Model, hardware: HardwareProfile) -> dict:
         """Generate Ollama configuration."""
         from ..config import ConfigGenerator
 
