@@ -88,16 +88,13 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
             )
             console.print(format_missing_dependency_message(dep_check))
 
-            if not click.confirm(
-                "\nContinue with configuration anyway?", default=False
-            ):
-                console.print("\n[yellow]Initialization cancelled.[/yellow]")
-                console.print(
-                    f"\n[dim]Tip: After installing {dep_check.name}, run 'qwenvert init' again.[/dim]"
-                )
-                sys.exit(1)
-
-            console.print("\n[yellow]Continuing without dependencies...[/yellow]\n")
+            # ZERO-FRICTION: Auto-continue with warning instead of prompting
+            console.print(
+                f"\n[yellow]Warning:[/yellow] {dep_check.name} is not installed but continuing with configuration."
+            )
+            console.print(
+                f"[dim]Tip: Install {dep_check.name} before running 'qwenvert start'.[/dim]\n"
+            )
 
     # Step 1: Detect hardware (needed for binary selection)
     with console.status("[cyan]Detecting hardware...", spinner="dots"):
@@ -159,10 +156,12 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
         if not selected_model.fits_hardware(hardware):
             console.print(
                 f"[yellow]Warning:[/yellow] Model may not fit on your hardware "
-                f"({hardware.total_memory_gb}GB RAM, needs {selected_model.min_ram_gb}GB+)"
+                f"({hardware.total_memory_gb}GB RAM, needs {selected_model.min_ram_gb}GB+). "
+                "Performance may be degraded."
             )
-            if not click.confirm("Continue anyway?"):
-                sys.exit(1)
+            console.print(
+                "[dim]Tip: Run 'qwenvert init --model <smaller-model>' to select a different model.[/dim]\n"
+            )
     else:
         # Auto-select optimal model (prioritizing already-downloaded models)
         selected_model = selector.select_default(
@@ -185,14 +184,13 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
     # Verify model has HuggingFace repo before attempting download
     elif not selected_model.huggingface_repo:
         console.print(
-            f"\n[red]Error:[/red] Model {selected_model.id} has no HuggingFace repository specified"
+            f"\n[yellow]Warning:[/yellow] Model {selected_model.id} has no HuggingFace repository specified"
         )
-        console.print(
-            "\n[yellow]You can manually download the model and place it in:[/yellow]"
-        )
+        console.print("\nYou can manually download the model and place it in:")
         console.print(f"  {downloader.models_dir}")
-        if not click.confirm("\nContinue with configuration anyway?"):
-            sys.exit(1)
+        console.print(
+            "\n[dim]Configuration will be saved. Run 'qwenvert start' after downloading the model.[/dim]\n"
+        )
     else:
         console.print(
             f"\n[cyan]Downloading {selected_model.display_name} from HuggingFace...[/cyan]"
@@ -211,13 +209,12 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
             console.print(f"  Size: {size_gb:.2f} GB")
 
         except Exception as e:
-            console.print(f"\n[red]Error downloading model:[/red] {e}")
-            console.print(
-                "\n[yellow]You can manually download the model and place it in:[/yellow]"
-            )
+            console.print(f"\n[yellow]Warning:[/yellow] Could not download model: {e}")
+            console.print("\nYou can manually download the model and place it in:")
             console.print(f"  {downloader.models_dir}")
-            if not click.confirm("\nContinue with configuration anyway?"):
-                sys.exit(1)
+            console.print(
+                "\n[dim]Configuration will be saved. Run 'qwenvert start' after downloading the model.[/dim]\n"
+            )
 
     # Step 4: Generate configuration
     config_gen = ConfigGenerator(selected_model, hardware)

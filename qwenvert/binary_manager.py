@@ -32,6 +32,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class SecurityError(Exception):
+    """Raised when a security violation is detected (e.g., Zip Slip attack)."""
+
+
 class BinarySource(Enum):
     """Source of llama-server binary."""
 
@@ -291,8 +295,20 @@ class BinaryManager:
                 # Extract to temporary location first
                 extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
 
+                # SECURITY: Validate extraction path to prevent Zip Slip attacks
+                extract_path_resolved = Path(extract_path).resolve()
+                bin_dir_resolved = self.bin_dir.resolve()
+
+                if not extract_path_resolved.is_relative_to(bin_dir_resolved):
+                    raise SecurityError(
+                        f"Zip Slip attack detected: Archive member '{llama_server_path}' "
+                        f"would extract to '{extract_path_resolved}', "
+                        f"which is outside the target directory '{bin_dir_resolved}'. "
+                        "This archive may be malicious."
+                    )
+
                 # Move to final location
-                shutil.move(extract_path, self.binary_path)
+                shutil.move(extract_path_resolved, self.binary_path)
 
         except Exception as e:
             raise RuntimeError(
@@ -833,7 +849,20 @@ class BinaryManager:
                 logger.info(f"Extracting {llama_server_path} from archive")
 
                 extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
-                shutil.move(extract_path, self.binary_path)
+
+                # SECURITY: Validate extraction path to prevent Zip Slip attacks
+                extract_path_resolved = Path(extract_path).resolve()
+                bin_dir_resolved = self.bin_dir.resolve()
+
+                if not extract_path_resolved.is_relative_to(bin_dir_resolved):
+                    raise SecurityError(
+                        f"Zip Slip attack detected: Archive member '{llama_server_path}' "
+                        f"would extract to '{extract_path_resolved}', "
+                        f"which is outside the target directory '{bin_dir_resolved}'. "
+                        "This archive may be malicious."
+                    )
+
+                shutil.move(extract_path_resolved, self.binary_path)
 
         except Exception as e:
             raise RuntimeError(
