@@ -32,6 +32,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class SecurityError(Exception):
+    """Raised when a security violation is detected (e.g., Zip Slip attack)."""
+
+
 class BinarySource(Enum):
     """Source of llama-server binary."""
 
@@ -218,34 +222,32 @@ class BinaryManager:
         except (subprocess.TimeoutExpired, subprocess.SubprocessError):
             return "unknown"
 
-    def download_binary(
-        self, hardware: HardwareProfile, progress_callback: Any = None
+    def _download_and_install_zip(
+        self,
+        release_url: str,
+        version: str,
+        zip_filename: str,
+        progress_callback: Any = None,
     ) -> Path:
         """
-        Download pre-built llama-server binary from GitHub releases.
+        Download, verify, extract, and install llama-server from zip URL.
+
+        This method contains the common logic shared by download_binary()
+        and download_specific_version() to eliminate code duplication.
 
         Args:
-            hardware: Hardware profile for selecting correct binary
+            release_url: Full URL to zip file
+            version: Version string for checksum lookup
+            zip_filename: Name of zip file for checksum lookup
             progress_callback: Optional callback for download progress
 
         Returns:
-            Path to downloaded binary
+            Path to installed binary
 
         Raises:
-            RuntimeError: If download fails
+            RuntimeError: If download, verification, or installation fails
+            SecurityError: If Zip Slip attack detected
         """
-        logger.info(f"Downloading llama-server for {hardware.chip}")
-
-        # Get release URL
-        release_url = self._get_release_url(hardware)
-
-        # Extract version and filename from URL for checksum verification
-        # URL format: https://github.com/.../releases/download/b3600/llama-b3600-bin-macos-arm64.zip
-        url_parts = release_url.split("/")
-        version = url_parts[-2]  # e.g., "b3600"
-        zip_filename = url_parts[-1]  # e.g., "llama-b3600-bin-macos-arm64.zip"
-
-        # Download zip to temporary file
         temp_zip = None
         try:
             # Create temporary file for zip download
@@ -262,7 +264,7 @@ class BinaryManager:
                 if not self.verify_checksum(temp_zip, expected_checksum):
                     raise RuntimeError(
                         f"Checksum verification failed for {zip_filename}. "
-                        f"The downloaded file may be corrupted or tampered with."
+                        "The downloaded file may be corrupted or tampered with."
                     )
                 logger.info("✓ Checksum verification passed")
             else:
@@ -288,7 +290,20 @@ class BinaryManager:
                 llama_server_path = llama_server_files[0]
                 logger.info(f"Extracting {llama_server_path} from archive")
 
-                # Extract to temporary location first
+                # SECURITY: Validate extraction path BEFORE extracting to prevent Zip Slip attacks
+                # Calculate where the file would be extracted and validate it's safe
+                intended_path = (self.bin_dir / llama_server_path).resolve()
+                bin_dir_resolved = self.bin_dir.resolve()
+
+                if not intended_path.is_relative_to(bin_dir_resolved):
+                    raise SecurityError(
+                        f"Zip Slip attack detected: Archive member '{llama_server_path}' "
+                        f"would extract to '{intended_path}', "
+                        f"which is outside the target directory '{bin_dir_resolved}'. "
+                        "This archive may be malicious."
+                    )
+
+                # Safe to extract - path has been validated
                 extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
 
                 # Move to final location
@@ -313,8 +328,40 @@ class BinaryManager:
                 f"Downloaded binary at {self.binary_path} failed validation"
             )
 
-        logger.info(f"Successfully downloaded llama-server: {info}")
+        logger.info(f"Successfully installed llama-server: {info}")
         return self.binary_path
+
+    def download_binary(
+        self, hardware: HardwareProfile, progress_callback: Any = None
+    ) -> Path:
+        """
+        Download pre-built llama-server binary from GitHub releases.
+
+        Args:
+            hardware: Hardware profile for selecting correct binary
+            progress_callback: Optional callback for download progress
+
+        Returns:
+            Path to downloaded binary
+
+        Raises:
+            RuntimeError: If download fails
+        """
+        logger.info(f"Downloading llama-server for {hardware.chip}")
+
+        # Get release URL for latest version
+        release_url = self._get_release_url(hardware)
+
+        # Extract version and filename from URL for checksum verification
+        # URL format: https://github.com/.../releases/download/b3600/llama-b3600-bin-macos-arm64.zip
+        url_parts = release_url.split("/")
+        version = url_parts[-2]  # e.g., "b3600"
+        zip_filename = url_parts[-1]  # e.g., "llama-b3600-bin-macos-arm64.zip"
+
+        # Use common download/install logic
+        return self._download_and_install_zip(
+            release_url, version, zip_filename, progress_callback
+        )
 
     def _get_checksum_for_release(self, version: str, filename: str) -> str | None:
         """
@@ -430,8 +477,6 @@ class BinaryManager:
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
 
         # Determine architecture - robust check for Apple Silicon
-        import platform
-
         chip_lower = hardware.chip.lower()
         machine_lower = platform.machine().lower()
 
@@ -798,61 +843,10 @@ class BinaryManager:
 
         logger.info(f"Downloading from: {release_url}")
 
-        # Download using existing download_binary logic (but with specific URL)
-        temp_zip = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
-                temp_zip = Path(temp_file.name)
-
-            self._download_file(release_url, temp_zip, progress_callback)
-
-            # Verify checksum if available
-            expected_checksum = self._get_checksum_for_release(version, zip_filename)
-            if expected_checksum:
-                logger.info("Verifying download integrity...")
-                if not self.verify_checksum(temp_zip, expected_checksum):
-                    raise RuntimeError(
-                        f"Checksum verification failed for {zip_filename}"
-                    )
-                logger.info("✓ Checksum verification passed")
-
-            # Extract llama-server executable
-            with zipfile.ZipFile(temp_zip, "r") as zip_ref:
-                llama_server_files = [
-                    name
-                    for name in zip_ref.namelist()
-                    if name.endswith(("llama-server", "llama-server.exe"))
-                ]
-
-                if not llama_server_files:
-                    raise RuntimeError(
-                        f"No llama-server executable found in {release_url}"
-                    )
-
-                llama_server_path = llama_server_files[0]
-                logger.info(f"Extracting {llama_server_path} from archive")
-
-                extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
-                shutil.move(extract_path, self.binary_path)
-
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to download version {version} from {release_url}: {e}"
-            ) from e
-        finally:
-            if temp_zip and temp_zip.exists():
-                temp_zip.unlink()
-
-        # Make executable
-        self.binary_path.chmod(self.binary_path.stat().st_mode | stat.S_IEXEC)
-
-        # Verify it works
-        info = self._get_binary_info(self.binary_path, BinarySource.DOWNLOADED)
-        if not info or not info.is_valid:
-            raise RuntimeError("Downloaded binary failed validation")
-
-        logger.info(f"Successfully installed llama-server {version}")
-        return self.binary_path
+        # Use common download/install logic
+        return self._download_and_install_zip(
+            release_url, version, zip_filename, progress_callback
+        )
 
     def backup_binary(self) -> Path | None:
         """
