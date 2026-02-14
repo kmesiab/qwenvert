@@ -76,7 +76,7 @@ Qwenvert emitted incomplete SSE event sequence:
 - [ ] Create PR to main
 - [ ] Request review
 - [ ] Merge after approval
-- [ ] Bump version to 0.2.5
+- [ ] Bump version to 0.2.7
 - [ ] Tag release
 - [ ] Publish to PyPI
 
