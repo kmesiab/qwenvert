@@ -477,8 +477,6 @@ class BinaryManager:
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
 
         # Determine architecture - robust check for Apple Silicon
-        import platform
-
         chip_lower = hardware.chip.lower()
         machine_lower = platform.machine().lower()
 
