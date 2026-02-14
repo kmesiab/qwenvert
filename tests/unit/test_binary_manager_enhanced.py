@@ -485,7 +485,9 @@ class TestSecurityValidation:
             # Should raise RuntimeError (which wraps SecurityError)
             with pytest.raises(RuntimeError) as exc_info:
                 binary_manager._download_and_install_zip(
-                    release_url=f"file://{malicious_zip}", version="malicious"
+                    release_url=f"file://{malicious_zip}",
+                    version="malicious",
+                    zip_filename="malicious.zip",
                 )
 
             # Verify the error message indicates security violation
@@ -520,7 +522,9 @@ class TestSecurityValidation:
             # Should succeed without raising
             try:
                 binary_manager._download_and_install_zip(
-                    release_url=f"file://{safe_zip}", version="safe"
+                    release_url=f"file://{safe_zip}",
+                    version="safe",
+                    zip_filename="safe.zip",
                 )
                 # Verify binary was created
                 assert binary_manager.binary_path.exists(), "Binary should be extracted"
@@ -555,7 +559,9 @@ class TestSecurityValidation:
             # Should raise RuntimeError wrapping SecurityError
             with pytest.raises(RuntimeError) as exc_info:
                 binary_manager._download_and_install_zip(
-                    release_url=f"file://{malicious_zip}", version="absolute"
+                    release_url=f"file://{malicious_zip}",
+                    version="absolute",
+                    zip_filename="absolute.zip",
                 )
 
             error_msg = str(exc_info.value).lower()
