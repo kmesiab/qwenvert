@@ -236,6 +236,12 @@ class BinaryManager:
         # Get release URL
         release_url = self._get_release_url(hardware)
 
+        # Extract version and filename from URL for checksum verification
+        # URL format: https://github.com/.../releases/download/b3600/llama-b3600-bin-macos-arm64.zip
+        url_parts = release_url.split("/")
+        version = url_parts[-2]  # e.g., "b3600"
+        zip_filename = url_parts[-1]  # e.g., "llama-b3600-bin-macos-arm64.zip"
+
         # Download zip to temporary file
         temp_zip = None
         try:
@@ -247,6 +253,21 @@ class BinaryManager:
 
             # Download zip archive
             self._download_file(release_url, temp_zip, progress_callback)
+
+            # Verify checksum if available
+            expected_checksum = self._get_checksum_for_release(version, zip_filename)
+            if expected_checksum:
+                logger.info("Verifying download integrity...")
+                if not self.verify_checksum(temp_zip, expected_checksum):
+                    raise RuntimeError(
+                        f"Checksum verification failed for {zip_filename}. "
+                        f"The downloaded file may be corrupted or tampered with."
+                    )
+                logger.info("✓ Checksum verification passed")
+            else:
+                logger.warning(
+                    "Checksum not available for this release - skipping verification"
+                )
 
             # Extract llama-server executable from zip
             with zipfile.ZipFile(temp_zip, "r") as zip_ref:
@@ -293,6 +314,58 @@ class BinaryManager:
 
         logger.info(f"Successfully downloaded llama-server: {info}")
         return self.binary_path
+
+    def _get_checksum_for_release(self, version: str, filename: str) -> str | None:
+        """
+        Fetch SHA256 checksum for a release file from GitHub.
+
+        Args:
+            version: Release version tag
+            filename: Name of the file to get checksum for
+
+        Returns:
+            SHA256 checksum string, or None if not found
+        """
+        try:
+            # Common checksum file names in llama.cpp releases
+            checksum_files = ["SHA256SUMS", "checksums.txt", f"{filename}.sha256"]
+
+            base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download/{version}"
+
+            for checksum_file in checksum_files:
+                try:
+                    checksum_url = f"{base_url}/{checksum_file}"
+                    response = httpx.get(
+                        checksum_url,
+                        timeout=10.0,
+                        follow_redirects=True,
+                    )
+
+                    if response.status_code == 200:
+                        # Parse checksum file (format: "checksum filename")
+                        content = response.text
+                        for line in content.splitlines():
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                checksum, file_in_line = parts[0], parts[1]
+                                # Match filename (with or without path prefix)
+                                if filename in file_in_line or file_in_line in filename:
+                                    logger.info(
+                                        f"Found checksum for {filename}: {checksum[:16]}..."
+                                    )
+                                    return checksum
+
+                except httpx.HTTPError:
+                    continue
+
+            logger.warning(
+                f"Could not find checksum for {filename} in release {version}"
+            )
+            return None
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch checksum: {e}")
+            return None
 
     def _get_latest_release_version(self) -> str:
         """
