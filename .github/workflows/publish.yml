@@ -213,19 +213,57 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Wait for PyPI CDN to propagate
-        run: |
-          echo "⏳ Waiting 90 seconds for PyPI to propagate..."
-          sleep 90
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Test installation on macOS
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify installation with retry
         run: |
+          # Extract version from release tag (remove 'v' prefix) or from pyproject.toml
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); print(tomllib.load(f)['project']['version'])")
+          fi
+
+          # Determine PyPI index URL based on test_pypi input
+          if [ "${{ inputs.test_pypi }}" = "true" ]; then
+            INDEX_URL="https://test.pypi.org/simple"
+            echo "📦 Attempting to install qwenvert version $VERSION from TestPyPI..."
+          else
+            INDEX_URL="https://pypi.org/simple"
+            echo "📦 Attempting to install qwenvert version $VERSION from PyPI..."
+          fi
+          
           # Test installation in clean environment
           python -m venv test_env
           source test_env/bin/activate
 
-          pip install qwenvert
+          # Retry loop: 5 attempts with 30-second sleep between attempts
+          # Use --index-url to force canonical PyPI index (bypasses edge caches)
+          for i in {1..5}; do
+            echo "🔄 Attempt $i of 5..."
+            
+            if pip install "qwenvert==$VERSION" --no-cache-dir --index-url "$INDEX_URL"; then
+              echo "✅ Successfully installed qwenvert==$VERSION"
+              break
+            else
+              if [ $i -eq 5 ]; then
+                echo "❌ PyPI failed to index version $VERSION within the timeout period."
+                exit 1
+              fi
+              echo "⏳ Waiting for PyPI CDN to propagate... (30 seconds)"
+              sleep 30
+            fi
+          done
+
+          # Verify installation
+          echo "🔍 Verifying installation..."
           qwenvert --version
           qwenvert --help
-
+          
           echo "✅ macOS installation verified"
