@@ -44,11 +44,12 @@ class OllamaBackend(BackendLifecycle):
                 )
 
                 if result.returncode == 0:
-                    version = result.stdout.strip().split()[-1]
+                    parts = result.stdout.strip().split()
+                    version = parts[-1] if parts else "unknown"
                 else:
                     version = "unknown"
 
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+            except (subprocess.TimeoutExpired, subprocess.SubprocessError, IndexError):
                 version = "unknown"
 
             return BackendInfo(

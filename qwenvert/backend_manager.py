@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import ClassVar
 
-from .backend_interface import BackendInfo, BackendLifecycle
+from .backend_interface import BackendInfo, BackendLifecycle, BackendStatus
 from .backends import LlamaCppBackend, OllamaBackend
 from .models import Backend
 
@@ -61,8 +61,6 @@ class BackendManager:
                 results[backend_type] = backend.detect()
             except Exception as e:
                 logger.warning(f"Failed to detect {backend_type.value}: {e}")
-                from .backend_interface import BackendStatus
-
                 results[backend_type] = BackendInfo(
                     name=backend_type.value,
                     version=None,
@@ -86,8 +84,6 @@ class BackendManager:
         available = cls.detect_all()
 
         # Priority 1: llama.cpp (3-7x faster based on research)
-        from .backend_interface import BackendStatus
-
         if available[Backend.LLAMACPP].status == BackendStatus.AVAILABLE:
             logger.info("Recommending llama.cpp (available and faster)")
             return Backend.LLAMACPP
