@@ -356,20 +356,18 @@ class TestSecurityValidation:
         import inspect
 
         # Read the source code of the common download helper
-        source = inspect.getsource(binary_manager._download_and_install_zip)
+        source = inspect.getsource(binary_manager._download_and_install_archive)
 
         # Verify security check is in place
         assert (
             "is_relative_to" in source
-        ), "Zip Slip check using is_relative_to() must be present"
+        ), "Path traversal check using is_relative_to() must be present"
         assert "SecurityError" in source, "SecurityError exception must be raised"
         assert "resolve()" in source, "Path resolution must be present"
-        assert (
-            "Zip Slip attack detected" in source
-        ), "Clear error message must be present"
+        assert "attack detected" in source, "Clear error message must be present"
 
     def test_security_check_before_extraction(self, binary_manager):
-        """Verify that Zip Slip validation happens BEFORE extraction (not after).
+        """Verify that path traversal validation happens BEFORE extraction (not after).
 
         NOTE: This is a brittle source-inspection test that validates order of operations
         to prevent TOCTOU vulnerabilities. The functional tests verify actual behavior.
@@ -378,11 +376,14 @@ class TestSecurityValidation:
         import inspect
 
         # Read the source code of the helper
-        source = inspect.getsource(binary_manager._download_and_install_zip)
+        source = inspect.getsource(binary_manager._download_and_install_archive)
 
         # Find the positions of key operations
         security_check_pos = source.find("is_relative_to")
-        extract_pos = source.find("zip_ref.extract")
+        # Check for both zip and tar extraction (the method supports both)
+        zip_extract_pos = source.find("zip_ref.extract")
+        tar_extract_pos = source.find("tar_ref.extract")
+        extract_pos = min(p for p in [zip_extract_pos, tar_extract_pos] if p != -1)
 
         assert security_check_pos != -1, "Security check must be present"
         assert extract_pos != -1, "Extraction must be present"
@@ -390,7 +391,7 @@ class TestSecurityValidation:
         # CRITICAL: Security check must come BEFORE extraction
         assert (
             security_check_pos < extract_pos
-        ), "Zip Slip validation must happen BEFORE extraction to prevent TOCTOU vulnerability"
+        ), "Path traversal validation must happen BEFORE extraction to prevent TOCTOU vulnerability"
 
     def test_download_methods_use_secure_helper(self, binary_manager):
         """Verify that both download methods use the secure helper."""
@@ -399,7 +400,7 @@ class TestSecurityValidation:
         # Check download_binary uses the helper
         download_binary_source = inspect.getsource(binary_manager.download_binary)
         assert (
-            "_download_and_install_zip" in download_binary_source
+            "_download_and_install_archive" in download_binary_source
         ), "download_binary must use secure helper"
 
         # Check download_specific_version uses the helper
@@ -407,7 +408,7 @@ class TestSecurityValidation:
             binary_manager.download_specific_version
         )
         assert (
-            "_download_and_install_zip" in download_specific_source
+            "_download_and_install_archive" in download_specific_source
         ), "download_specific_version must use secure helper"
 
     def test_security_error_exception_exists(self):
@@ -486,16 +487,16 @@ class TestSecurityValidation:
 
             # Should raise RuntimeError (which wraps SecurityError)
             with pytest.raises(RuntimeError) as exc_info:
-                binary_manager._download_and_install_zip(
+                binary_manager._download_and_install_archive(
                     release_url=f"file://{malicious_zip}",
                     version="malicious",
-                    zip_filename="malicious.zip",
+                    archive_filename="malicious.zip",
                 )
 
             # Verify the error message indicates security violation
             error_msg = str(exc_info.value).lower()
             assert (
-                "zip slip" in error_msg or "security" in error_msg
+                "attack detected" in error_msg or "security" in error_msg
             ), f"Expected security error, got: {exc_info.value}"
 
         # Verify no files were extracted outside bin_dir
@@ -546,10 +547,10 @@ class TestSecurityValidation:
                     ):
                         # Should succeed without raising
                         try:
-                            binary_manager._download_and_install_zip(
+                            binary_manager._download_and_install_archive(
                                 release_url=f"file://{safe_zip}",
                                 version="safe",
-                                zip_filename="safe.zip",
+                                archive_filename="safe.zip",
                             )
                             # Verify binary was created
                             assert (
@@ -588,15 +589,15 @@ class TestSecurityValidation:
 
             # Should raise RuntimeError wrapping SecurityError
             with pytest.raises(RuntimeError) as exc_info:
-                binary_manager._download_and_install_zip(
+                binary_manager._download_and_install_archive(
                     release_url=f"file://{malicious_zip}",
                     version="absolute",
-                    zip_filename="absolute.zip",
+                    archive_filename="absolute.zip",
                 )
 
             error_msg = str(exc_info.value).lower()
             assert (
-                "zip slip" in error_msg or "security" in error_msg
+                "attack detected" in error_msg or "security" in error_msg
             ), "Should detect absolute path attack"
 
 
@@ -751,9 +752,8 @@ class TestArchitectureDetection:
             ):
                 url = binary_manager._get_release_url(hardware)
 
-                assert (
-                    "macos-x86_64" in url
-                ), f"Intel Mac should select x86_64, got: {url}"
+                # Note: llama.cpp releases use "x64" not "x86_64" in filenames
+                assert "macos-x64" in url, f"Intel Mac should select x64, got: {url}"
                 assert (
                     "macos-arm64" not in url
                 ), f"Intel Mac should NOT select arm64, got: {url}"

@@ -14,6 +14,7 @@ import platform
 import shutil
 import stat
 import subprocess
+import tarfile
 import tempfile
 import time
 import zipfile
@@ -65,8 +66,8 @@ class BinaryInfo:
 class BinaryManager:
     """Manages llama-server binary lifecycle."""
 
-    # Official llama.cpp GitHub releases
-    GITHUB_REPO = "ggerganov/llama.cpp"
+    # Official llama.cpp GitHub releases (migrated to ggml-org)
+    GITHUB_REPO = "ggml-org/llama.cpp"
     GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
     # Local storage
@@ -222,23 +223,22 @@ class BinaryManager:
         except (subprocess.TimeoutExpired, subprocess.SubprocessError):
             return "unknown"
 
-    def _download_and_install_zip(
+    def _download_and_install_archive(
         self,
         release_url: str,
         version: str,
-        zip_filename: str,
+        archive_filename: str,
         progress_callback: Any = None,
     ) -> Path:
         """
-        Download, verify, extract, and install llama-server from zip URL.
+        Download, verify, extract, and install llama-server from archive URL.
 
-        This method contains the common logic shared by download_binary()
-        and download_specific_version() to eliminate code duplication.
+        Supports both .zip and .tar.gz formats (auto-detected from URL).
 
         Args:
-            release_url: Full URL to zip file
+            release_url: Full URL to archive file (.zip or .tar.gz)
             version: Version string for checksum lookup
-            zip_filename: Name of zip file for checksum lookup
+            archive_filename: Name of archive file for checksum lookup
             progress_callback: Optional callback for download progress
 
         Returns:
@@ -246,79 +246,124 @@ class BinaryManager:
 
         Raises:
             RuntimeError: If download, verification, or installation fails
-            SecurityError: If Zip Slip attack detected
+            SecurityError: If path traversal attack detected
         """
-        temp_zip = None
-        try:
-            # Create temporary file for zip download
-            with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
-                temp_zip = Path(temp_file.name)
+        temp_archive = None
+        is_tarball = archive_filename.endswith((".tar.gz", ".tgz"))
+        suffix = ".tar.gz" if is_tarball else ".zip"
 
-            # Download zip archive
-            self._download_file(release_url, temp_zip, progress_callback)
+        try:
+            # Create temporary file for archive download
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as temp_file:
+                temp_archive = Path(temp_file.name)
+
+            # Download archive
+            self._download_file(release_url, temp_archive, progress_callback)
 
             # SECURITY: Enforce checksum verification (fail-closed)
-            expected_checksum = self._get_checksum_for_release(version, zip_filename)
+            expected_checksum = self._get_checksum_for_release(
+                version, archive_filename
+            )
             if not expected_checksum:
                 raise RuntimeError(
-                    f"Checksum not available for {zip_filename} in release {version}. "
+                    f"Checksum not available for {archive_filename} in release {version}. "
                     "Cannot verify binary integrity. This is a security requirement. "
                     "Please report this issue if you encounter it."
                 )
 
             logger.info("Verifying download integrity...")
-            if not self.verify_checksum(temp_zip, expected_checksum):
+            if not self.verify_checksum(temp_archive, expected_checksum):
                 raise RuntimeError(
-                    f"Checksum verification failed for {zip_filename}. "
+                    f"Checksum verification failed for {archive_filename}. "
                     "The downloaded file may be corrupted or tampered with."
                 )
             logger.info("✓ Checksum verification passed")
 
-            # Extract llama-server executable from zip
-            with zipfile.ZipFile(temp_zip, "r") as zip_ref:
-                # Find llama-server executable in the archive
-                llama_server_files = [
-                    name
-                    for name in zip_ref.namelist()
-                    if name.endswith(("llama-server", "llama-server.exe"))
-                ]
+            # Extract llama-server executable from archive
+            if is_tarball:
+                # Handle tar.gz format
+                with tarfile.open(temp_archive, "r:gz") as tar_ref:
+                    # Find llama-server executable in the archive
+                    llama_server_files = [
+                        member.name
+                        for member in tar_ref.getmembers()
+                        if member.name.endswith(("llama-server", "llama-server.exe"))
+                        and member.isfile()
+                    ]
 
-                if not llama_server_files:
-                    raise RuntimeError(
-                        f"No llama-server executable found in {release_url}"
-                    )
+                    if not llama_server_files:
+                        raise RuntimeError(
+                            f"No llama-server executable found in {release_url}"
+                        )
 
-                # Extract the executable
-                llama_server_path = llama_server_files[0]
-                logger.info(f"Extracting {llama_server_path} from archive")
+                    # Extract the executable
+                    llama_server_path = llama_server_files[0]
+                    logger.info(f"Extracting {llama_server_path} from tar.gz archive")
 
-                # SECURITY: Validate extraction path BEFORE extracting to prevent Zip Slip attacks
-                # Calculate where the file would be extracted and validate it's safe
-                intended_path = (self.bin_dir / llama_server_path).resolve()
-                bin_dir_resolved = self.bin_dir.resolve()
+                    # SECURITY: Validate extraction path BEFORE extracting
+                    intended_path = (self.bin_dir / llama_server_path).resolve()
+                    bin_dir_resolved = self.bin_dir.resolve()
 
-                if not intended_path.is_relative_to(bin_dir_resolved):
-                    raise SecurityError(
-                        f"Zip Slip attack detected: Archive member '{llama_server_path}' "
-                        f"would extract to '{intended_path}', "
-                        f"which is outside the target directory '{bin_dir_resolved}'. "
-                        "This archive may be malicious."
-                    )
+                    if not intended_path.is_relative_to(bin_dir_resolved):
+                        raise SecurityError(
+                            f"Path traversal attack detected: Archive member '{llama_server_path}' "
+                            f"would extract to '{intended_path}', "
+                            f"which is outside the target directory '{bin_dir_resolved}'. "
+                            "This archive may be malicious."
+                        )
 
-                # Safe to extract - path has been validated
-                extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
+                    # Safe to extract - path has been validated
+                    member = tar_ref.getmember(llama_server_path)
+                    tar_ref.extract(member, self.bin_dir)
+                    extract_path = self.bin_dir / llama_server_path
 
-                # Move to final location
-                shutil.move(extract_path, self.binary_path)
+                    # Move to final location
+                    shutil.move(extract_path, self.binary_path)
+            else:
+                # Handle zip format
+                with zipfile.ZipFile(temp_archive, "r") as zip_ref:
+                    # Find llama-server executable in the archive
+                    llama_server_files = [
+                        name
+                        for name in zip_ref.namelist()
+                        if name.endswith(("llama-server", "llama-server.exe"))
+                    ]
+
+                    if not llama_server_files:
+                        raise RuntimeError(
+                            f"No llama-server executable found in {release_url}"
+                        )
+
+                    # Extract the executable
+                    llama_server_path = llama_server_files[0]
+                    logger.info(f"Extracting {llama_server_path} from zip archive")
+
+                    # SECURITY: Validate extraction path BEFORE extracting
+                    intended_path = (self.bin_dir / llama_server_path).resolve()
+                    bin_dir_resolved = self.bin_dir.resolve()
+
+                    if not intended_path.is_relative_to(bin_dir_resolved):
+                        raise SecurityError(
+                            f"Zip Slip attack detected: Archive member '{llama_server_path}' "
+                            f"would extract to '{intended_path}', "
+                            f"which is outside the target directory '{bin_dir_resolved}'. "
+                            "This archive may be malicious."
+                        )
+
+                    # Safe to extract - path has been validated
+                    extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
+
+                    # Move to final location
+                    shutil.move(extract_path, self.binary_path)
 
         except Exception as e:
             raise RuntimeError(
                 f"Failed to download llama-server from {release_url}: {e}"
             ) from e
         finally:
-            # Clean up temporary zip file
-            if temp_zip and temp_zip.exists():
-                temp_zip.unlink()
+            # Clean up temporary archive file
+            if temp_archive and temp_archive.exists():
+                temp_archive.unlink()
 
         # Make executable
         self.binary_path.chmod(self.binary_path.stat().st_mode | stat.S_IEXEC)
@@ -355,14 +400,14 @@ class BinaryManager:
         release_url = self._get_release_url(hardware)
 
         # Extract version and filename from URL for checksum verification
-        # URL format: https://github.com/.../releases/download/b3600/llama-b3600-bin-macos-arm64.zip
+        # URL format: https://github.com/.../releases/download/b8054/llama-b8054-bin-macos-arm64.tar.gz
         url_parts = release_url.split("/")
-        version = url_parts[-2]  # e.g., "b3600"
-        zip_filename = url_parts[-1]  # e.g., "llama-b3600-bin-macos-arm64.zip"
+        version = url_parts[-2]  # e.g., "b8054"
+        archive_filename = url_parts[-1]  # e.g., "llama-b8054-bin-macos-arm64.tar.gz"
 
         # Use common download/install logic
-        return self._download_and_install_zip(
-            release_url, version, zip_filename, progress_callback
+        return self._download_and_install_archive(
+            release_url, version, archive_filename, progress_callback
         )
 
     def _get_checksum_for_release(self, version: str, filename: str) -> str | None:
@@ -490,7 +535,8 @@ class BinaryManager:
             or "aarch64" in machine_lower
         )
 
-        arch = "arm64" if is_apple_silicon else "x86_64"
+        # Note: llama.cpp releases use "arm64" and "x64" (not "x86_64")
+        arch = "arm64" if is_apple_silicon else "x64"
 
         logger.info(
             f"Detected architecture: {arch} (chip={hardware.chip}, machine={platform.machine()})"
@@ -499,9 +545,9 @@ class BinaryManager:
         # Get latest release version dynamically
         version = self.get_latest_release_version()
 
-        # Construct URL
-        # Example: https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip
-        url = f"{base_url}/{version}/llama-{version}-bin-macos-{arch}.zip"
+        # Construct URL (format changed from .zip to .tar.gz after repo migration)
+        # Example: https://github.com/ggml-org/llama.cpp/releases/download/b8054/llama-b8054-bin-macos-arm64.tar.gz
+        url = f"{base_url}/{version}/llama-{version}-bin-macos-{arch}.tar.gz"
 
         logger.info(f"Release URL: {url}")
         return url
@@ -759,7 +805,7 @@ class BinaryManager:
             "Failed to install llama-server automatically. "
             "Please install manually:\n"
             "  1. Via Homebrew: brew install llama.cpp\n"
-            "  2. Download from: https://github.com/ggerganov/llama.cpp/releases\n"
+            "  2. Download from: https://github.com/ggml-org/llama.cpp/releases\n"
             "  3. Or use Ollama backend: qwenvert init --backend ollama"
         )
 
@@ -838,21 +884,19 @@ class BinaryManager:
         chip_lower = hardware.chip.lower()
         machine_lower = platform.machine().lower()
 
-        if "arm" in chip_lower or "aarch64" in machine_lower:
-            arch = "arm64"
-        else:
-            arch = "x86_64"
+        # Note: llama.cpp releases use "arm64" and "x64" (not "x86_64")
+        arch = "arm64" if "arm" in chip_lower or "aarch64" in machine_lower else "x64"
 
-        # Construct URL for specific version
+        # Construct URL for specific version (format changed from .zip to .tar.gz)
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
-        zip_filename = f"llama-{version}-bin-macos-{arch}.zip"
-        release_url = f"{base_url}/{version}/{zip_filename}"
+        archive_filename = f"llama-{version}-bin-macos-{arch}.tar.gz"
+        release_url = f"{base_url}/{version}/{archive_filename}"
 
         logger.info(f"Downloading from: {release_url}")
 
         # Use common download/install logic
-        return self._download_and_install_zip(
-            release_url, version, zip_filename, progress_callback
+        return self._download_and_install_archive(
+            release_url, version, archive_filename, progress_callback
         )
 
     def backup_binary(self) -> Path | None:

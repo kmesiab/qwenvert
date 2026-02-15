@@ -9,7 +9,7 @@ exclude = ["docs*", "benchmarks*", "configs*", "homebrew*"]
 
 [project]
 name = "qwenvert"
-version = "0.2.11"
+version = "0.2.12"
 description = "One-click local LLM inference for Claude Code on Mac M1"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
