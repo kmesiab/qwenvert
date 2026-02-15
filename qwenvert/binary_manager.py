@@ -277,7 +277,14 @@ class BinaryManager:
 
             # Safe to extract - path has been validated
             member = tar_ref.getmember(llama_server_path)
-            tar_ref.extract(member, self.bin_dir, filter="data")
+            # Python 3.12+ requires filter parameter to avoid deprecation warning
+            # Python 3.9-3.11 don't support it
+            import sys
+
+            if sys.version_info >= (3, 12):
+                tar_ref.extract(member, self.bin_dir, filter="data")
+            else:
+                tar_ref.extract(member, self.bin_dir)
             extract_path = self.bin_dir / llama_server_path
 
             # Move to final location
