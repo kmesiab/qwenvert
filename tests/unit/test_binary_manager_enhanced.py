@@ -609,23 +609,10 @@ class TestArchitectureDetection:
         )
 
         with patch("platform.machine", return_value="arm64"):
-            with patch("httpx.get") as mock_get:
-                # Mock GitHub API to return releases
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = [
-                    {
-                        "tag_name": "b3600",
-                        "assets": [
-                            {
-                                "name": "llama-b3600-bin-macos-arm64.zip",
-                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
-                            }
-                        ],
-                    }
-                ]
-                mock_get.return_value = mock_response
-
+            # Patch get_latest_release_version to focus test on architecture detection only
+            with patch.object(
+                binary_manager, "get_latest_release_version", return_value="b3600"
+            ):
                 url = binary_manager._get_release_url(hardware)
 
                 assert "macos-arm64" in url, f"M1 chip should select arm64, got: {url}"
@@ -648,22 +635,9 @@ class TestArchitectureDetection:
         )
 
         with patch("platform.machine", return_value="arm64"):
-            with patch("httpx.get") as mock_get:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = [
-                    {
-                        "tag_name": "b3600",
-                        "assets": [
-                            {
-                                "name": "llama-b3600-bin-macos-arm64.zip",
-                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
-                            }
-                        ],
-                    }
-                ]
-                mock_get.return_value = mock_response
-
+            with patch.object(
+                binary_manager, "get_latest_release_version", return_value="b3600"
+            ):
                 url = binary_manager._get_release_url(hardware)
 
                 assert "macos-arm64" in url, f"M2 chip should select arm64, got: {url}"
@@ -686,22 +660,9 @@ class TestArchitectureDetection:
         )
 
         with patch("platform.machine", return_value="arm64"):
-            with patch("httpx.get") as mock_get:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = [
-                    {
-                        "tag_name": "b3600",
-                        "assets": [
-                            {
-                                "name": "llama-b3600-bin-macos-arm64.zip",
-                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
-                            }
-                        ],
-                    }
-                ]
-                mock_get.return_value = mock_response
-
+            with patch.object(
+                binary_manager, "get_latest_release_version", return_value="b3600"
+            ):
                 url = binary_manager._get_release_url(hardware)
 
                 assert (
@@ -726,22 +687,9 @@ class TestArchitectureDetection:
         )
 
         with patch("platform.machine", return_value="arm64"):
-            with patch("httpx.get") as mock_get:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = [
-                    {
-                        "tag_name": "b3600",
-                        "assets": [
-                            {
-                                "name": "llama-b3600-bin-macos-arm64.zip",
-                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
-                            }
-                        ],
-                    }
-                ]
-                mock_get.return_value = mock_response
-
+            with patch.object(
+                binary_manager, "get_latest_release_version", return_value="b3600"
+            ):
                 url = binary_manager._get_release_url(hardware)
 
                 assert "macos-arm64" in url, f"M4 chip should select arm64, got: {url}"
@@ -765,22 +713,9 @@ class TestArchitectureDetection:
 
         # Even if chip detection fails, platform.machine() should work
         with patch("platform.machine", return_value="arm64"):
-            with patch("httpx.get") as mock_get:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = [
-                    {
-                        "tag_name": "b3600",
-                        "assets": [
-                            {
-                                "name": "llama-b3600-bin-macos-arm64.zip",
-                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
-                            }
-                        ],
-                    }
-                ]
-                mock_get.return_value = mock_response
-
+            with patch.object(
+                binary_manager, "get_latest_release_version", return_value="b3600"
+            ):
                 url = binary_manager._get_release_url(hardware)
 
                 assert (
@@ -802,22 +737,9 @@ class TestArchitectureDetection:
         )
 
         with patch("platform.machine", return_value="x86_64"):
-            with patch("httpx.get") as mock_get:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = [
-                    {
-                        "tag_name": "b3600",
-                        "assets": [
-                            {
-                                "name": "llama-b3600-bin-macos-x86_64.zip",
-                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-x86_64.zip",
-                            }
-                        ],
-                    }
-                ]
-                mock_get.return_value = mock_response
-
+            with patch.object(
+                binary_manager, "get_latest_release_version", return_value="b3600"
+            ):
                 url = binary_manager._get_release_url(hardware)
 
                 assert (
@@ -842,22 +764,9 @@ class TestArchitectureDetection:
         )
 
         with patch("platform.machine", return_value="arm64"):
-            with patch("httpx.get") as mock_get:
-                mock_response = Mock()
-                mock_response.status_code = 200
-                mock_response.json.return_value = [
-                    {
-                        "tag_name": "b3600",
-                        "assets": [
-                            {
-                                "name": "llama-b3600-bin-macos-arm64.zip",
-                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
-                            }
-                        ],
-                    }
-                ]
-                mock_get.return_value = mock_response
-
+            with patch.object(
+                binary_manager, "get_latest_release_version", return_value="b3600"
+            ):
                 url = binary_manager._get_release_url(hardware)
 
                 assert (
