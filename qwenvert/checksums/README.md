@@ -72,8 +72,7 @@ git commit -m "Add verified checksums for llama.cpp b8054 release"
 
 ## Upstream Status
 
-We've filed an issue with ggml-org requesting they publish checksums:
-- Issue: https://github.com/ggml-org/llama.cpp/issues/XXXXX
+An issue will be filed with ggml-org requesting they publish checksums after v0.2.12 validates the bundled checksum approach works correctly in production.
 
 If ggml-org starts publishing checksums, qwenvert will automatically prefer those over bundled checksums.
 

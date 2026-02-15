@@ -359,7 +359,9 @@ class BinaryManager:
                         )
 
                     # Safe to extract - path has been validated
-                    extract_path = zip_ref.extract(llama_server_path, self.bin_dir)
+                    extract_path = Path(
+                        zip_ref.extract(llama_server_path, self.bin_dir)
+                    )
 
                     # Move to final location
                     shutil.move(extract_path, self.binary_path)
@@ -503,8 +505,6 @@ class BinaryManager:
         """
         try:
             # Look for checksums in package data directory
-            from pathlib import Path
-
             # Try to find checksums directory relative to this file
             checksums_dir = Path(__file__).parent / "checksums"
 
