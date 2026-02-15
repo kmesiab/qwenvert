@@ -260,24 +260,32 @@ class BinaryManager:
             # Download archive
             self._download_file(release_url, temp_archive, progress_callback)
 
-            # SECURITY: Enforce checksum verification (fail-closed)
+            # SECURITY: Attempt checksum verification (best-effort with fallback)
+            # Try to get checksum from: 1) bundled repo checksums, 2) GitHub release assets
             expected_checksum = self._get_checksum_for_release(
                 version, archive_filename
             )
-            if not expected_checksum:
-                raise RuntimeError(
-                    f"Checksum not available for {archive_filename} in release {version}. "
-                    "Cannot verify binary integrity. This is a security requirement. "
-                    "Please report this issue if you encounter it."
-                )
 
-            logger.info("Verifying download integrity...")
-            if not self.verify_checksum(temp_archive, expected_checksum):
-                raise RuntimeError(
-                    f"Checksum verification failed for {archive_filename}. "
-                    "The downloaded file may be corrupted or tampered with."
+            if expected_checksum:
+                logger.info("Verifying download integrity...")
+                if not self.verify_checksum(temp_archive, expected_checksum):
+                    raise RuntimeError(
+                        f"Checksum verification failed for {archive_filename}. "
+                        "The downloaded file may be corrupted or tampered with."
+                    )
+                logger.info("✓ Checksum verification passed")
+            else:
+                # WARNING: ggml-org/llama.cpp does not publish checksums (as of Feb 2025)
+                # We trust HTTPS + GitHub's infrastructure as a fallback
+                logger.warning(
+                    f"⚠️  Checksum not available for {archive_filename} in release {version}"
                 )
-            logger.info("✓ Checksum verification passed")
+                logger.warning(
+                    "⚠️  Installing without checksum verification (trusting HTTPS + GitHub)"
+                )
+                logger.warning(
+                    "⚠️  Please report missing checksums: https://github.com/ggml-org/llama.cpp/issues"
+                )
 
             # Extract llama-server executable from archive
             if is_tarball:
@@ -412,7 +420,11 @@ class BinaryManager:
 
     def _get_checksum_for_release(self, version: str, filename: str) -> str | None:
         """
-        Fetch SHA256 checksum for a release file from GitHub.
+        Fetch SHA256 checksum for a release file.
+
+        Tries multiple sources in order:
+        1. Bundled checksums in qwenvert repo (checksums/ directory)
+        2. Checksum files published with GitHub release
 
         Args:
             version: Release version tag
@@ -422,7 +434,17 @@ class BinaryManager:
             SHA256 checksum string, or None if not found
         """
         try:
-            # Common checksum file names in llama.cpp releases
+            # FIRST: Try bundled checksums from qwenvert repo
+            # These are self-hosted verified checksums we maintain
+            bundled_checksum = self._get_bundled_checksum(version, filename)
+            if bundled_checksum:
+                logger.info(
+                    f"Found bundled checksum for {filename}: {bundled_checksum[:16]}..."
+                )
+                return bundled_checksum
+
+            # SECOND: Try upstream checksum files from llama.cpp releases
+            # (ggml-org doesn't publish these as of Feb 2025, but we check anyway)
             checksum_files = ["SHA256SUMS", "checksums.txt", f"{filename}.sha256"]
 
             base_url = (
@@ -448,20 +470,71 @@ class BinaryManager:
                                 # Match filename (with or without path prefix)
                                 if filename in file_in_line or file_in_line in filename:
                                     logger.info(
-                                        f"Found checksum for {filename}: {checksum[:16]}..."
+                                        f"Found upstream checksum for {filename}: {checksum[:16]}..."
                                     )
                                     return checksum
 
                 except httpx.HTTPError:
                     continue
 
-            logger.warning(
-                f"Could not find checksum for {filename} in release {version}"
+            logger.debug(
+                f"No checksum found for {filename} in release {version} "
+                "(neither bundled nor upstream)"
             )
             return None
 
         except Exception as e:
             logger.warning(f"Failed to fetch checksum: {e}")
+            return None
+
+    def _get_bundled_checksum(self, version: str, filename: str) -> str | None:
+        """
+        Get checksum from bundled checksums directory.
+
+        Qwenvert maintains verified checksums for llama.cpp releases
+        in the repo at: qwenvert/checksums/{version}.txt
+
+        Args:
+            version: Release version tag (e.g., "b8054")
+            filename: Archive filename (e.g., "llama-b8054-bin-macos-arm64.tar.gz")
+
+        Returns:
+            SHA256 checksum string, or None if not found
+        """
+        try:
+            # Look for checksums in package data directory
+            from pathlib import Path
+
+            # Try to find checksums directory relative to this file
+            checksums_dir = Path(__file__).parent / "checksums"
+
+            if not checksums_dir.exists():
+                return None
+
+            # Check for version-specific checksum file
+            checksum_file = checksums_dir / f"{version}.txt"
+
+            if not checksum_file.exists():
+                return None
+
+            # Parse checksum file (format: "checksum filename" per line)
+            content = checksum_file.read_text()
+            for raw_line in content.splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+
+                parts = line.split()
+                if len(parts) >= 2:
+                    checksum, file_in_line = parts[0], parts[1]
+                    # Match filename (with or without path prefix)
+                    if filename in file_in_line or file_in_line in filename:
+                        return checksum
+
+            return None
+
+        except Exception as e:
+            logger.debug(f"Failed to read bundled checksum: {e}")
             return None
 
     def get_latest_release_version(self, use_cache: bool = True) -> str:

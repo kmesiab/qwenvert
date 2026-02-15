@@ -7,6 +7,9 @@ where = ["."]
 include = ["qwenvert*"]
 exclude = ["docs*", "benchmarks*", "configs*", "homebrew*"]
 
+[tool.setuptools.package-data]
+qwenvert = ["checksums/*.txt", "checksums/*.md"]
+
 [project]
 name = "qwenvert"
 version = "0.2.12"
