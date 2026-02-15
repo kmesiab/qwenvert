@@ -480,7 +480,15 @@ class BinaryManager:
         chip_lower = hardware.chip.lower()
         machine_lower = platform.machine().lower()
 
-        if "arm" in chip_lower or "aarch64" in machine_lower:
+        # Apple Silicon detection: M1/M2/M3/M4 chips or arm64 architecture
+        is_apple_silicon = (
+            any(chip in chip_lower for chip in ["m1", "m2", "m3", "m4"])
+            or "arm" in chip_lower
+            or "arm64" in machine_lower
+            or "aarch64" in machine_lower
+        )
+
+        if is_apple_silicon:
             arch = "arm64"
         else:
             arch = "x86_64"

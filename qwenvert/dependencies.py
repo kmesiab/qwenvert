@@ -168,35 +168,24 @@ def check_llamacpp() -> DependencyCheckResult:
                 path=path,
             )
 
-    homebrew = check_homebrew()
+    instructions = """llama-server binary not detected - qwenvert will install it automatically.
 
-    if homebrew.is_available:
-        instructions = """llama.cpp is not installed. llama.cpp is required for the llamacpp backend.
+Qwenvert includes zero-friction llama.cpp setup:
+  ✓ Automatic binary download from official llama.cpp releases
+  ✓ SHA256 checksum verification for security
+  ✓ Architecture detection (M1/M2/M3 optimized)
+  ✓ No manual compilation required
 
-Note: llama.cpp is more complex to set up than Ollama. Consider using Ollama instead.
+What happens next:
+  1. qwenvert downloads the latest llama-server binary (~50MB)
+  2. Verifies integrity with checksum
+  3. Installs to ~/.cache/qwenvert/bin/
+  4. You're ready to go!
 
-To install llama.cpp:
-  1. Visit: https://github.com/ggerganov/llama.cpp
-  2. Follow the build instructions for macOS
-  3. Ensure llama-server is in your PATH
-  4. Run: qwenvert init --backend llamacpp
+This takes about 30 seconds on first run.
 
-Easier alternative: Use Ollama backend instead
+Alternative: If you prefer Ollama
   Run: qwenvert init --backend ollama
-
-Learn more: https://github.com/ggerganov/llama.cpp"""
-    else:
-        instructions = """llama.cpp is not installed. llama.cpp is required for the llamacpp backend.
-
-Note: llama.cpp is more complex to set up than Ollama. Consider using Ollama instead.
-
-To install llama.cpp:
-  1. Install Homebrew first: https://brew.sh
-  2. Visit: https://github.com/ggerganov/llama.cpp
-  3. Follow the build instructions
-  4. Run: qwenvert init --backend llamacpp
-
-Easier alternative: Use Ollama backend instead (recommended)
 
 Learn more: https://github.com/ggerganov/llama.cpp"""
 
