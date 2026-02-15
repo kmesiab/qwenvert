@@ -9,14 +9,14 @@ As of February 2025, ggml-org/llama.cpp does not publish checksum files with the
 ## File Format
 
 Each release has a file named `{version}.txt` with format:
-```
+```text
 # llama.cpp release {version} checksums
 # Verified: YYYY-MM-DD
 checksum  filename
 ```
 
 Example (`b8054.txt`):
-```
+```text
 # llama.cpp release b8054 checksums
 # Verified: 2025-02-14
 abc123...def  llama-b8054-bin-macos-arm64.tar.gz

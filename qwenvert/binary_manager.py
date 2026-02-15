@@ -223,6 +223,102 @@ class BinaryManager:
         except (subprocess.TimeoutExpired, subprocess.SubprocessError):
             return "unknown"
 
+    def _validate_extract_path(self, member_path: str) -> None:
+        """
+        Validate that an archive member path does not escape the bin directory.
+
+        Args:
+            member_path: Path of the archive member
+
+        Raises:
+            SecurityError: If path traversal attack detected
+        """
+        intended_path = (self.bin_dir / member_path).resolve()
+        bin_dir_resolved = self.bin_dir.resolve()
+
+        if not intended_path.is_relative_to(bin_dir_resolved):
+            raise SecurityError(
+                f"Path traversal attack detected: Archive member '{member_path}' "
+                f"would extract to '{intended_path}', "
+                f"which is outside the target directory '{bin_dir_resolved}'. "
+                "This archive may be malicious."
+            )
+
+    def _extract_from_tarball(self, archive_path: Path, release_url: str) -> None:
+        """
+        Extract llama-server from a .tar.gz archive with path traversal protection.
+
+        Args:
+            archive_path: Path to the tar.gz archive
+            release_url: URL of the release (for error messages)
+
+        Raises:
+            RuntimeError: If no llama-server found in archive
+            SecurityError: If path traversal attack detected
+        """
+        with tarfile.open(archive_path, "r:gz") as tar_ref:
+            # Find llama-server executable in the archive
+            llama_server_files = [
+                member.name
+                for member in tar_ref.getmembers()
+                if member.name.endswith(("llama-server", "llama-server.exe"))
+                and member.isfile()
+            ]
+
+            if not llama_server_files:
+                raise RuntimeError(f"No llama-server executable found in {release_url}")
+
+            # Extract the executable
+            llama_server_path = llama_server_files[0]
+            logger.info(f"Extracting {llama_server_path} from tar.gz archive")
+
+            # SECURITY: Validate extraction path BEFORE extracting
+            self._validate_extract_path(llama_server_path)
+
+            # Safe to extract - path has been validated
+            member = tar_ref.getmember(llama_server_path)
+            tar_ref.extract(member, self.bin_dir, filter="data")
+            extract_path = self.bin_dir / llama_server_path
+
+            # Move to final location
+            shutil.move(extract_path, self.binary_path)
+
+    def _extract_from_zip(self, archive_path: Path, release_url: str) -> None:
+        """
+        Extract llama-server from a .zip archive with path traversal protection.
+
+        Args:
+            archive_path: Path to the zip archive
+            release_url: URL of the release (for error messages)
+
+        Raises:
+            RuntimeError: If no llama-server found in archive
+            SecurityError: If path traversal attack detected
+        """
+        with zipfile.ZipFile(archive_path, "r") as zip_ref:
+            # Find llama-server executable in the archive
+            llama_server_files = [
+                name
+                for name in zip_ref.namelist()
+                if name.endswith(("llama-server", "llama-server.exe"))
+            ]
+
+            if not llama_server_files:
+                raise RuntimeError(f"No llama-server executable found in {release_url}")
+
+            # Extract the executable
+            llama_server_path = llama_server_files[0]
+            logger.info(f"Extracting {llama_server_path} from zip archive")
+
+            # SECURITY: Validate extraction path BEFORE extracting
+            self._validate_extract_path(llama_server_path)
+
+            # Safe to extract - path has been validated
+            extract_path = Path(zip_ref.extract(llama_server_path, self.bin_dir))
+
+            # Move to final location
+            shutil.move(extract_path, self.binary_path)
+
     def _download_and_install_archive(
         self,
         release_url: str,
@@ -289,83 +385,12 @@ class BinaryManager:
 
             # Extract llama-server executable from archive
             if is_tarball:
-                # Handle tar.gz format
-                with tarfile.open(temp_archive, "r:gz") as tar_ref:
-                    # Find llama-server executable in the archive
-                    llama_server_files = [
-                        member.name
-                        for member in tar_ref.getmembers()
-                        if member.name.endswith(("llama-server", "llama-server.exe"))
-                        and member.isfile()
-                    ]
-
-                    if not llama_server_files:
-                        raise RuntimeError(
-                            f"No llama-server executable found in {release_url}"
-                        )
-
-                    # Extract the executable
-                    llama_server_path = llama_server_files[0]
-                    logger.info(f"Extracting {llama_server_path} from tar.gz archive")
-
-                    # SECURITY: Validate extraction path BEFORE extracting
-                    intended_path = (self.bin_dir / llama_server_path).resolve()
-                    bin_dir_resolved = self.bin_dir.resolve()
-
-                    if not intended_path.is_relative_to(bin_dir_resolved):
-                        raise SecurityError(
-                            f"Path traversal attack detected: Archive member '{llama_server_path}' "
-                            f"would extract to '{intended_path}', "
-                            f"which is outside the target directory '{bin_dir_resolved}'. "
-                            "This archive may be malicious."
-                        )
-
-                    # Safe to extract - path has been validated
-                    member = tar_ref.getmember(llama_server_path)
-                    tar_ref.extract(member, self.bin_dir)
-                    extract_path = self.bin_dir / llama_server_path
-
-                    # Move to final location
-                    shutil.move(extract_path, self.binary_path)
+                self._extract_from_tarball(temp_archive, release_url)
             else:
-                # Handle zip format
-                with zipfile.ZipFile(temp_archive, "r") as zip_ref:
-                    # Find llama-server executable in the archive
-                    llama_server_files = [
-                        name
-                        for name in zip_ref.namelist()
-                        if name.endswith(("llama-server", "llama-server.exe"))
-                    ]
+                self._extract_from_zip(temp_archive, release_url)
 
-                    if not llama_server_files:
-                        raise RuntimeError(
-                            f"No llama-server executable found in {release_url}"
-                        )
-
-                    # Extract the executable
-                    llama_server_path = llama_server_files[0]
-                    logger.info(f"Extracting {llama_server_path} from zip archive")
-
-                    # SECURITY: Validate extraction path BEFORE extracting
-                    intended_path = (self.bin_dir / llama_server_path).resolve()
-                    bin_dir_resolved = self.bin_dir.resolve()
-
-                    if not intended_path.is_relative_to(bin_dir_resolved):
-                        raise SecurityError(
-                            f"Zip Slip attack detected: Archive member '{llama_server_path}' "
-                            f"would extract to '{intended_path}', "
-                            f"which is outside the target directory '{bin_dir_resolved}'. "
-                            "This archive may be malicious."
-                        )
-
-                    # Safe to extract - path has been validated
-                    extract_path = Path(
-                        zip_ref.extract(llama_server_path, self.bin_dir)
-                    )
-
-                    # Move to final location
-                    shutil.move(extract_path, self.binary_path)
-
+        except SecurityError:
+            raise
         except Exception as e:
             raise RuntimeError(
                 f"Failed to download llama-server from {release_url}: {e}"
@@ -953,12 +978,19 @@ class BinaryManager:
         """
         logger.info(f"Downloading llama-server version {version}")
 
-        # Determine architecture
+        # Determine architecture (must match _get_release_url logic for Apple Silicon)
         chip_lower = hardware.chip.lower()
         machine_lower = platform.machine().lower()
 
         # Note: llama.cpp releases use "arm64" and "x64" (not "x86_64")
-        arch = "arm64" if "arm" in chip_lower or "aarch64" in machine_lower else "x64"
+        # Check for Apple Silicon (M1/M2/M3/M4/M5 chips)
+        is_apple_silicon = (
+            hardware.chip_family.startswith("M")
+            or "arm" in chip_lower
+            or "arm64" in machine_lower
+            or "aarch64" in machine_lower
+        )
+        arch = "arm64" if is_apple_silicon else "x64"
 
         # Construct URL for specific version (format changed from .zip to .tar.gz)
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
