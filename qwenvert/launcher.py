@@ -184,7 +184,7 @@ class ServerLauncher:
             # 1. The specific failure reason from get_or_install_binary (e.g., checksum missing)
             # 2. The generic installation instructions from check_llamacpp()
             enhanced_error = (
-                f"Auto-install failed: {str(e)}\n\n"
+                f"Auto-install failed: {e!s}\n\n"
                 f"{llamacpp_check.install_instructions or llamacpp_check.error_message or ''}"
             )
 
@@ -194,7 +194,7 @@ class ServerLauncher:
                 status=DependencyStatus.MISSING,
                 path=None,
                 install_instructions=enhanced_error,
-                error_message=f"Failed to auto-install llama-server: {str(e)}",
+                error_message=f"Failed to auto-install llama-server: {e!s}",
             )
 
             raise DependencyError(enhanced_check) from e
