@@ -442,7 +442,10 @@ class TestStartLlamaCpp:
 
         with patch("qwenvert.binary_manager.BinaryManager") as mock_binary_mgr_cls:
             mock_binary_mgr = MagicMock()
-            mock_binary_mgr.detect_binary.return_value = None  # Binary not found
+            # Mock get_or_install_binary to raise RuntimeError (all install strategies failed)
+            mock_binary_mgr.get_or_install_binary.side_effect = RuntimeError(
+                "Failed to install llama-server"
+            )
             mock_binary_mgr_cls.return_value = mock_binary_mgr
 
             with patch("qwenvert.launcher.check_llamacpp") as mock_check:
