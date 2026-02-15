@@ -102,7 +102,8 @@ class TestServerLauncher:
             "qwenvert.binary_manager.BinaryManager"
         ) as mock_binary_manager_class:
             mock_binary_manager = MagicMock()
-            mock_binary_manager.detect_binary.return_value = mock_binary_info
+            # Mock get_or_install_binary (new auto-install method)
+            mock_binary_manager.get_or_install_binary.return_value = mock_binary_info
             mock_binary_manager_class.return_value = mock_binary_manager
 
             launcher = ServerLauncher(config=config)

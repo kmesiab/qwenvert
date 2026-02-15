@@ -257,20 +257,22 @@ class BinaryManager:
             # Download zip archive
             self._download_file(release_url, temp_zip, progress_callback)
 
-            # Verify checksum if available
+            # SECURITY: Enforce checksum verification (fail-closed)
             expected_checksum = self._get_checksum_for_release(version, zip_filename)
-            if expected_checksum:
-                logger.info("Verifying download integrity...")
-                if not self.verify_checksum(temp_zip, expected_checksum):
-                    raise RuntimeError(
-                        f"Checksum verification failed for {zip_filename}. "
-                        "The downloaded file may be corrupted or tampered with."
-                    )
-                logger.info("✓ Checksum verification passed")
-            else:
-                logger.warning(
-                    "Checksum not available for this release - skipping verification"
+            if not expected_checksum:
+                raise RuntimeError(
+                    f"Checksum not available for {zip_filename} in release {version}. "
+                    "Cannot verify binary integrity. This is a security requirement. "
+                    "Please report this issue if you encounter it."
                 )
+
+            logger.info("Verifying download integrity...")
+            if not self.verify_checksum(temp_zip, expected_checksum):
+                raise RuntimeError(
+                    f"Checksum verification failed for {zip_filename}. "
+                    "The downloaded file may be corrupted or tampered with."
+                )
+            logger.info("✓ Checksum verification passed")
 
             # Extract llama-server executable from zip
             with zipfile.ZipFile(temp_zip, "r") as zip_ref:
@@ -477,13 +479,18 @@ class BinaryManager:
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
 
         # Determine architecture - robust check for Apple Silicon
-        chip_lower = hardware.chip.lower()
         machine_lower = platform.machine().lower()
 
-        if "arm" in chip_lower or "aarch64" in machine_lower:
-            arch = "arm64"
-        else:
-            arch = "x86_64"
+        # Apple Silicon detection: Use chip_family (M1/M2/M3/M4/M5/etc) or arm64 architecture
+        # chip_family is extracted via M\d+ regex, so it's future-proof for new M-series chips
+        is_apple_silicon = (
+            hardware.chip_family.startswith("M")  # M1, M2, M3, M4, M5, etc.
+            or "arm" in hardware.chip.lower()
+            or "arm64" in machine_lower
+            or "aarch64" in machine_lower
+        )
+
+        arch = "arm64" if is_apple_silicon else "x86_64"
 
         logger.info(
             f"Detected architecture: {arch} (chip={hardware.chip}, machine={platform.machine()})"

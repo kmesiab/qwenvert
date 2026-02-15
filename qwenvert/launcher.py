@@ -165,16 +165,39 @@ class ServerLauncher:
         """Start llama.cpp server with BinaryManager."""
         logger.info("Starting llama.cpp server...")
 
-        # Use BinaryManager for detection (prioritizes cache, then PATH, then Homebrew)
+        # Use BinaryManager with auto-install (prioritizes cache, then PATH, then Homebrew, then downloads)
         from .binary_manager import BinaryManager
 
         binary_mgr = BinaryManager()
-        binary_info = binary_mgr.detect_binary()
+        try:
+            binary_info = binary_mgr.get_or_install_binary(
+                hardware=None,  # Auto-detect hardware
+                auto_install=True,  # Zero-friction: auto-install if missing
+            )
+        except RuntimeError as e:
+            # Auto-install failed - combine generic instructions with specific error
+            from .dependencies import DependencyCheckResult, DependencyStatus
 
-        if not binary_info:
-            # No binary found - provide helpful error
             llamacpp_check = check_llamacpp()
-            raise DependencyError(llamacpp_check)
+
+            # Create enhanced error message that includes both:
+            # 1. The specific failure reason from get_or_install_binary (e.g., checksum missing)
+            # 2. The generic installation instructions from check_llamacpp()
+            enhanced_error = (
+                f"Auto-install failed: {e!s}\n\n"
+                f"{llamacpp_check.install_instructions or llamacpp_check.error_message or ''}"
+            )
+
+            # Create new DependencyCheckResult with combined error message
+            enhanced_check = DependencyCheckResult(
+                name=llamacpp_check.name,
+                status=DependencyStatus.MISSING,
+                path=None,
+                install_instructions=enhanced_error,
+                error_message=f"Failed to auto-install llama-server: {e!s}",
+            )
+
+            raise DependencyError(enhanced_check) from e
 
         llamacpp_path = binary_info.path
         logger.info(
