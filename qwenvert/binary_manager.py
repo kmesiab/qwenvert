@@ -479,13 +479,13 @@ class BinaryManager:
         base_url = f"https://github.com/{self.GITHUB_REPO}/releases/download"
 
         # Determine architecture - robust check for Apple Silicon
-        chip_lower = hardware.chip.lower()
         machine_lower = platform.machine().lower()
 
-        # Apple Silicon detection: M1/M2/M3/M4 chips or arm64 architecture
+        # Apple Silicon detection: Use chip_family (M1/M2/M3/M4/M5/etc) or arm64 architecture
+        # chip_family is extracted via M\d+ regex, so it's future-proof for new M-series chips
         is_apple_silicon = (
-            any(chip in chip_lower for chip in ["m1", "m2", "m3", "m4"])
-            or "arm" in chip_lower
+            hardware.chip_family.startswith("M")  # M1, M2, M3, M4, M5, etc.
+            or "arm" in hardware.chip.lower()
             or "arm64" in machine_lower
             or "aarch64" in machine_lower
         )
