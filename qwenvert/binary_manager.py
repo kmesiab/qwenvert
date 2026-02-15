@@ -488,10 +488,7 @@ class BinaryManager:
             or "aarch64" in machine_lower
         )
 
-        if is_apple_silicon:
-            arch = "arm64"
-        else:
-            arch = "x86_64"
+        arch = "arm64" if is_apple_silicon else "x86_64"
 
         logger.info(
             f"Detected architecture: {arch} (chip={hardware.chip}, machine={platform.machine()})"
