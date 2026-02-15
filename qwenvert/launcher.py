@@ -165,16 +165,19 @@ class ServerLauncher:
         """Start llama.cpp server with BinaryManager."""
         logger.info("Starting llama.cpp server...")
 
-        # Use BinaryManager for detection (prioritizes cache, then PATH, then Homebrew)
+        # Use BinaryManager with auto-install (prioritizes cache, then PATH, then Homebrew, then downloads)
         from .binary_manager import BinaryManager
 
         binary_mgr = BinaryManager()
-        binary_info = binary_mgr.detect_binary()
-
-        if not binary_info:
-            # No binary found - provide helpful error
+        try:
+            binary_info = binary_mgr.get_or_install_binary(
+                hardware=None,  # Auto-detect hardware
+                auto_install=True,  # Zero-friction: auto-install if missing
+            )
+        except RuntimeError as e:
+            # All installation strategies failed - show helpful error
             llamacpp_check = check_llamacpp()
-            raise DependencyError(llamacpp_check)
+            raise DependencyError(llamacpp_check) from e
 
         llamacpp_path = binary_info.path
         logger.info(
