@@ -589,3 +589,280 @@ class TestSecurityValidation:
             assert (
                 "zip slip" in error_msg or "security" in error_msg
             ), "Should detect absolute path attack"
+
+
+class TestArchitectureDetection:
+    """Test architecture detection for M-series chips (regression tests for PR #74)."""
+
+    def test_m1_chip_detects_arm64(self, binary_manager):
+        """Test M1 chip correctly detects arm64 architecture."""
+        hardware = HardwareProfile(
+            chip="M1",
+            chip_family="M1",
+            total_memory_gb=8,
+            gpu_cores=7,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=False,
+            neural_engine_cores=16,
+            model_identifier="MacBookAir10,1",
+        )
+
+        with patch("platform.machine", return_value="arm64"):
+            with patch("httpx.get") as mock_get:
+                # Mock GitHub API to return releases
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = [
+                    {
+                        "tag_name": "b3600",
+                        "assets": [
+                            {
+                                "name": "llama-b3600-bin-macos-arm64.zip",
+                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
+                            }
+                        ],
+                    }
+                ]
+                mock_get.return_value = mock_response
+
+                url = binary_manager._get_release_url(hardware)
+
+                assert "macos-arm64" in url, f"M1 chip should select arm64, got: {url}"
+                assert (
+                    "macos-x86_64" not in url
+                ), f"M1 chip should NOT select x86_64, got: {url}"
+
+    def test_m2_chip_detects_arm64(self, binary_manager):
+        """Test M2 chip correctly detects arm64 architecture."""
+        hardware = HardwareProfile(
+            chip="M2",
+            chip_family="M2",
+            total_memory_gb=16,
+            gpu_cores=10,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=False,
+            neural_engine_cores=16,
+            model_identifier="Mac14,2",
+        )
+
+        with patch("platform.machine", return_value="arm64"):
+            with patch("httpx.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = [
+                    {
+                        "tag_name": "b3600",
+                        "assets": [
+                            {
+                                "name": "llama-b3600-bin-macos-arm64.zip",
+                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
+                            }
+                        ],
+                    }
+                ]
+                mock_get.return_value = mock_response
+
+                url = binary_manager._get_release_url(hardware)
+
+                assert "macos-arm64" in url, f"M2 chip should select arm64, got: {url}"
+                assert (
+                    "macos-x86_64" not in url
+                ), f"M2 chip should NOT select x86_64, got: {url}"
+
+    def test_m3_chip_detects_arm64(self, binary_manager):
+        """Test M3 chip correctly detects arm64 architecture."""
+        hardware = HardwareProfile(
+            chip="M3 Pro",
+            chip_family="M3",
+            total_memory_gb=18,
+            gpu_cores=14,
+            cpu_cores_performance=6,
+            cpu_cores_efficiency=6,
+            has_active_cooling=True,
+            neural_engine_cores=16,
+            model_identifier="Mac15,3",
+        )
+
+        with patch("platform.machine", return_value="arm64"):
+            with patch("httpx.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = [
+                    {
+                        "tag_name": "b3600",
+                        "assets": [
+                            {
+                                "name": "llama-b3600-bin-macos-arm64.zip",
+                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
+                            }
+                        ],
+                    }
+                ]
+                mock_get.return_value = mock_response
+
+                url = binary_manager._get_release_url(hardware)
+
+                assert (
+                    "macos-arm64" in url
+                ), f"M3 Pro chip should select arm64, got: {url}"
+                assert (
+                    "macos-x86_64" not in url
+                ), f"M3 Pro chip should NOT select x86_64, got: {url}"
+
+    def test_m4_chip_detects_arm64(self, binary_manager):
+        """Test M4 chip correctly detects arm64 architecture (future-proofing)."""
+        hardware = HardwareProfile(
+            chip="M4",
+            chip_family="M4",
+            total_memory_gb=16,
+            gpu_cores=10,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=6,
+            has_active_cooling=False,
+            neural_engine_cores=16,
+            model_identifier="Mac16,1",
+        )
+
+        with patch("platform.machine", return_value="arm64"):
+            with patch("httpx.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = [
+                    {
+                        "tag_name": "b3600",
+                        "assets": [
+                            {
+                                "name": "llama-b3600-bin-macos-arm64.zip",
+                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
+                            }
+                        ],
+                    }
+                ]
+                mock_get.return_value = mock_response
+
+                url = binary_manager._get_release_url(hardware)
+
+                assert "macos-arm64" in url, f"M4 chip should select arm64, got: {url}"
+                assert (
+                    "macos-x86_64" not in url
+                ), f"M4 chip should NOT select x86_64, got: {url}"
+
+    def test_platform_machine_arm64_fallback(self, binary_manager):
+        """Test platform.machine() == 'arm64' is detected even without M-series chip."""
+        hardware = HardwareProfile(
+            chip="Apple Silicon",  # Generic name without M-series
+            chip_family="Unknown",  # chip_family parsing failed
+            total_memory_gb=8,
+            gpu_cores=8,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=False,
+            neural_engine_cores=16,
+            model_identifier="MacBookAir10,1",
+        )
+
+        # Even if chip detection fails, platform.machine() should work
+        with patch("platform.machine", return_value="arm64"):
+            with patch("httpx.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = [
+                    {
+                        "tag_name": "b3600",
+                        "assets": [
+                            {
+                                "name": "llama-b3600-bin-macos-arm64.zip",
+                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
+                            }
+                        ],
+                    }
+                ]
+                mock_get.return_value = mock_response
+
+                url = binary_manager._get_release_url(hardware)
+
+                assert (
+                    "macos-arm64" in url
+                ), f"platform.machine()='arm64' should select arm64, got: {url}"
+
+    def test_intel_mac_detects_x86_64(self, binary_manager):
+        """Test Intel Mac correctly detects x86_64 architecture."""
+        hardware = HardwareProfile(
+            chip="Intel Core i7",
+            chip_family="Unknown",  # Intel chips don't have M-series family
+            total_memory_gb=16,
+            gpu_cores=0,  # Intel Macs use discrete GPU
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=0,
+            has_active_cooling=True,
+            neural_engine_cores=0,
+            model_identifier="MacBookPro15,1",
+        )
+
+        with patch("platform.machine", return_value="x86_64"):
+            with patch("httpx.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = [
+                    {
+                        "tag_name": "b3600",
+                        "assets": [
+                            {
+                                "name": "llama-b3600-bin-macos-x86_64.zip",
+                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-x86_64.zip",
+                            }
+                        ],
+                    }
+                ]
+                mock_get.return_value = mock_response
+
+                url = binary_manager._get_release_url(hardware)
+
+                assert (
+                    "macos-x86_64" in url
+                ), f"Intel Mac should select x86_64, got: {url}"
+                assert (
+                    "macos-arm64" not in url
+                ), f"Intel Mac should NOT select arm64, got: {url}"
+
+    def test_future_m5_chip_detection(self, binary_manager):
+        """Test future M5 chip (not hardcoded) is detected via chip_family pattern."""
+        hardware = HardwareProfile(
+            chip="M5 Max",  # Future chip not in hardcoded list
+            chip_family="M5",  # chip_family uses M\d+ regex
+            total_memory_gb=64,
+            gpu_cores=40,
+            cpu_cores_performance=12,
+            cpu_cores_efficiency=4,
+            has_active_cooling=True,
+            neural_engine_cores=16,
+            model_identifier="Mac17,1",
+        )
+
+        with patch("platform.machine", return_value="arm64"):
+            with patch("httpx.get") as mock_get:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = [
+                    {
+                        "tag_name": "b3600",
+                        "assets": [
+                            {
+                                "name": "llama-b3600-bin-macos-arm64.zip",
+                                "browser_download_url": "https://github.com/ggerganov/llama.cpp/releases/download/b3600/llama-b3600-bin-macos-arm64.zip",
+                            }
+                        ],
+                    }
+                ]
+                mock_get.return_value = mock_response
+
+                url = binary_manager._get_release_url(hardware)
+
+                assert (
+                    "macos-arm64" in url
+                ), f"M5 chip (future) should select arm64 via chip_family, got: {url}"
+                assert (
+                    "macos-x86_64" not in url
+                ), f"M5 chip should NOT select x86_64, got: {url}"
