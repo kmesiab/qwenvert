@@ -173,7 +173,7 @@ def check_llamacpp() -> DependencyCheckResult:
 Qwenvert includes zero-friction llama.cpp setup:
   ✓ Automatic binary download from official llama.cpp releases
   ✓ SHA256 checksum verification for security
-  ✓ Architecture detection (M1/M2/M3 optimized)
+  ✓ Architecture detection (M1/M2/M3/M4 optimized)
   ✓ No manual compilation required
 
 What happens next:
