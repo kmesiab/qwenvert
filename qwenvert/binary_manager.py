@@ -257,20 +257,22 @@ class BinaryManager:
             # Download zip archive
             self._download_file(release_url, temp_zip, progress_callback)
 
-            # Verify checksum if available
+            # SECURITY: Enforce checksum verification (fail-closed)
             expected_checksum = self._get_checksum_for_release(version, zip_filename)
-            if expected_checksum:
-                logger.info("Verifying download integrity...")
-                if not self.verify_checksum(temp_zip, expected_checksum):
-                    raise RuntimeError(
-                        f"Checksum verification failed for {zip_filename}. "
-                        "The downloaded file may be corrupted or tampered with."
-                    )
-                logger.info("✓ Checksum verification passed")
-            else:
-                logger.warning(
-                    "Checksum not available for this release - skipping verification"
+            if not expected_checksum:
+                raise RuntimeError(
+                    f"Checksum not available for {zip_filename} in release {version}. "
+                    "Cannot verify binary integrity. This is a security requirement. "
+                    "Please report this issue if you encounter it."
                 )
+
+            logger.info("Verifying download integrity...")
+            if not self.verify_checksum(temp_zip, expected_checksum):
+                raise RuntimeError(
+                    f"Checksum verification failed for {zip_filename}. "
+                    "The downloaded file may be corrupted or tampered with."
+                )
+            logger.info("✓ Checksum verification passed")
 
             # Extract llama-server executable from zip
             with zipfile.ZipFile(temp_zip, "r") as zip_ref:
