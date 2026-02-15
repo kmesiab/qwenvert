@@ -540,7 +540,9 @@ class TestSecurityValidation:
                     )
 
                     with patch.object(
-                        binary_manager, "_get_binary_info", return_value=mock_binary_info
+                        binary_manager,
+                        "_get_binary_info",
+                        return_value=mock_binary_info,
                     ):
                         # Should succeed without raising
                         try:
