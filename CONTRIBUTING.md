@@ -381,6 +381,27 @@ from qwenvert.models import Model
 - Breaking changes justified
 - Performance impact considered
 
+## GitHub Actions & Secrets
+
+### Security Scanning
+
+This repository uses the [SafetyCLI Self-Healing Action](https://github.com/kmesiab/safetycli-self-healing-action) to automatically scan Python dependencies for security vulnerabilities.
+
+**Workflow:** `.github/workflows/security.yml`
+- **Schedule:** Runs daily at 3am PST (11am UTC)
+- **Manual:** Can be triggered via workflow_dispatch
+- **Action:** Scans dependencies, creates GitHub issues for vulnerabilities, and assigns them to GitHub Copilot for automated remediation
+
+**Required Secret:**
+- `SAFETY_API_KEY` - API key for Safety CLI vulnerability scanning
+  - Get your free API key at [Safety Platform](https://platform.safetycli.com/cli/auth)
+  - Add it to repository secrets: Settings → Secrets and variables → Actions → New repository secret
+
+### Other Workflows
+
+- **CI** (`.github/workflows/ci.yml`) - Code quality checks and tests on push/PR
+- **Publish** (`.github/workflows/publish.yml`) - Publishes package to PyPI on release
+
 ## Getting Help
 
 - **GitHub Issues** - Ask questions, report problems
