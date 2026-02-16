@@ -4,7 +4,7 @@ This directory contains verified SHA256 checksums for llama.cpp releases from gg
 
 ## Why Self-Host Checksums?
 
-As of February 2025, ggml-org/llama.cpp does not publish checksum files with their releases. To maintain security, qwenvert self-hosts verified checksums here.
+As of February 2026, ggml-org/llama.cpp does not publish checksum files with their releases. To maintain security, qwenvert self-hosts verified checksums here.
 
 ## File Format
 
