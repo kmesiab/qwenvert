@@ -378,7 +378,7 @@ class BinaryManager:
                     )
                 logger.info("✓ Checksum verification passed")
             else:
-                # WARNING: ggml-org/llama.cpp does not publish checksums (as of Feb 2025)
+                # WARNING: ggml-org/llama.cpp does not publish checksums (as of Feb 2026)
                 # We trust HTTPS + GitHub's infrastructure as a fallback
                 logger.warning(
                     f"⚠️  Checksum not available for {archive_filename} in release {version}"
@@ -478,7 +478,7 @@ class BinaryManager:
                 return bundled_checksum
 
             # SECOND: Try upstream checksum files from llama.cpp releases
-            # (ggml-org doesn't publish these as of Feb 2025, but we check anyway)
+            # (ggml-org doesn't publish these as of Feb 2026, but we check anyway)
             checksum_files = ["SHA256SUMS", "checksums.txt", f"{filename}.sha256"]
 
             base_url = (
