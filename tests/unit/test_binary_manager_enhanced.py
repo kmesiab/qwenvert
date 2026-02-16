@@ -7,7 +7,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from qwenvert.binary_manager import BinaryInfo, BinaryManager, BinarySource
+from qwenvert.binary_manager import (
+    BinaryInfo,
+    BinaryManager,
+    BinarySource,
+    SecurityError,
+)
 from qwenvert.hardware import HardwareProfile
 
 
@@ -355,21 +360,46 @@ class TestSecurityValidation:
         """
         import inspect
 
-        # Read the source code of the common download helper
-        source = inspect.getsource(binary_manager._download_and_install_zip)
+        # After refactoring, security logic is in extraction helpers
+        # Check that the main method calls extraction helpers and they have security checks
+        main_source = inspect.getsource(binary_manager._download_and_install_archive)
+        validate_source = inspect.getsource(binary_manager._validate_extract_path)
+        tarball_source = inspect.getsource(binary_manager._extract_from_tarball)
+        zip_source = inspect.getsource(binary_manager._extract_from_zip)
 
-        # Verify security check is in place
+        # Main method should call extraction helpers
         assert (
-            "is_relative_to" in source
-        ), "Zip Slip check using is_relative_to() must be present"
-        assert "SecurityError" in source, "SecurityError exception must be raised"
-        assert "resolve()" in source, "Path resolution must be present"
+            "_extract_from_tarball" in main_source
+        ), "Main method must call _extract_from_tarball helper"
         assert (
-            "Zip Slip attack detected" in source
-        ), "Clear error message must be present"
+            "_extract_from_zip" in main_source
+        ), "Main method must call _extract_from_zip helper"
+        assert "SecurityError" in main_source, "SecurityError must be propagated"
+
+        # Extraction helpers must call validation
+        assert (
+            "_validate_extract_path" in tarball_source
+        ), "Tarball extraction must call _validate_extract_path"
+        assert (
+            "_validate_extract_path" in zip_source
+        ), "Zip extraction must call _validate_extract_path"
+
+        # Security validation helper must have the checks
+        assert (
+            "is_relative_to" in validate_source
+        ), "Path traversal check using is_relative_to() must be present in validator"
+        assert (
+            "SecurityError" in validate_source
+        ), "SecurityError exception must be raised in validator"
+        assert (
+            "resolve()" in validate_source
+        ), "Path resolution must be present in validator"
+        assert (
+            "attack detected" in validate_source
+        ), "Clear error message must be present in validator"
 
     def test_security_check_before_extraction(self, binary_manager):
-        """Verify that Zip Slip validation happens BEFORE extraction (not after).
+        """Verify that path traversal validation happens BEFORE extraction (not after).
 
         NOTE: This is a brittle source-inspection test that validates order of operations
         to prevent TOCTOU vulnerabilities. The functional tests verify actual behavior.
@@ -377,20 +407,29 @@ class TestSecurityValidation:
         """
         import inspect
 
-        # Read the source code of the helper
-        source = inspect.getsource(binary_manager._download_and_install_zip)
+        # After refactoring, check the extraction helper methods
+        tarball_source = inspect.getsource(binary_manager._extract_from_tarball)
+        zip_source = inspect.getsource(binary_manager._extract_from_zip)
 
-        # Find the positions of key operations
-        security_check_pos = source.find("is_relative_to")
-        extract_pos = source.find("zip_ref.extract")
+        # Check tarball extraction: validation must come before tar_ref.extract
+        tar_validation_pos = tarball_source.find("_validate_extract_path")
+        tar_extract_pos = tarball_source.find("tar_ref.extract")
 
-        assert security_check_pos != -1, "Security check must be present"
-        assert extract_pos != -1, "Extraction must be present"
-
-        # CRITICAL: Security check must come BEFORE extraction
+        assert tar_validation_pos != -1, "Tarball security check must be present"
+        assert tar_extract_pos != -1, "Tarball extraction must be present"
         assert (
-            security_check_pos < extract_pos
-        ), "Zip Slip validation must happen BEFORE extraction to prevent TOCTOU vulnerability"
+            tar_validation_pos < tar_extract_pos
+        ), "Tarball: Path traversal validation must happen BEFORE extraction to prevent TOCTOU vulnerability"
+
+        # Check zip extraction: validation must come before zip_ref.extract
+        zip_validation_pos = zip_source.find("_validate_extract_path")
+        zip_extract_pos = zip_source.find("zip_ref.extract")
+
+        assert zip_validation_pos != -1, "Zip security check must be present"
+        assert zip_extract_pos != -1, "Zip extraction must be present"
+        assert (
+            zip_validation_pos < zip_extract_pos
+        ), "Zip: Path traversal validation must happen BEFORE extraction to prevent TOCTOU vulnerability"
 
     def test_download_methods_use_secure_helper(self, binary_manager):
         """Verify that both download methods use the secure helper."""
@@ -399,7 +438,7 @@ class TestSecurityValidation:
         # Check download_binary uses the helper
         download_binary_source = inspect.getsource(binary_manager.download_binary)
         assert (
-            "_download_and_install_zip" in download_binary_source
+            "_download_and_install_archive" in download_binary_source
         ), "download_binary must use secure helper"
 
         # Check download_specific_version uses the helper
@@ -407,7 +446,7 @@ class TestSecurityValidation:
             binary_manager.download_specific_version
         )
         assert (
-            "_download_and_install_zip" in download_specific_source
+            "_download_and_install_archive" in download_specific_source
         ), "download_specific_version must use secure helper"
 
     def test_security_error_exception_exists(self):
@@ -484,19 +523,19 @@ class TestSecurityValidation:
             mock_response.iter_bytes = Mock(return_value=[zip_content])
             mock_stream.return_value = mock_response
 
-            # Should raise RuntimeError (which wraps SecurityError)
-            with pytest.raises(RuntimeError) as exc_info:
-                binary_manager._download_and_install_zip(
+            # Should raise SecurityError directly (after refactoring)
+            with pytest.raises(SecurityError) as exc_info:
+                binary_manager._download_and_install_archive(
                     release_url=f"file://{malicious_zip}",
                     version="malicious",
-                    zip_filename="malicious.zip",
+                    archive_filename="malicious.zip",
                 )
 
-            # Verify the error message indicates security violation
+            # Verify the error message indicates path traversal attack
             error_msg = str(exc_info.value).lower()
             assert (
-                "zip slip" in error_msg or "security" in error_msg
-            ), f"Expected security error, got: {exc_info.value}"
+                "attack detected" in error_msg
+            ), f"Expected path traversal attack message, got: {exc_info.value}"
 
         # Verify no files were extracted outside bin_dir
         parent_dir = binary_manager.bin_dir.parent
@@ -546,10 +585,10 @@ class TestSecurityValidation:
                     ):
                         # Should succeed without raising
                         try:
-                            binary_manager._download_and_install_zip(
+                            binary_manager._download_and_install_archive(
                                 release_url=f"file://{safe_zip}",
                                 version="safe",
-                                zip_filename="safe.zip",
+                                archive_filename="safe.zip",
                             )
                             # Verify binary was created
                             assert (
@@ -586,18 +625,16 @@ class TestSecurityValidation:
             mock_response.iter_bytes = Mock(return_value=[zip_content])
             mock_stream.return_value = mock_response
 
-            # Should raise RuntimeError wrapping SecurityError
-            with pytest.raises(RuntimeError) as exc_info:
-                binary_manager._download_and_install_zip(
+            # Should raise SecurityError directly (after refactoring)
+            with pytest.raises(SecurityError) as exc_info:
+                binary_manager._download_and_install_archive(
                     release_url=f"file://{malicious_zip}",
                     version="absolute",
-                    zip_filename="absolute.zip",
+                    archive_filename="absolute.zip",
                 )
 
             error_msg = str(exc_info.value).lower()
-            assert (
-                "zip slip" in error_msg or "security" in error_msg
-            ), "Should detect absolute path attack"
+            assert "attack detected" in error_msg, "Should detect absolute path attack"
 
 
 class TestArchitectureDetection:
@@ -751,9 +788,8 @@ class TestArchitectureDetection:
             ):
                 url = binary_manager._get_release_url(hardware)
 
-                assert (
-                    "macos-x86_64" in url
-                ), f"Intel Mac should select x86_64, got: {url}"
+                # Note: llama.cpp releases use "x64" not "x86_64" in filenames
+                assert "macos-x64" in url, f"Intel Mac should select x64, got: {url}"
                 assert (
                     "macos-arm64" not in url
                 ), f"Intel Mac should NOT select arm64, got: {url}"

@@ -1,0 +1,5 @@
+# llama.cpp release b8054 checksums
+# Verified: 2026-02-14
+# Release: https://github.com/ggml-org/llama.cpp/releases/tag/b8054
+b2d02aff34fdcbadacc6f2f7f5d043404769709aedf3bcbc441ef3f315e73565  llama-b8054-bin-macos-arm64.tar.gz
+d78ccc86d8d33afd7b365f9f3310b59621c09e4d4e6dcef4cdd6482c2af1100c  llama-b8054-bin-macos-x64.tar.gz

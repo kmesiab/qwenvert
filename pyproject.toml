@@ -7,9 +7,12 @@ where = ["."]
 include = ["qwenvert*"]
 exclude = ["docs*", "benchmarks*", "configs*", "homebrew*"]
 
+[tool.setuptools.package-data]
+qwenvert = ["checksums/*.txt", "checksums/*.md"]
+
 [project]
 name = "qwenvert"
-version = "0.2.11"
+version = "0.2.12"
 description = "One-click local LLM inference for Claude Code on Mac M1"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
