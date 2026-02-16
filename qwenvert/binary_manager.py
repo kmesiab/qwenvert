@@ -80,6 +80,8 @@ class BinaryManager:
         self.cache_dir = self.CACHE_DIR
         self.bin_dir = self.BIN_DIR
         self.binary_path = self.bin_dir / self.BINARY_NAME
+        # Checksums directory (can be overridden for testing)
+        self.checksums_dir = Path(__file__).parent / "checksums"
 
         # Ensure directories exist
         self.bin_dir.mkdir(parents=True, exist_ok=True)
@@ -277,11 +279,9 @@ class BinaryManager:
 
             # Safe to extract - path has been validated
             member = tar_ref.getmember(llama_server_path)
-            # Python 3.12+ requires filter parameter to avoid deprecation warning
-            # Python 3.9-3.11 don't support it
-            import sys
-
-            if sys.version_info >= (3, 12):
+            # Use filter parameter if available (Python 3.12+ and some backported versions)
+            # Feature detection is more reliable than version checking
+            if hasattr(tarfile, "data_filter"):
                 tar_ref.extract(member, self.bin_dir, filter="data")
             else:
                 tar_ref.extract(member, self.bin_dir)
@@ -501,8 +501,8 @@ class BinaryManager:
                             parts = line.split()
                             if len(parts) >= 2:
                                 checksum, file_in_line = parts[0], parts[1]
-                                # Match filename (with or without path prefix)
-                                if filename in file_in_line or file_in_line in filename:
+                                # Match filename by basename (avoid substring false positives)
+                                if Path(file_in_line).name == Path(filename).name:
                                     logger.info(
                                         f"Found upstream checksum for {filename}: {checksum[:16]}..."
                                     )
@@ -537,14 +537,12 @@ class BinaryManager:
         """
         try:
             # Look for checksums in package data directory
-            # Try to find checksums directory relative to this file
-            checksums_dir = Path(__file__).parent / "checksums"
-
-            if not checksums_dir.exists():
+            # Use configurable checksums_dir (can be overridden for testing)
+            if not self.checksums_dir.exists():
                 return None
 
             # Check for version-specific checksum file
-            checksum_file = checksums_dir / f"{version}.txt"
+            checksum_file = self.checksums_dir / f"{version}.txt"
 
             if not checksum_file.exists():
                 return None
@@ -559,8 +557,8 @@ class BinaryManager:
                 parts = line.split()
                 if len(parts) >= 2:
                     checksum, file_in_line = parts[0], parts[1]
-                    # Match filename (with or without path prefix)
-                    if filename in file_in_line or file_in_line in filename:
+                    # Match filename by basename (avoid substring false positives)
+                    if Path(file_in_line).name == Path(filename).name:
                         return checksum
 
             return None

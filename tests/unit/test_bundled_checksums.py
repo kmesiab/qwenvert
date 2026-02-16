@@ -293,8 +293,10 @@ class TestBundledChecksumEdgeCases:
 
     def test_malformed_checksum_line_skipped(self, binary_manager, tmp_path):
         """Test that malformed lines in checksum file are safely skipped."""
-        # Create a checksum file with malformed lines
-        checksum_file = tmp_path / "b9999.txt"
+        # Create a checksums directory structure in tmp_path
+        checksums_dir = tmp_path / "checksums"
+        checksums_dir.mkdir()
+        checksum_file = checksums_dir / "b9999.txt"
         checksum_file.write_text(
             """# Valid header
 abc123  valid-file.tar.gz
@@ -304,30 +306,33 @@ valid_sha256_here  another-file.tar.gz
 """
         )
 
-        # Patch to use our temp file
-        with patch("pathlib.Path.parent", new_callable=lambda: tmp_path):
-            # The implementation should handle these gracefully
-            # Create manager and test
-            manager = BinaryManager()
-            manager.cache_dir = tmp_path
-            manager.bin_dir = tmp_path / "bin"
-            manager.bin_dir.mkdir(parents=True, exist_ok=True)
+        # Point binary_manager to use our temp checksums directory
+        manager = BinaryManager()
+        manager.checksums_dir = checksums_dir
+        manager.cache_dir = tmp_path
+        manager.bin_dir = tmp_path / "bin"
+        manager.bin_dir.mkdir(parents=True, exist_ok=True)
 
-            # Should not crash even with malformed file
-            checksum = manager._get_bundled_checksum(
-                version="b9999", filename="another-file.tar.gz"
-            )
+        # Should not crash even with malformed file
+        checksum = manager._get_bundled_checksum(
+            version="b9999", filename="another-file.tar.gz"
+        )
 
-            # Could be None or the valid checksum, both acceptable
-            if checksum:
-                assert len(checksum) > 0
+        # Should return the valid checksum for another-file.tar.gz
+        assert checksum == "valid_sha256_here"
 
     def test_empty_bundled_checksum_file(self, binary_manager, tmp_path):
         """Test handling of empty checksum file."""
-        checksum_file = tmp_path / "b0000.txt"
+        # Create checksums directory structure in tmp_path
+        checksums_dir = tmp_path / "checksums"
+        checksums_dir.mkdir()
+        checksum_file = checksums_dir / "b0000.txt"
         checksum_file.write_text("")
 
-        # Should return None gracefully
+        # Point binary_manager to use our temp checksums directory
+        binary_manager.checksums_dir = checksums_dir
+
+        # Should return None gracefully for empty file
         checksum = binary_manager._get_bundled_checksum(
             version="b0000", filename="llama-b0000.tar.gz"
         )
