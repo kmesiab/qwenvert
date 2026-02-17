@@ -147,7 +147,7 @@ class BinaryManager:
                 [str(binary_path), "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=15,  # Metal library initialization can take 8-10 seconds
                 check=False,
             )
 
@@ -270,25 +270,33 @@ class BinaryManager:
             if not llama_server_files:
                 raise RuntimeError(f"No llama-server executable found in {release_url}")
 
-            # Extract the executable
+            # Extract ALL files (binary + dylibs), stripping top-level directory
             llama_server_path = llama_server_files[0]
-            logger.info(f"Extracting {llama_server_path} from tar.gz archive")
+            logger.info(f"Extracting {llama_server_path} and dependencies from archive")
 
-            # SECURITY: Validate extraction path BEFORE extracting
-            self._validate_extract_path(llama_server_path)
+            # Extract all members, stripping the version directory (e.g., llama-b8072/)
+            for member in tar_ref.getmembers():
+                if not (member.isfile() or member.issym() or member.islnk()):
+                    continue  # Skip directories, keep files and symlinks
 
-            # Safe to extract - path has been validated
-            member = tar_ref.getmember(llama_server_path)
-            # Use filter parameter if available (Python 3.12+ and some backported versions)
-            # Feature detection is more reliable than version checking
-            if hasattr(tarfile, "data_filter"):
-                tar_ref.extract(member, self.bin_dir, filter="data")
-            else:
-                tar_ref.extract(member, self.bin_dir)
-            extract_path = self.bin_dir / llama_server_path
+                # Strip first path component (e.g., "llama-b8072/file" -> "file")
+                parts = member.name.split('/', 1)
+                if len(parts) < 2:
+                    continue
 
-            # Move to final location
-            shutil.move(extract_path, self.binary_path)
+                stripped_name = parts[1]
+
+                # SECURITY: Validate stripped path (Zip Slip protection)
+                self._validate_extract_path(stripped_name)
+
+                # Extract to bin_dir with stripped name
+                member.name = stripped_name
+                if hasattr(tarfile, "data_filter"):
+                    tar_ref.extract(member, self.bin_dir, filter="data")
+                else:
+                    tar_ref.extract(member, self.bin_dir)
+
+            logger.info(f"Extracted binary and {len([m for m in tar_ref.getmembers() if m.isfile()])} dependencies")
 
     def _extract_from_zip(self, archive_path: Path, release_url: str) -> None:
         """
