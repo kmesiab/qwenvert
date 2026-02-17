@@ -7,6 +7,7 @@ binaries from official llama.cpp releases.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import logging
@@ -145,7 +146,7 @@ class BinaryManager:
                 [str(binary_path), "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=15,  # Metal library initialization can take 8-10 seconds
                 check=False,
             )
 
@@ -244,9 +245,72 @@ class BinaryManager:
                 "This archive may be malicious."
             )
 
+    def _validate_and_strip_linkname(
+        self, member: Any, stripped_name: str
+    ) -> tuple[str, bool]:
+        """
+        Validate and strip linkname for hard links and symlinks.
+
+        Args:
+            member: TarInfo member (hard link or symlink)
+            stripped_name: Already-stripped name of the link itself
+
+        Returns:
+            Tuple of (stripped_linkname, should_skip)
+            If should_skip is True, the link should be skipped
+
+        Raises:
+            SecurityError: If link target escapes bin_dir
+        """
+        if not member.linkname:
+            logger.warning(f"Skipping link {member.name} with empty linkname")
+            return ("", True)
+
+        # Strip the prefix from link target (e.g., "llama-b8072/lib.dylib" -> "lib.dylib")
+        # Link target has no prefix if len < 2 (unusual but valid for relative links)
+        link_parts = member.linkname.split("/", 1)
+        stripped_linkname = member.linkname if len(link_parts) < 2 else link_parts[1]
+
+        # SECURITY: For hardlinks, validate target to prevent path traversal
+        # For symlinks, we use resolve-based validation below instead (allows safe relative paths)
+        if member.islnk():
+            self._validate_extract_path(stripped_linkname)
+
+        # SECURITY: For symlinks, validate that target path stays in bin_dir
+        # We validate algebraically without requiring the target to exist (it may be extracted later)
+        if member.issym():
+            # Construct the target path relative to the symlink's location
+            link_location = (self.bin_dir / stripped_name).parent
+            link_target_path = link_location / stripped_linkname
+
+            # Normalize the path to resolve .. components without requiring file existence
+            # This allows validation even if the target is extracted later in the iteration
+            try:
+                # Use resolve() to normalize the path - in Python 3.9+, this doesn't require existence
+                normalized_target = link_target_path.resolve()
+                bin_dir_resolved = self.bin_dir.resolve()
+
+                # Check if normalized target is within bin_dir (using is_relative_to for robustness)
+                if not normalized_target.is_relative_to(bin_dir_resolved):
+                    raise SecurityError(
+                        f"Symlink target path traversal detected: "
+                        f"Symlink '{stripped_name}' -> '{stripped_linkname}' "
+                        f"would resolve to '{normalized_target}', "
+                        f"which is outside bin_dir '{bin_dir_resolved}'"
+                    )
+            except ValueError as e:
+                # ValueError means path validation failed (e.g., is_relative_to returned False)
+                logger.warning(
+                    f"Symlink validation failed for '{stripped_name}' -> '{stripped_linkname}': {e}"
+                )
+                # Fail closed - skip suspicious symlinks
+                return ("", True)
+
+        return (stripped_linkname, False)
+
     def _extract_from_tarball(self, archive_path: Path, release_url: str) -> None:
         """
-        Extract llama-server from a .tar.gz archive with path traversal protection.
+        Extract llama-server and dependencies from a .tar.gz archive with path traversal protection.
 
         Args:
             archive_path: Path to the tar.gz archive
@@ -257,42 +321,72 @@ class BinaryManager:
             SecurityError: If path traversal attack detected
         """
         with tarfile.open(archive_path, "r:gz") as tar_ref:
-            # Find llama-server executable in the archive
+            # Find llama-server executable in the archive (macOS only)
             llama_server_files = [
                 member.name
                 for member in tar_ref.getmembers()
-                if member.name.endswith(("llama-server", "llama-server.exe"))
-                and member.isfile()
+                if member.name.endswith("llama-server") and member.isfile()
             ]
 
             if not llama_server_files:
                 raise RuntimeError(f"No llama-server executable found in {release_url}")
 
-            # Extract the executable
+            # Extract ALL files (binary + dylibs), stripping top-level directory
             llama_server_path = llama_server_files[0]
-            logger.info(f"Extracting {llama_server_path} from tar.gz archive")
+            logger.info(f"Extracting {llama_server_path} and dependencies from archive")
 
-            # SECURITY: Validate extraction path BEFORE extracting
-            self._validate_extract_path(llama_server_path)
+            # Extract all members, stripping the version directory (e.g., llama-b8072/)
+            extracted_count = 0
+            for member in tar_ref.getmembers():
+                if not (member.isfile() or member.issym() or member.islnk()):
+                    continue  # Skip directories, keep files and symlinks
 
-            # Safe to extract - path has been validated
-            member = tar_ref.getmember(llama_server_path)
-            # Python 3.12+ requires filter parameter to avoid deprecation warning
-            # Python 3.9-3.11 don't support it
-            import sys
+                # SECURITY: Reject absolute paths (e.g., "/etc/passwd")
+                if Path(member.name).is_absolute():
+                    raise SecurityError(
+                        f"Path traversal attack detected: Archive member '{member.name}' "
+                        f"uses an absolute path, which is not allowed"
+                    )
 
-            if sys.version_info >= (3, 12):
-                tar_ref.extract(member, self.bin_dir, filter="data")
-            else:
-                tar_ref.extract(member, self.bin_dir)
-            extract_path = self.bin_dir / llama_server_path
+                # Strip first path component (e.g., "llama-b8072/file" -> "file")
+                parts = member.name.split("/", 1)
+                if len(parts) < 2:
+                    # No prefix to strip - validate original name
+                    self._validate_extract_path(member.name)
+                    stripped_name = member.name
+                else:
+                    stripped_name = parts[1]
+                    # SECURITY: Validate stripped path (Zip Slip protection)
+                    self._validate_extract_path(stripped_name)
 
-            # Move to final location
-            shutil.move(extract_path, self.binary_path)
+                # Create a copy to avoid mutating the original TarInfo object
+                modified_member = copy.copy(member)
+                modified_member.name = stripped_name
+
+                # SECURITY: For links, also strip and validate the link target
+                if modified_member.islnk() or modified_member.issym():
+                    stripped_linkname, should_skip = self._validate_and_strip_linkname(
+                        modified_member, stripped_name
+                    )
+                    if should_skip:
+                        continue
+
+                    # Update member with stripped link target
+                    modified_member.linkname = stripped_linkname
+
+                # Extract to bin_dir with stripped name
+                if hasattr(tarfile, "data_filter"):
+                    tar_ref.extract(modified_member, self.bin_dir, filter="data")
+                else:
+                    tar_ref.extract(modified_member, self.bin_dir)
+
+                extracted_count += 1
+
+            logger.info(f"Extracted {extracted_count} files (binary + dependencies)")
 
     def _extract_from_zip(self, archive_path: Path, release_url: str) -> None:
         """
-        Extract llama-server from a .zip archive with path traversal protection.
+        Extract llama-server and dependencies from a .zip archive with path traversal protection.
 
         Args:
             archive_path: Path to the zip archive
@@ -303,28 +397,75 @@ class BinaryManager:
             SecurityError: If path traversal attack detected
         """
         with zipfile.ZipFile(archive_path, "r") as zip_ref:
-            # Find llama-server executable in the archive
+            # Find llama-server executable in the archive (macOS only)
             llama_server_files = [
-                name
-                for name in zip_ref.namelist()
-                if name.endswith(("llama-server", "llama-server.exe"))
+                name for name in zip_ref.namelist() if name.endswith("llama-server")
             ]
 
             if not llama_server_files:
                 raise RuntimeError(f"No llama-server executable found in {release_url}")
 
-            # Extract the executable
             llama_server_path = llama_server_files[0]
-            logger.info(f"Extracting {llama_server_path} from zip archive")
+            logger.info(f"Extracting {llama_server_path} and dependencies from zip")
 
-            # SECURITY: Validate extraction path BEFORE extracting
-            self._validate_extract_path(llama_server_path)
+            # Extract ALL files (binary + dependencies), stripping top-level directory
+            extracted_count = 0
+            # SECURITY: Use isolated temp directory outside bin_dir to prevent path traversal
+            # On Python <3.12, zipfile.extract() doesn't validate paths, so malicious members
+            # with .. components could escape if we extract to a subdirectory of bin_dir
+            temp_extract_dir = Path(tempfile.mkdtemp(prefix="qwenvert_extract_"))
 
-            # Safe to extract - path has been validated
-            extract_path = Path(zip_ref.extract(llama_server_path, self.bin_dir))
+            try:
+                for name in zip_ref.namelist():
+                    # Skip directories (trailing /)
+                    if name.endswith("/"):
+                        continue
 
-            # Move to final location
-            shutil.move(extract_path, self.binary_path)
+                    # SECURITY: Reject absolute paths (e.g., "/etc/passwd")
+                    if Path(name).is_absolute():
+                        raise SecurityError(
+                            f"Path traversal attack detected: Archive member '{name}' "
+                            f"uses an absolute path, which is not allowed"
+                        )
+
+                    # Strip first path component (e.g., "llama-b8072/file" -> "file")
+                    parts = name.split("/", 1)
+                    if len(parts) < 2:
+                        # No prefix to strip - validate original name
+                        self._validate_extract_path(name)
+                        stripped_name = name
+                    else:
+                        stripped_name = parts[1]
+                        # SECURITY: Validate stripped path (Zip Slip protection)
+                        self._validate_extract_path(stripped_name)
+
+                    # Extract to temporary location
+                    extract_path = Path(zip_ref.extract(name, temp_extract_dir))
+
+                    # Move to final location with stripped name
+                    final_path = self.bin_dir / stripped_name
+                    final_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # If file already exists, remove it first
+                    if final_path.exists():
+                        final_path.unlink()
+
+                    shutil.move(str(extract_path), str(final_path))
+
+                    # Preserve executable permissions for llama binaries
+                    if final_path.name.startswith("llama-"):
+                        final_path.chmod(final_path.stat().st_mode | stat.S_IEXEC)
+
+                    extracted_count += 1
+
+                logger.info(
+                    f"Extracted {extracted_count} files (binary + dependencies) from zip"
+                )
+
+            finally:
+                # Clean up temporary extraction directory
+                if temp_extract_dir.exists():
+                    shutil.rmtree(temp_extract_dir)
 
     def _download_and_install_archive(
         self,
