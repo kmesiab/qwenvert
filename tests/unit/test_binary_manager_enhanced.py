@@ -605,14 +605,11 @@ class TestSecurityValidation:
         """Functional test: Verify absolute paths in archive are blocked."""
         import zipfile
 
-        # Create a malicious zip with absolute path
+        # Create a malicious zip with absolute path (macOS)
         malicious_zip = tmp_path / "absolute.zip"
         with zipfile.ZipFile(malicious_zip, "w") as zf:
             # Absolute path member (intentionally malicious for testing)
-            if str(tmp_path).startswith("/"):
-                malicious_member = "/tmp/evil-llama-server"  # noqa: S108
-            else:
-                malicious_member = "C:\\Windows\\System32\\evil-llama-server"
+            malicious_member = "/tmp/evil-llama-server"  # noqa: S108
             zf.writestr(malicious_member, b"absolute path payload")
 
         # Mock download

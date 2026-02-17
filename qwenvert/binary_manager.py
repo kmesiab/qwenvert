@@ -314,12 +314,11 @@ class BinaryManager:
             SecurityError: If path traversal attack detected
         """
         with tarfile.open(archive_path, "r:gz") as tar_ref:
-            # Find llama-server executable in the archive
+            # Find llama-server executable in the archive (macOS only)
             llama_server_files = [
                 member.name
                 for member in tar_ref.getmembers()
-                if member.name.endswith(("llama-server", "llama-server.exe"))
-                and member.isfile()
+                if member.name.endswith("llama-server") and member.isfile()
             ]
 
             if not llama_server_files:
@@ -391,11 +390,9 @@ class BinaryManager:
             SecurityError: If path traversal attack detected
         """
         with zipfile.ZipFile(archive_path, "r") as zip_ref:
-            # Find llama-server executable in the archive
+            # Find llama-server executable in the archive (macOS only)
             llama_server_files = [
-                name
-                for name in zip_ref.namelist()
-                if name.endswith(("llama-server", "llama-server.exe"))
+                name for name in zip_ref.namelist() if name.endswith("llama-server")
             ]
 
             if not llama_server_files:
@@ -415,7 +412,7 @@ class BinaryManager:
                     if name.endswith("/"):
                         continue
 
-                    # SECURITY: Reject absolute paths (e.g., "/etc/passwd", "C:\Windows\...")
+                    # SECURITY: Reject absolute paths (e.g., "/etc/passwd")
                     if Path(name).is_absolute():
                         raise SecurityError(
                             f"Path traversal attack detected: Archive member '{name}' "
