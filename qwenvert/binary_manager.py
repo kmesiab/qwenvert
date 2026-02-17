@@ -274,27 +274,32 @@ class BinaryManager:
         # SECURITY: Validate link target to prevent path traversal
         self._validate_extract_path(stripped_linkname)
 
-        # SECURITY: For symlinks, validate that resolved target stays in bin_dir
+        # SECURITY: For symlinks, validate that target path stays in bin_dir
+        # We validate algebraically without requiring the target to exist (it may be extracted later)
         if member.issym():
-            # Resolve the symlink target relative to its location
+            # Construct the target path relative to the symlink's location
             link_location = (self.bin_dir / stripped_name).parent
             link_target_path = link_location / stripped_linkname
+
+            # Normalize the path to resolve .. components without requiring file existence
+            # This allows validation even if the target is extracted later in the iteration
             try:
-                resolved_target = link_target_path.resolve()
+                # Use resolve() to normalize the path - in Python 3.9+, this doesn't require existence
+                normalized_target = link_target_path.resolve()
                 bin_dir_resolved = self.bin_dir.resolve()
 
-                # Check if resolved target is within bin_dir
-                if not str(resolved_target).startswith(str(bin_dir_resolved)):
+                # Check if normalized target is within bin_dir (using is_relative_to for robustness)
+                if not normalized_target.is_relative_to(bin_dir_resolved):
                     raise SecurityError(
                         f"Symlink target path traversal detected: "
                         f"Symlink '{stripped_name}' -> '{stripped_linkname}' "
-                        f"would resolve to '{resolved_target}', "
+                        f"would resolve to '{normalized_target}', "
                         f"which is outside bin_dir '{bin_dir_resolved}'"
                     )
-            except (OSError, ValueError) as e:
+            except ValueError as e:
+                # ValueError means path validation failed (e.g., is_relative_to returned False)
                 logger.warning(
-                    f"Failed to validate symlink target '{stripped_name}' -> "
-                    f"'{stripped_linkname}': {e}"
+                    f"Symlink validation failed for '{stripped_name}' -> '{stripped_linkname}': {e}"
                 )
                 # Fail closed - skip suspicious symlinks
                 return ("", True)
@@ -303,7 +308,7 @@ class BinaryManager:
 
     def _extract_from_tarball(self, archive_path: Path, release_url: str) -> None:
         """
-        Extract llama-server from a .tar.gz archive with path traversal protection.
+        Extract llama-server and dependencies from a .tar.gz archive with path traversal protection.
 
         Args:
             archive_path: Path to the tar.gz archive
@@ -443,9 +448,9 @@ class BinaryManager:
 
                     shutil.move(str(extract_path), str(final_path))
 
-                    # Preserve executable permissions for binaries
-                    if final_path.name.startswith("llama-") or final_path.suffix == "":
-                        final_path.chmod(final_path.stat().st_mode | stat.S_IXUSR)
+                    # Preserve executable permissions for llama binaries
+                    if final_path.name.startswith("llama-"):
+                        final_path.chmod(final_path.stat().st_mode | stat.S_IEXEC)
 
                     extracted_count += 1
 
