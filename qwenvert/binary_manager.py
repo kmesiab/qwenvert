@@ -410,8 +410,10 @@ class BinaryManager:
 
             # Extract ALL files (binary + dependencies), stripping top-level directory
             extracted_count = 0
-            temp_extract_dir = self.bin_dir / "_temp_extract"
-            temp_extract_dir.mkdir(parents=True, exist_ok=True)
+            # SECURITY: Use isolated temp directory outside bin_dir to prevent path traversal
+            # On Python <3.12, zipfile.extract() doesn't validate paths, so malicious members
+            # with .. components could escape if we extract to a subdirectory of bin_dir
+            temp_extract_dir = Path(tempfile.mkdtemp(prefix="qwenvert_extract_"))
 
             try:
                 for name in zip_ref.namelist():
