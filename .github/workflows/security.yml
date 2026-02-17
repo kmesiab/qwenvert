@@ -1,0 +1,27 @@
+name: Security Self-Healing
+
+on:
+  schedule:
+    # Run daily at 3am PST (11am UTC)
+    - cron: '0 11 * * *'
+  workflow_dispatch:  # Allow manual triggers
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run SafetyCLI Self-Healing Action
+        uses: kmesiab/safetycli-self-healing-action@v2.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          safety_api_key: ${{ secrets.SAFETY_API_KEY }}
+          copilot_agent: 'copilot'
+          stage: 'cicd'
+          severity_threshold: 'medium'
