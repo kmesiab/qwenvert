@@ -743,7 +743,8 @@ class TestSecurityValidation:
 
             # Verify error message indicates symlink path traversal
             error_msg = str(exc_info.value).lower()
-            assert "symlink" in error_msg and "traversal" in error_msg
+            assert "symlink" in error_msg
+            assert "traversal" in error_msg
 
 
 class TestArchitectureDetection:
