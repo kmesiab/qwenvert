@@ -633,6 +633,118 @@ class TestSecurityValidation:
             error_msg = str(exc_info.value).lower()
             assert "attack detected" in error_msg, "Should detect absolute path attack"
 
+    def test_symlink_with_safe_relative_path(self, binary_manager, tmp_path):
+        """Test that symlinks with .. components that resolve within bin_dir are accepted."""
+        import tarfile
+        from io import BytesIO
+
+        # Create a tarball with a symlink using .. that is safe
+        tarball_path = tmp_path / "safe_symlink.tar.gz"
+        with tarfile.open(tarball_path, "w:gz") as tar:
+            # Create a directory structure with symlink that uses .. but is safe
+            # Archive structure: llama-b1234/llama-server and llama-b1234/lib/libfoo.dylib
+            # After stripping prefix:
+            # - llama-server (the main binary)
+            # - lib/libfoo.dylib (the actual library)
+            # The code will create symlinks for dylibs automatically
+
+            # Add the main binary
+            bin_info = tarfile.TarInfo(name="llama-b1234/llama-server")
+            bin_info.size = 6
+            bin_info.mode = 0o755
+            tar.addfile(bin_info, fileobj=BytesIO(b"binary"))
+
+            # Add the actual library file in lib subdirectory
+            lib_info = tarfile.TarInfo(name="llama-b1234/lib/libfoo.dylib")
+            lib_info.size = 5
+            tar.addfile(lib_info, fileobj=BytesIO(b"lib  "))
+
+            # Add a symlink with .. that resolves safely
+            # Archive has: llama-b1234/subdir/link.dylib -> llama-b1234/../lib/libfoo.dylib
+            # After stripping: subdir/link.dylib -> ../lib/libfoo.dylib
+            # Resolves to: lib/libfoo.dylib (within bin_dir)
+            symlink_info = tarfile.TarInfo(name="llama-b1234/subdir/link.dylib")
+            symlink_info.type = tarfile.SYMTYPE
+            symlink_info.linkname = "llama-b1234/../lib/libfoo.dylib"
+            tar.addfile(symlink_info)
+
+        # Mock download to return our tarball
+        with patch("httpx.stream") as mock_stream:
+            tar_content = tarball_path.read_bytes()
+            mock_response = Mock()
+            mock_response.__enter__ = Mock(return_value=mock_response)
+            mock_response.__exit__ = Mock(return_value=None)
+            mock_response.headers = {"content-length": str(len(tar_content))}
+            mock_response.iter_bytes = Mock(return_value=[tar_content])
+            mock_stream.return_value = mock_response
+
+            # Mock binary validation to pass
+            mock_binary_info = BinaryInfo(
+                path=binary_manager.binary_path,
+                version="test",
+                source=BinarySource.DOWNLOADED,
+                is_valid=True,
+                architecture="arm64",
+            )
+            with patch.object(
+                binary_manager, "_get_binary_info", return_value=mock_binary_info
+            ):
+                # This should NOT raise SecurityError
+                binary_manager._download_and_install_archive(
+                    release_url=f"file://{tarball_path}",
+                    version="safe-symlink",
+                    archive_filename="safe_symlink.tar.gz",
+                )
+
+                # Verify the symlink was created
+                symlink_path = binary_manager.bin_dir / "subdir" / "link.dylib"
+                assert symlink_path.exists(), "Safe symlink should be extracted"
+
+    def test_symlink_with_malicious_relative_path(self, binary_manager, tmp_path):
+        """Test that symlinks with .. that escape bin_dir are rejected."""
+        import tarfile
+        from io import BytesIO
+
+        # Create a tarball with a malicious symlink
+        tarball_path = tmp_path / "malicious_symlink.tar.gz"
+        with tarfile.open(tarball_path, "w:gz") as tar:
+            # Add a binary
+            bin_info = tarfile.TarInfo(name="llama-b1234/llama-server")
+            bin_info.size = 6
+            bin_info.mode = 0o755
+            tar.addfile(bin_info, fileobj=BytesIO(b"binary"))
+
+            # Add a symlink that tries to escape
+            # Archive: llama-b1234/bin/evil.dylib -> llama-b1234/../../../../../../etc/passwd
+            # After stripping: bin/evil.dylib -> ../../../../../../etc/passwd
+            # This should be detected as malicious
+            symlink_info = tarfile.TarInfo(name="llama-b1234/bin/evil.dylib")
+            symlink_info.type = tarfile.SYMTYPE
+            symlink_info.linkname = "llama-b1234/../../../../../../etc/passwd"
+            tar.addfile(symlink_info)
+
+        # Mock download to return our tarball
+        with patch("httpx.stream") as mock_stream:
+            tar_content = tarball_path.read_bytes()
+            mock_response = Mock()
+            mock_response.__enter__ = Mock(return_value=mock_response)
+            mock_response.__exit__ = Mock(return_value=None)
+            mock_response.headers = {"content-length": str(len(tar_content))}
+            mock_response.iter_bytes = Mock(return_value=[tar_content])
+            mock_stream.return_value = mock_response
+
+            # This SHOULD raise SecurityError for malicious symlink
+            with pytest.raises(SecurityError) as exc_info:
+                binary_manager._download_and_install_archive(
+                    release_url=f"file://{tarball_path}",
+                    version="malicious-symlink",
+                    archive_filename="malicious_symlink.tar.gz",
+                )
+
+            # Verify error message indicates symlink path traversal
+            error_msg = str(exc_info.value).lower()
+            assert "symlink" in error_msg and "traversal" in error_msg
+
 
 class TestArchitectureDetection:
     """Test architecture detection for M-series chips (regression tests for PR #74)."""
