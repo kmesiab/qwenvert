@@ -657,12 +657,12 @@ class TestSecurityValidation:
             # Add the actual library file in lib subdirectory
             lib_info = tarfile.TarInfo(name="llama-b1234/lib/libfoo.dylib")
             lib_info.size = 5
-            tar.addfile(lib_info, fileobj=BytesIO(b"lib  "))
+            tar.addfile(lib_info, fileobj=BytesIO(b"lib  "))  # Dummy content for test
 
             # Add a symlink with .. that resolves safely
             # Archive has: llama-b1234/subdir/link.dylib -> llama-b1234/../lib/libfoo.dylib
-            # After stripping: subdir/link.dylib -> ../lib/libfoo.dylib
-            # Resolves to: lib/libfoo.dylib (within bin_dir)
+            # After stripping prefix "llama-b1234/": subdir/link.dylib -> ../lib/libfoo.dylib
+            # This resolves to: bin_dir/lib/libfoo.dylib (within bin_dir)
             symlink_info = tarfile.TarInfo(name="llama-b1234/subdir/link.dylib")
             symlink_info.type = tarfile.SYMTYPE
             symlink_info.linkname = "llama-b1234/../lib/libfoo.dylib"
