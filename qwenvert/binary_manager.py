@@ -271,8 +271,10 @@ class BinaryManager:
         link_parts = member.linkname.split("/", 1)
         stripped_linkname = member.linkname if len(link_parts) < 2 else link_parts[1]
 
-        # SECURITY: Validate link target to prevent path traversal
-        self._validate_extract_path(stripped_linkname)
+        # SECURITY: For hardlinks, validate target to prevent path traversal
+        # For symlinks, we use resolve-based validation below instead (allows safe relative paths)
+        if member.islnk():
+            self._validate_extract_path(stripped_linkname)
 
         # SECURITY: For symlinks, validate that target path stays in bin_dir
         # We validate algebraically without requiring the target to exist (it may be extracted later)
