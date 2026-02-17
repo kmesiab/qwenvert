@@ -278,7 +278,7 @@ class BinaryManager:
                     continue  # Skip directories, keep files and symlinks
 
                 # Strip first path component (e.g., "llama-b8072/file" -> "file")
-                parts = member.name.split('/', 1)
+                parts = member.name.split("/", 1)
                 if len(parts) < 2:
                     continue
 
@@ -294,7 +294,9 @@ class BinaryManager:
                 else:
                     tar_ref.extract(member, self.bin_dir)
 
-            logger.info(f"Extracted binary and {len([m for m in tar_ref.getmembers() if m.isfile()])} dependencies")
+            logger.info(
+                f"Extracted binary and {len([m for m in tar_ref.getmembers() if m.isfile()])} dependencies"
+            )
 
     def _extract_from_zip(self, archive_path: Path, release_url: str) -> None:
         """
