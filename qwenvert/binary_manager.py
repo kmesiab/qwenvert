@@ -256,8 +256,8 @@ class BinaryManager:
             stripped_name: Already-stripped name of the link itself
 
         Returns:
-            Tuple of (stripped_linkname, should_continue)
-            If should_continue is True, the link should be skipped
+            Tuple of (stripped_linkname, should_skip)
+            If should_skip is True, the link should be skipped
 
         Raises:
             SecurityError: If link target escapes bin_dir
