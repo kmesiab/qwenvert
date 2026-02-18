@@ -171,11 +171,6 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          print-hash: true
-
       - name: Generate checksums
         run: |
           cd dist/
@@ -183,6 +178,11 @@ jobs:
           find . -type f \( -name "*.tar.gz" -o -name "*.whl" \) -exec sha256sum {} \; | sed 's|\./||' > SHA256SUMS
           echo "📋 Generated checksums:"
           cat SHA256SUMS
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
 
       - name: Upload checksums to release
         if: github.event_name == 'release'
