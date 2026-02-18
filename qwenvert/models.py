@@ -334,6 +334,9 @@ class ModelSelector:
         """
         Find first downloaded model that matches compatible models.
 
+        Prioritizes llama.cpp backend over ollama when matching GGUF files,
+        since raw GGUF files can be used directly with llama.cpp but not ollama.
+
         Args:
             downloaded_models: List of downloaded GGUF file paths
             compatible: List of compatible models from registry
@@ -351,21 +354,29 @@ class ModelSelector:
 
         for model_path in downloaded_models:
             filename = model_path.name
+            matches = []
 
-            # Try to match this downloaded file to a model in registry
+            # Find all models that match this downloaded file
             for model in compatible:
                 try:
                     expected_filename = downloader.get_model_filename(model)
                     if filename == expected_filename:
-                        # Found a match! Use this already-downloaded model
-                        logger.info(
-                            f"Found already-downloaded compatible model: {model.display_name} "
-                            f"({model_path.name})"
-                        )
-                        return model
+                        matches.append(model)
                 except (ValueError, AttributeError):
                     # Skip models with invalid/missing filename info
                     continue
+
+            if matches:
+                # Prioritize llama.cpp backend for raw GGUF files
+                # (Ollama requires models to be registered via ollama pull/create)
+                llamacpp_matches = [m for m in matches if m.backend == Backend.LLAMACPP]
+                selected = llamacpp_matches[0] if llamacpp_matches else matches[0]
+
+                logger.info(
+                    f"Found already-downloaded compatible model: {selected.display_name} "
+                    f"({model_path.name}) using {selected.backend.value} backend"
+                )
+                return selected
 
         return None
 

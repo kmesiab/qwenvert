@@ -136,6 +136,22 @@ models:
     huggingface_repo: "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF"
     notes: "Fast, lightweight model for low-memory systems. Good for quick tasks."
 
+  - id: qwen2.5-coder-1.5b-q4-llamacpp
+    display_name: "Qwen2.5 Coder 1.5B Q4"
+    family: qwen2.5-coder
+    size_b: 1.5
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+    context_length: 32768
+    max_output_tokens: 8192
+    min_ram_gb: 4
+    recommended_ram_gb: 8
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF"
+    notes: "Fast, lightweight model for low-memory systems (llama.cpp backend)."
+
   - id: qwen2.5-coder-3b-q4-ollama
     display_name: "Qwen2.5 Coder 3B Q4"
     family: qwen2.5-coder
@@ -151,3 +167,19 @@ models:
     is_default_candidate: true
     huggingface_repo: "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF"
     notes: "Good balance of speed and quality for 8GB systems."
+
+  - id: qwen2.5-coder-3b-q4-llamacpp
+    display_name: "Qwen2.5 Coder 3B Q4"
+    family: qwen2.5-coder
+    size_b: 3.0
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+    context_length: 32768
+    max_output_tokens: 8192
+    min_ram_gb: 6
+    recommended_ram_gb: 8
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF"
+    notes: "Good balance of speed and quality for 8GB systems (llama.cpp backend)."

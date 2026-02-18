@@ -134,8 +134,9 @@ class TestModelSelection:
         model_with = selector.select_default(mock_hardware_m1_16gb, downloaded_models)
         assert model_with is not None
         # Should select the 1.5B model that's already downloaded
+        # Prioritizes llama.cpp backend for raw GGUF files (Ollama requires registration)
         assert model_with.size_b == 1.5
-        assert model_with.id == "qwen2.5-coder-1.5b-q4-ollama"
+        assert model_with.id == "qwen2.5-coder-1.5b-q4-llamacpp"
 
     def test_select_default_skips_incompatible_downloaded_models(
         self, model_registry, mock_hardware_m1_air_8gb
