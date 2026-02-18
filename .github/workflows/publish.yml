@@ -179,7 +179,8 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist/
-          sha256sum *.tar.gz *.whl > SHA256SUMS
+          # Generate checksums for all distribution files
+          find . -type f \( -name "*.tar.gz" -o -name "*.whl" \) -exec sha256sum {} \; | sed 's|\./||' > SHA256SUMS
           echo "📋 Generated checksums:"
           cat SHA256SUMS
 
