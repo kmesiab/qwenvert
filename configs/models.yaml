@@ -151,3 +151,86 @@ models:
     is_default_candidate: true
     huggingface_repo: "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF"
     notes: "Good balance of speed and quality for 8GB systems."
+
+  # Qwen 2.5 Coder 1.5B - llama.cpp (3-7x faster than Ollama)
+  - id: qwen2.5-coder-1.5b-q4-llamacpp
+    display_name: "Qwen2.5 Coder 1.5B Q4"
+    family: qwen2.5-coder
+    size_b: 1.5
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "qwen2.5-coder-1.5b-instruct-q4_K_M.gguf"
+    context_length: 32768
+    max_output_tokens: 8192
+    min_ram_gb: 4
+    recommended_ram_gb: 8
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF"
+    notes: "Fast, lightweight model for low-memory systems. 3-7x faster than Ollama."
+
+  # Qwen 2.5 Coder 3B - llama.cpp (3-7x faster than Ollama)
+  - id: qwen2.5-coder-3b-q4-llamacpp
+    display_name: "Qwen2.5 Coder 3B Q4"
+    family: qwen2.5-coder
+    size_b: 3.0
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "qwen2.5-coder-3b-instruct-q4_K_M.gguf"
+    context_length: 32768
+    max_output_tokens: 8192
+    min_ram_gb: 6
+    recommended_ram_gb: 8
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen2.5-Coder-3B-Instruct-GGUF"
+    notes: "Good balance for 8GB systems. 3-7x faster than Ollama."
+
+  # Qwen 2.5 Coder 7B - llama.cpp variants (Q4/Q5/Q8)
+  - id: qwen2.5-coder-7b-q4-llamacpp
+    display_name: "Qwen2.5 Coder 7B Q4"
+    family: qwen2.5-coder
+    size_b: 7.0
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "qwen2.5-coder-7b-instruct-q4_K_M.gguf"
+    context_length: 32768
+    max_output_tokens: 12288
+    min_ram_gb: 12
+    recommended_ram_gb: 16
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"
+    notes: "Best balance for most systems. 3-7x faster than Ollama."
+
+  - id: qwen2.5-coder-7b-q5-llamacpp
+    display_name: "Qwen2.5 Coder 7B Q5"
+    family: qwen2.5-coder
+    size_b: 7.0
+    quantization: Q5_K_M
+    backend: llamacpp
+    backend_model_id: "qwen2.5-coder-7b-instruct-q5_K_M.gguf"
+    context_length: 32768
+    max_output_tokens: 12288
+    min_ram_gb: 12
+    recommended_ram_gb: 16
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"
+    notes: "Higher quality than Q4. Recommended for 16GB systems."
+
+  - id: qwen2.5-coder-7b-q8-llamacpp
+    display_name: "Qwen2.5 Coder 7B Q8"
+    family: qwen2.5-coder
+    size_b: 7.0
+    quantization: Q8_0
+    backend: llamacpp
+    backend_model_id: "qwen2.5-coder-7b-instruct-q8_0.gguf"
+    context_length: 32768
+    max_output_tokens: 12288
+    min_ram_gb: 14
+    recommended_ram_gb: 24
+    is_coder_model: true
+    is_default_candidate: false
+    huggingface_repo: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"
+    notes: "Highest quality 7B variant. Requires 24GB for best performance."

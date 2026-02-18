@@ -160,8 +160,10 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
             )
     else:
         # Auto-select optimal model (prioritizing already-downloaded models)
+        from .models import Backend
+
         selected_model = selector.select_default(
-            hardware, downloaded_models, downloader
+            hardware, downloaded_models, downloader, backend=Backend(backend)
         )
         if not selected_model:
             console.print(
