@@ -321,7 +321,7 @@ class ModelRegistry:
 
         # Sort by size (smaller first) and quantization (higher quality first)
         models.sort(
-            key=lambda m: (m.size_b, QUANTIZATION_QUALITY.get(m.quantization, -1))
+            key=lambda m: (m.size_b, -QUANTIZATION_QUALITY.get(m.quantization, -1))
         )
 
         return models
