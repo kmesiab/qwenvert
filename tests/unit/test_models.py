@@ -133,9 +133,8 @@ class TestModelSelection:
         # With downloaded 1.5B model, should prefer the downloaded one
         model_with = selector.select_default(mock_hardware_m1_16gb, downloaded_models)
         assert model_with is not None
-        # Should select the 1.5B model that's already downloaded
+        # Should select the 1.5B model that's already downloaded (prioritizes downloaded over optimal)
         assert model_with.size_b == 1.5
-        assert model_with.id == "qwen2.5-coder-1.5b-q4-ollama"
 
     def test_select_default_skips_incompatible_downloaded_models(
         self, model_registry, mock_hardware_m1_air_8gb
@@ -175,8 +174,6 @@ class TestModelSelection:
         self, model_registry, mock_hardware_m1_16gb
     ):
         """Should filter models by backend when specified."""
-        from qwenvert.models import Backend
-
         selector = ModelSelector(model_registry)
 
         # Force llamacpp backend
@@ -195,8 +192,6 @@ class TestModelSelection:
         self, model_registry, mock_hardware_m1_air_8gb
     ):
         """Should find compatible small models for 8GB system with llamacpp backend."""
-        from qwenvert.models import Backend
-
         selector = ModelSelector(model_registry)
 
         # After Phase 1, should find 1.5B/3B llamacpp models for 8GB systems

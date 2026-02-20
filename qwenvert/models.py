@@ -171,6 +171,41 @@ class ModelRegistry:
     def _load_defaults(self) -> None:
         """Load hardcoded default models if no config file."""
         defaults = [
+            # Small models for 8GB systems
+            Model(
+                id="qwen2.5-coder-1.5b-q4-llamacpp",
+                display_name="Qwen2.5 Coder 1.5B Q4",
+                family="qwen2.5-coder",
+                size_b=1.5,
+                quantization="Q4_K_M",
+                backend=Backend.LLAMACPP,
+                backend_model_id="qwen2.5-coder-1.5b-instruct-q4_K_M.gguf",
+                context_length=32768,
+                max_output_tokens=8192,
+                min_ram_gb=4,
+                recommended_ram_gb=8,
+                is_coder_model=True,
+                is_default_candidate=True,
+                huggingface_repo="Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
+                notes="Fast, lightweight model for low-memory systems. 3-7x faster than Ollama.",
+            ),
+            Model(
+                id="qwen2.5-coder-3b-q4-llamacpp",
+                display_name="Qwen2.5 Coder 3B Q4",
+                family="qwen2.5-coder",
+                size_b=3.0,
+                quantization="Q4_K_M",
+                backend=Backend.LLAMACPP,
+                backend_model_id="qwen2.5-coder-3b-instruct-q4_K_M.gguf",
+                context_length=32768,
+                max_output_tokens=8192,
+                min_ram_gb=6,
+                recommended_ram_gb=8,
+                is_coder_model=True,
+                is_default_candidate=True,
+                huggingface_repo="Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
+                notes="Good balance for 8GB systems. 3-7x faster than Ollama.",
+            ),
             Model(
                 id="qwen2.5-coder-7b-q4-ollama",
                 display_name="Qwen2.5 Coder 7B Q4",
@@ -353,7 +388,7 @@ class ModelSelector:
         Returns:
             Filtered list of models
         """
-        if not backend:
+        if backend is None:
             return models
 
         filtered = [m for m in models if m.backend == backend]
@@ -454,12 +489,13 @@ class ModelSelector:
         Select default model for given hardware.
 
         Selection strategy:
-        1. Check for already-downloaded compatible models (prioritize existing)
-        2. Filter to compatible models (fits in RAM)
-        3. Prefer models in "optimal" range (recommended RAM)
-        4. For memory-constrained systems (<= 8GB): prefer smaller, higher quantization
-        5. For thermally-constrained (fanless): prefer smaller models
-        6. Otherwise: prefer larger model with highest quantization
+        1. Filter to compatible models (fits in RAM)
+        2. Filter by backend (if specified)
+        3. Check for already-downloaded compatible models (prioritize existing)
+        4. Prefer models in "optimal" range (recommended RAM)
+        5. For memory-constrained systems (<= 8GB): prefer smaller, higher quantization
+        6. For thermally-constrained (fanless): prefer smaller models
+        7. Otherwise: prefer larger model with highest quantization
 
         Args:
             hardware: Detected hardware profile
@@ -520,6 +556,11 @@ class ModelSelector:
                 if q5_candidates:
                     return q5_candidates[0]
                 return candidates[0]
+            else:
+                logger.warning(
+                    f"No thermally-safe models found (size <= {self.THERMAL_CONSTRAINED_MAX_SIZE_GB}GB, "
+                    f"quantizations Q5_K_M/Q4_K_M); falling back to standard selection"
+                )
 
         # Standard case: maximize quality within optimal range
         if optimal:
