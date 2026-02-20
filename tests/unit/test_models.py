@@ -259,8 +259,6 @@ class TestModelSelection:
         self, model_registry, mock_hardware_m1_16gb, tmp_path
     ):
         """Should prioritize best downloaded model when multiple exist."""
-        from pathlib import Path
-
         selector = ModelSelector(model_registry)
 
         # Simulate multiple downloaded models
@@ -314,7 +312,7 @@ class TestModelSelection:
         self, model_registry, mock_hardware_m1_16gb
     ):
         """Should handle unknown quantization formats gracefully."""
-        from qwenvert.models import Model, Backend
+        from qwenvert.models import Backend, Model
 
         # Add model with unknown quantization
         unknown_quant_model = Model(
