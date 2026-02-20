@@ -556,11 +556,11 @@ class ModelSelector:
                 if q5_candidates:
                     return q5_candidates[0]
                 return candidates[0]
-            else:
-                logger.warning(
-                    f"No thermally-safe models found (size <= {self.THERMAL_CONSTRAINED_MAX_SIZE_GB}GB, "
-                    f"quantizations Q5_K_M/Q4_K_M); falling back to standard selection"
-                )
+
+            logger.warning(
+                f"No thermally-safe models found (size <= {self.THERMAL_CONSTRAINED_MAX_SIZE_GB}GB, "
+                f"quantizations Q5_K_M/Q4_K_M); falling back to standard selection"
+            )
 
         # Standard case: maximize quality within optimal range
         if optimal:
