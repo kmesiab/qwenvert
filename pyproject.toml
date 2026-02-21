@@ -12,7 +12,7 @@ qwenvert = ["checksums/*.txt", "checksums/*.md"]
 
 [project]
 name = "qwenvert"
-version = "0.2.14"
+version = "0.2.15"
 description = "One-click local LLM inference for Claude Code on Mac M1"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
