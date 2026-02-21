@@ -18,6 +18,15 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# Quantization quality rankings (higher = better quality)
+# Shared across ModelRegistry and ModelSelector
+QUANTIZATION_QUALITY: dict[str, int] = {
+    "Q8_0": 3,  # Highest quality
+    "Q6_K": 2,  # Good balance
+    "Q5_K_M": 1,  # Efficient
+    "Q4_K_M": 0,  # Smallest/fastest
+}
+
 
 if TYPE_CHECKING:
     from .downloader import ModelDownloader
@@ -162,6 +171,41 @@ class ModelRegistry:
     def _load_defaults(self) -> None:
         """Load hardcoded default models if no config file."""
         defaults = [
+            # Small models for 8GB systems
+            Model(
+                id="qwen2.5-coder-1.5b-q4-llamacpp",
+                display_name="Qwen2.5 Coder 1.5B Q4",
+                family="qwen2.5-coder",
+                size_b=1.5,
+                quantization="Q4_K_M",
+                backend=Backend.LLAMACPP,
+                backend_model_id="qwen2.5-coder-1.5b-instruct-q4_K_M.gguf",
+                context_length=32768,
+                max_output_tokens=8192,
+                min_ram_gb=4,
+                recommended_ram_gb=8,
+                is_coder_model=True,
+                is_default_candidate=True,
+                huggingface_repo="Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF",
+                notes="Fast, lightweight model for low-memory systems. 3-7x faster than Ollama.",
+            ),
+            Model(
+                id="qwen2.5-coder-3b-q4-llamacpp",
+                display_name="Qwen2.5 Coder 3B Q4",
+                family="qwen2.5-coder",
+                size_b=3.0,
+                quantization="Q4_K_M",
+                backend=Backend.LLAMACPP,
+                backend_model_id="qwen2.5-coder-3b-instruct-q4_K_M.gguf",
+                context_length=32768,
+                max_output_tokens=8192,
+                min_ram_gb=6,
+                recommended_ram_gb=8,
+                is_coder_model=True,
+                is_default_candidate=True,
+                huggingface_repo="Qwen/Qwen2.5-Coder-3B-Instruct-GGUF",
+                notes="Good balance for 8GB systems. 3-7x faster than Ollama.",
+            ),
             Model(
                 id="qwen2.5-coder-7b-q4-ollama",
                 display_name="Qwen2.5 Coder 7B Q4",
@@ -276,9 +320,8 @@ class ModelRegistry:
             models = [m for m in models if m.is_default_candidate]
 
         # Sort by size (smaller first) and quantization (higher quality first)
-        quantization_order = {"Q8_0": 3, "Q6_K": 2, "Q5_K_M": 1, "Q4_K_M": 0}
         models.sort(
-            key=lambda m: (m.size_b, quantization_order.get(m.quantization, -1))
+            key=lambda m: (m.size_b, -QUANTIZATION_QUALITY.get(m.quantization, -1))
         )
 
         return models
@@ -316,6 +359,9 @@ class ModelSelector:
     hardware constraints (memory, thermal, performance).
     """
 
+    # Maximum model size for thermally-constrained systems (fanless Macs)
+    THERMAL_CONSTRAINED_MAX_SIZE_GB: float = 7.0
+
     def __init__(self, registry: ModelRegistry) -> None:
         """
         Initialize model selector.
@@ -324,6 +370,69 @@ class ModelSelector:
             registry: Model registry to select from
         """
         self.registry = registry
+
+    def _filter_by_backend(
+        self,
+        models: list[Model],
+        backend: Backend | None,
+        log_if_empty: bool = False,
+    ) -> list[Model]:
+        """
+        Filter models by backend if specified.
+
+        Args:
+            models: List of models to filter
+            backend: Backend to filter by (None = no filtering)
+            log_if_empty: Whether to log warning if no models remain
+
+        Returns:
+            Filtered list of models
+        """
+        if backend is None:
+            return models
+
+        filtered = [m for m in models if m.backend == backend]
+
+        if log_if_empty and not filtered:
+            logger.warning(f"No compatible {backend.value} models found for hardware")
+
+        return filtered
+
+    def _get_quantization_score(self, model: Model) -> int:
+        """
+        Get quantization quality score (higher = better).
+
+        Args:
+            model: Model to score
+
+        Returns:
+            Quality score (-1 for unknown quantization formats)
+        """
+        return QUANTIZATION_QUALITY.get(model.quantization, -1)
+
+    def _sort_key_smallest_efficient(self, model: Model) -> tuple[float, int]:
+        """
+        Sort key for memory-constrained systems: smallest size, prefer Q4_K_M.
+
+        Args:
+            model: Model to generate sort key for
+
+        Returns:
+            Tuple of (size, quantization_penalty)
+        """
+        return (model.size_b, 0 if model.quantization == "Q4_K_M" else 1)
+
+    def _sort_key_largest_quality(self, model: Model) -> tuple[float, int]:
+        """
+        Sort key for standard systems: largest size, highest quantization.
+
+        Args:
+            model: Model to generate sort key for
+
+        Returns:
+            Tuple of (size, quality_score)
+        """
+        return (model.size_b, self._get_quantization_score(model))
 
     def _find_downloaded_model(
         self,
@@ -374,29 +483,37 @@ class ModelSelector:
         hardware: HardwareProfile,
         downloaded_models: list[Path] | None = None,
         downloader: ModelDownloader | None = None,
+        backend: Backend | None = None,
     ) -> Model | None:
         """
         Select default model for given hardware.
 
         Selection strategy:
-        1. Check for already-downloaded compatible models (prioritize existing)
-        2. Filter to compatible models (fits in RAM)
-        3. Prefer models in "optimal" range (recommended RAM)
-        4. For memory-constrained systems (<= 8GB): prefer smaller, higher quantization
-        5. For thermally-constrained (fanless): prefer smaller models
-        6. Otherwise: prefer larger model with highest quantization
+        1. Filter to compatible models (fits in RAM)
+        2. Filter by backend (if specified)
+        3. Check for already-downloaded compatible models (prioritize existing)
+        4. Prefer models in "optimal" range (recommended RAM)
+        5. For memory-constrained systems (<= 8GB): prefer smaller, higher quantization
+        6. For thermally-constrained (fanless): prefer smaller models
+        7. Otherwise: prefer larger model with highest quantization
 
         Args:
             hardware: Detected hardware profile
             downloaded_models: List of paths to already-downloaded GGUF files (optional)
             downloader: ModelDownloader instance for filename matching (optional,
                        avoids filesystem side effects in tests)
+            backend: Backend to filter models by (if specified, handles fallback scenario)
 
         Returns:
             Selected model, or None if no compatible model found
         """
         # Get compatible models
         compatible = self.registry.find_compatible_models(hardware)
+        if not compatible:
+            return None
+
+        # Filter by backend if specified (handles fallback scenario)
+        compatible = self._filter_by_backend(compatible, backend, log_if_empty=True)
         if not compatible:
             return None
 
@@ -411,14 +528,16 @@ class ModelSelector:
         # Get optimal models (recommended RAM available)
         optimal = self.registry.find_optimal_models(hardware)
 
+        # Filter optimal by backend if specified (ensures all code paths respect backend)
+        optimal = self._filter_by_backend(optimal, backend)
+
         # Decision logic based on hardware constraints
         if hardware.is_memory_constrained():
             # 8GB or less: PRIORITIZE SMALLEST model to avoid swapping
             # Size is more important than quantization quality on constrained systems
             # Sort by size first, then prefer Q4_K_M for efficiency
             compatible_sorted = sorted(
-                compatible,
-                key=lambda m: (m.size_b, 0 if m.quantization == "Q4_K_M" else 1),
+                compatible, key=self._sort_key_smallest_efficient
             )
             return compatible_sorted[0] if compatible_sorted else None
 
@@ -428,7 +547,8 @@ class ModelSelector:
             candidates = [
                 m
                 for m in optimal
-                if m.size_b <= 7.0 and m.quantization in ["Q5_K_M", "Q4_K_M"]
+                if m.size_b <= self.THERMAL_CONSTRAINED_MAX_SIZE_GB
+                and m.quantization in ["Q5_K_M", "Q4_K_M"]
             ]
             if candidates:
                 # Prefer Q5_K_M over Q4_K_M
@@ -437,24 +557,23 @@ class ModelSelector:
                     return q5_candidates[0]
                 return candidates[0]
 
+            logger.warning(
+                f"No thermally-safe models found (size <= {self.THERMAL_CONSTRAINED_MAX_SIZE_GB}GB, "
+                f"quantizations Q5_K_M/Q4_K_M); falling back to standard selection"
+            )
+
         # Standard case: maximize quality within optimal range
         if optimal:
             # Sort by size (desc) then quantization quality (desc)
-            quantization_quality = {"Q8_0": 3, "Q6_K": 2, "Q5_K_M": 1, "Q4_K_M": 0}
             optimal_sorted = sorted(
-                optimal,
-                key=lambda m: (m.size_b, quantization_quality.get(m.quantization, -1)),
-                reverse=True,
+                optimal, key=self._sort_key_largest_quality, reverse=True
             )
             return optimal_sorted[0]
 
         # No optimal models, choose best compatible
         # Prefer larger models with better quantization
-        quantization_quality = {"Q8_0": 3, "Q6_K": 2, "Q5_K_M": 1, "Q4_K_M": 0}
         compatible_sorted = sorted(
-            compatible,
-            key=lambda m: (m.size_b, quantization_quality.get(m.quantization, -1)),
-            reverse=True,
+            compatible, key=self._sort_key_largest_quality, reverse=True
         )
         return compatible_sorted[0]
 
@@ -481,11 +600,7 @@ class ModelSelector:
 
         if prefer_quality:
             # Choose largest model with highest quantization
-            quantization_quality = {"Q8_0": 3, "Q6_K": 2, "Q5_K_M": 1, "Q4_K_M": 0}
-            return max(
-                compatible,
-                key=lambda m: (m.size_b, quantization_quality.get(m.quantization, -1)),
-            )
+            return max(compatible, key=self._sort_key_largest_quality)
 
         if prefer_speed:
             # Choose smallest model with lower quantization

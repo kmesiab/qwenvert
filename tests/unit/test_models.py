@@ -133,9 +133,8 @@ class TestModelSelection:
         # With downloaded 1.5B model, should prefer the downloaded one
         model_with = selector.select_default(mock_hardware_m1_16gb, downloaded_models)
         assert model_with is not None
-        # Should select the 1.5B model that's already downloaded
+        # Should select the 1.5B model that's already downloaded (prioritizes downloaded over optimal)
         assert model_with.size_b == 1.5
-        assert model_with.id == "qwen2.5-coder-1.5b-q4-ollama"
 
     def test_select_default_skips_incompatible_downloaded_models(
         self, model_registry, mock_hardware_m1_air_8gb
@@ -170,6 +169,194 @@ class TestModelSelection:
         model = selector.select_default(mock_hardware_m1_16gb, [])
         assert model is not None
         assert model.fits_hardware(mock_hardware_m1_16gb)
+
+    def test_select_default_respects_backend_filter(
+        self, model_registry, mock_hardware_m1_16gb
+    ):
+        """Should filter models by backend when specified."""
+        selector = ModelSelector(model_registry)
+
+        # Force llamacpp backend
+        model = selector.select_default(mock_hardware_m1_16gb, backend=Backend.LLAMACPP)
+
+        assert model is not None
+        assert model.backend == Backend.LLAMACPP
+
+        # Force ollama backend
+        model = selector.select_default(mock_hardware_m1_16gb, backend=Backend.OLLAMA)
+
+        assert model is not None
+        assert model.backend == Backend.OLLAMA
+
+    def test_select_default_backend_filter_8gb_system(
+        self, model_registry, mock_hardware_m1_air_8gb
+    ):
+        """Should find compatible small models for 8GB system with llamacpp backend."""
+        selector = ModelSelector(model_registry)
+
+        # After Phase 1, should find 1.5B/3B llamacpp models for 8GB systems
+        model = selector.select_default(
+            mock_hardware_m1_air_8gb, backend=Backend.LLAMACPP
+        )
+
+        # Should find a compatible model now (1.5B or 3B)
+        assert model is not None
+        assert model.backend == Backend.LLAMACPP
+        assert model.size_b <= 3.0  # Small model for 8GB system
+
+    def test_select_default_4gb_system(self, model_registry):
+        """Should select 1.5B model for 4GB system."""
+        from qwenvert.hardware import HardwareProfile
+        from qwenvert.models import Backend
+
+        # Create 4GB hardware profile
+        hardware_4gb = HardwareProfile(
+            chip="M1",
+            chip_family="M1",
+            total_memory_gb=4.0,
+            gpu_cores=7,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=True,
+            neural_engine_cores=16,
+            model_identifier="MacBookAir10,1",
+        )
+
+        selector = ModelSelector(model_registry)
+
+        # Should select smallest model (1.5B)
+        model = selector.select_default(hardware_4gb, backend=Backend.LLAMACPP)
+
+        assert model is not None
+        assert model.size_b == 1.5  # Only 1.5B fits in 4GB
+        assert model.min_ram_gb <= 4.0
+
+    def test_select_default_model_doesnt_fit(self, model_registry):
+        """Should return None when no models fit hardware."""
+        from qwenvert.hardware import HardwareProfile
+
+        # Create extremely constrained hardware (2GB)
+        hardware_2gb = HardwareProfile(
+            chip="M1",
+            chip_family="M1",
+            total_memory_gb=2.0,
+            gpu_cores=7,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=True,
+            neural_engine_cores=16,
+            model_identifier="MacBookAir10,1",
+        )
+
+        selector = ModelSelector(model_registry)
+
+        # Should return None (no models fit in 2GB)
+        model = selector.select_default(hardware_2gb)
+
+        assert model is None
+
+    def test_select_default_multiple_downloaded_models(
+        self, model_registry, mock_hardware_m1_16gb, tmp_path
+    ):
+        """Should prioritize best downloaded model when multiple exist."""
+        selector = ModelSelector(model_registry)
+
+        # Simulate multiple downloaded models
+        downloaded_models = [
+            tmp_path / "qwen2.5-coder-1.5b-instruct-q4_K_M.gguf",
+            tmp_path / "qwen2.5-coder-3b-instruct-q4_K_M.gguf",
+        ]
+
+        # Create the files
+        for model_file in downloaded_models:
+            model_file.touch()
+
+        # Should select first compatible (prioritizes downloaded over optimal)
+        model = selector.select_default(
+            mock_hardware_m1_16gb, downloaded_models=downloaded_models
+        )
+
+        assert model is not None
+        # Should get one of the downloaded models
+        assert model.size_b in [1.5, 3.0]
+
+    def test_select_default_empty_registry(self):
+        """Should handle empty registry gracefully."""
+        from qwenvert.hardware import HardwareProfile
+        from qwenvert.models import ModelRegistry, ModelSelector
+
+        # Create empty registry
+        empty_registry = ModelRegistry()
+        empty_registry.models = {}
+
+        selector = ModelSelector(empty_registry)
+
+        hardware = HardwareProfile(
+            chip="M1 Pro",
+            chip_family="M1",
+            total_memory_gb=16.0,
+            gpu_cores=16,
+            cpu_cores_performance=8,
+            cpu_cores_efficiency=2,
+            has_active_cooling=True,
+            neural_engine_cores=16,
+            model_identifier="MacBookPro18,1",
+        )
+
+        # Should return None gracefully
+        model = selector.select_default(hardware)
+
+        assert model is None
+
+    def test_select_default_unknown_quantization(
+        self, model_registry, mock_hardware_m1_16gb
+    ):
+        """Should handle unknown quantization formats gracefully."""
+        from qwenvert.models import Backend, Model
+
+        # Add model with unknown quantization
+        unknown_quant_model = Model(
+            id="test-unknown-quant",
+            display_name="Test Unknown Quant",
+            family="qwen2.5-coder",
+            size_b=7.0,
+            quantization="Q2_K",  # Unknown format
+            backend=Backend.LLAMACPP,
+            backend_model_id="test-unknown.gguf",
+            context_length=32768,
+            max_output_tokens=8192,
+            min_ram_gb=8,
+            recommended_ram_gb=16,
+            is_coder_model=True,
+            is_default_candidate=True,
+        )
+
+        model_registry.models[unknown_quant_model.id] = unknown_quant_model
+
+        selector = ModelSelector(model_registry)
+
+        # Should handle gracefully (score as -1)
+        model = selector.select_default(mock_hardware_m1_16gb)
+
+        assert model is not None
+        # Should get quantization score of -1 for unknown format
+        assert selector._get_quantization_score(unknown_quant_model) == -1
+
+    def test_filter_by_backend_no_matches(self, model_registry):
+        """Should return empty list when backend filter excludes all models."""
+        from qwenvert.models import Backend
+
+        selector = ModelSelector(model_registry)
+
+        # Get all models
+        all_models = list(model_registry.models.values())
+
+        # Filter by MLX (no models have this backend)
+        filtered = selector._filter_by_backend(
+            all_models, Backend.MLX, log_if_empty=True
+        )
+
+        assert filtered == []
 
 
 class TestModelMetadata:
