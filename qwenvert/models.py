@@ -371,6 +371,93 @@ class ModelSelector:
         """
         self.registry = registry
 
+    def get_preferred_backend(self, hardware: HardwareProfile) -> Backend:
+        """
+        Determine preferred backend based on hardware.
+        
+        Backend Priority Logic (Feb 2026):
+        - Mac M-Series: Default to llama.cpp (Metal) for best performance
+        - Other systems: Default to Ollama for ease of use
+        
+        Args:
+            hardware: Detected hardware profile
+            
+        Returns:
+            Preferred backend for this hardware
+        """
+        # Mac M-Series: Default to llama.cpp (Metal)
+        if hardware.chip_family in ["M1", "M2", "M3", "M4"]:
+            logger.info(f"Mac {hardware.chip_family} detected - preferring llama.cpp (Metal)")
+            return Backend.LLAMACPP
+        
+        # Default to Ollama for other systems
+        return Backend.OLLAMA
+
+    def auto_select_model_for_memory(self, hardware: HardwareProfile) -> str | None:
+        """
+        Auto-select model ID based on available memory.
+        
+        Logic Gate (Feb 2026):
+        - If mem < 10GB: auto-select Qwen3-Coder-Next-8B Q4 or Gemma3-4B-IT
+        - If mem > 16GB: suggest larger models (14B+ or MoE variants)
+        - If mem 10-16GB: balanced selection (7-8B models)
+        
+        Args:
+            hardware: Detected hardware profile
+            
+        Returns:
+            Recommended model ID, or None if no suitable model
+        """
+        total_mem = hardware.total_memory_gb
+        
+        # < 10GB: Prioritize smallest efficient models
+        if total_mem < 10:
+            logger.info(f"{total_mem}GB RAM detected - selecting compact model for 8GB optimization")
+            
+            # Try Qwen3-Coder-Next-8B first (best for 8GB)
+            if self.registry.get_model("qwen3-coder-next-8b-q4-llamacpp"):
+                return "qwen3-coder-next-8b-q4-llamacpp"
+            
+            # Fallback to Gemma3-4B-IT (ultra-compact)
+            if self.registry.get_model("gemma3-4b-it-q4-llamacpp"):
+                return "gemma3-4b-it-q4-llamacpp"
+            
+            # Legacy fallback: Qwen2.5 Coder 3B
+            if self.registry.get_model("qwen2.5-coder-3b-q4-llamacpp"):
+                return "qwen2.5-coder-3b-q4-llamacpp"
+                
+            return None
+        
+        # > 16GB: Suggest larger models
+        if total_mem > 16:
+            logger.info(f"{total_mem}GB RAM detected - selecting high-capacity model")
+            
+            # Try 14B variants first
+            if self.registry.get_model("qwen2.5-coder-14b-q5-llamacpp"):
+                return "qwen2.5-coder-14b-q5-llamacpp"
+            
+            if self.registry.get_model("qwen2.5-coder-14b-q4-llamacpp"):
+                return "qwen2.5-coder-14b-q4-llamacpp"
+                
+            # Fallback to 7-8B
+            if self.registry.get_model("qwen3-coder-next-8b-q4-llamacpp"):
+                return "qwen3-coder-next-8b-q4-llamacpp"
+                
+            return None
+        
+        # 10-16GB: Balanced selection (7-8B models)
+        logger.info(f"{total_mem}GB RAM detected - selecting balanced model")
+        
+        # Prioritize Qwen3-Coder-Next-8B
+        if self.registry.get_model("qwen3-coder-next-8b-q4-llamacpp"):
+            return "qwen3-coder-next-8b-q4-llamacpp"
+        
+        # Fallback to legacy Qwen2.5 7B
+        if self.registry.get_model("qwen2.5-coder-7b-q4-llamacpp"):
+            return "qwen2.5-coder-7b-q4-llamacpp"
+            
+        return None
+
     def _filter_by_backend(
         self,
         models: list[Model],
@@ -465,7 +552,8 @@ class ModelSelector:
             for model in compatible:
                 try:
                     expected_filename = downloader.get_model_filename(model)
-                    if filename == expected_filename:
+                    # Case-insensitive matching for robustness (handles q4_k_m vs Q4_K_M)
+                    if filename.lower() == expected_filename.lower():
                         # Found a match! Use this already-downloaded model
                         logger.info(
                             f"Found already-downloaded compatible model: {model.display_name} "
@@ -489,13 +577,14 @@ class ModelSelector:
         Select default model for given hardware.
 
         Selection strategy:
-        1. Filter to compatible models (fits in RAM)
-        2. Filter by backend (if specified)
-        3. Check for already-downloaded compatible models (prioritize existing)
-        4. Prefer models in "optimal" range (recommended RAM)
-        5. For memory-constrained systems (<= 8GB): prefer smaller, higher quantization
-        6. For thermally-constrained (fanless): prefer smaller models
-        7. Otherwise: prefer larger model with highest quantization
+        1. Determine preferred backend (llama.cpp for Mac M-Series)
+        2. Filter to compatible models (fits in RAM)
+        3. Filter by backend (if specified, or use preferred)
+        4. Check for already-downloaded compatible models (prioritize existing)
+        5. Prefer models in "optimal" range (recommended RAM)
+        6. For memory-constrained systems (<= 8GB): prefer smaller, higher quantization
+        7. For thermally-constrained (fanless): prefer smaller models
+        8. Otherwise: prefer larger model with highest quantization
 
         Args:
             hardware: Detected hardware profile
@@ -507,6 +596,11 @@ class ModelSelector:
         Returns:
             Selected model, or None if no compatible model found
         """
+        # Auto-select preferred backend if not specified
+        if backend is None:
+            backend = self.get_preferred_backend(hardware)
+            logger.info(f"Auto-selected backend: {backend.value}")
+
         # Get compatible models
         compatible = self.registry.find_compatible_models(hardware)
         if not compatible:
