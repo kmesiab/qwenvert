@@ -60,17 +60,17 @@ class HardwareProfile:
         
         Dynamic context scaling for 2026 models:
         - 8GB systems: 8,192 tokens (optimal for tight constraints)
-        - >16GB systems: 32,768 tokens (full context utilization)
-        - 10-16GB systems: 16,384 tokens (balanced)
+        - 10-15GB systems: 16,384 tokens (balanced)
+        - ≥16GB systems: 32,768 tokens (full context utilization)
 
         Returns:
             Recommended context length in tokens
         """
-        if self.total_memory_gb > 16:
-            return 32768  # Scale up to 32k if >16GB detected
+        if self.total_memory_gb >= 16:
+            return 32768  # Scale up to 32k if ≥16GB
         if self.total_memory_gb >= 10:
             return 16384
-        return 8192  # Default to 8k on 8GB systems
+        return 8192  # Default to 8k on <10GB systems
 
 
 class HardwareDetector:
