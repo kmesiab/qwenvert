@@ -57,7 +57,7 @@ class HardwareProfile:
     def recommended_context_length(self) -> int:
         """
         Recommend context window size based on available memory.
-        
+
         Dynamic context scaling for 2026 models:
         - 8GB systems: 8,192 tokens (optimal for tight constraints)
         - 10-15GB systems: 16,384 tokens (balanced)

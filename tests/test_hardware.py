@@ -144,7 +144,35 @@ class TestHardwareProfile:
         )
         assert profile_8gb.recommended_context_length() == 8192
 
-        # 16GB -> 16384 tokens
+        # 9GB -> 8192 tokens (< 10GB)
+        profile_9gb = HardwareProfile(
+            chip="M1",
+            chip_family="M1",
+            total_memory_gb=9,
+            gpu_cores=7,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=False,
+            neural_engine_cores=16,
+            model_identifier="MacBookAir10,1",
+        )
+        assert profile_9gb.recommended_context_length() == 8192
+
+        # 10GB -> 16384 tokens (≥10GB, <16GB)
+        profile_10gb = HardwareProfile(
+            chip="M1",
+            chip_family="M1",
+            total_memory_gb=10,
+            gpu_cores=8,
+            cpu_cores_performance=4,
+            cpu_cores_efficiency=4,
+            has_active_cooling=True,
+            neural_engine_cores=16,
+            model_identifier="MacBookPro18,1",
+        )
+        assert profile_10gb.recommended_context_length() == 16384
+
+        # 16GB -> 32768 tokens (≥16GB gets full 32k context)
         profile_16gb = HardwareProfile(
             chip="M1 Pro",
             chip_family="M1",
@@ -156,7 +184,7 @@ class TestHardwareProfile:
             neural_engine_cores=16,
             model_identifier="MacBookPro18,3",
         )
-        assert profile_16gb.recommended_context_length() == 16384
+        assert profile_16gb.recommended_context_length() == 32768  # ≥16GB gets 32k
 
         # 32GB -> 32768 tokens
         profile_32gb = HardwareProfile(
