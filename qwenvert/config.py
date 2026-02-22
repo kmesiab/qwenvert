@@ -193,16 +193,23 @@ class ConfigGenerator:
     Generates optimal configurations for backends and qwenvert.
     """
 
-    def __init__(self, model: Model, hardware: HardwareProfile) -> None:
+    def __init__(
+        self,
+        model: Model,
+        hardware: HardwareProfile,
+        model_path: Path | str | None = None,
+    ) -> None:
         """
         Initialize config generator.
 
         Args:
             model: Selected model
             hardware: Detected hardware profile
+            model_path: Actual path to model file (optional, defaults to ~/.qwenvert/models/)
         """
         self.model = model
         self.hardware = hardware
+        self.model_path = model_path
 
     def generate_qwenvert_config(
         self,
@@ -324,9 +331,16 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
         # Use performance cores only
         num_threads = self.hardware.cpu_cores_performance
 
+        # Determine model path: use provided path or default location
+        if self.model_path:
+            model_path_str = str(self.model_path)
+        else:
+            # Default to ~/.qwenvert/models/ (where ModelDownloader puts files)
+            model_path_str = f"~/.qwenvert/models/{self.model.backend_model_id}"
+
         flags = [
             "--model",
-            f"~/.cache/qwenvert/models/{self.model.backend_model_id}",
+            model_path_str,
             # GPU offloading - Metal optimization for Apple Silicon
             "-ngl",
             "99",  # Offload all layers to Metal GPU
