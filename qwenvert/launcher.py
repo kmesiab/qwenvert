@@ -236,7 +236,7 @@ class ServerLauncher:
                 model_identifier="Unknown",
             )
 
-        config_gen = ConfigGenerator(model, hardware)
+        config_gen = ConfigGenerator(model, hardware, model_path=self.config.model_path)
         flags = config_gen.generate_llamacpp_flags()
 
         # Start llama-server
