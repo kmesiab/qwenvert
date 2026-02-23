@@ -146,7 +146,7 @@ class BinaryManager:
                 [str(binary_path), "--version"],
                 capture_output=True,
                 text=True,
-                timeout=15,  # Metal library initialization can take 8-10 seconds
+                timeout=30,  # Metal library initialization can take 8-10 seconds, increased for M3/M4
                 check=False,
             )
 
@@ -169,7 +169,14 @@ class BinaryManager:
                 is_valid=True,
             )
 
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
+        except subprocess.TimeoutExpired as e:
+            logger.warning(
+                f"Binary validation timed out for {binary_path}. "
+                "This may indicate Metal library initialization issues or macOS security restrictions. "
+                "Try running the binary manually to approve any security dialogs."
+            )
+            return None
+        except (subprocess.SubprocessError, OSError) as e:
             logger.warning(f"Failed to get info for {binary_path}: {e}")
             return None
 
@@ -223,6 +230,39 @@ class BinaryManager:
 
         except (subprocess.TimeoutExpired, subprocess.SubprocessError):
             return "unknown"
+
+    def _remove_quarantine_attributes(self, binary_path: Path) -> None:
+        """
+        Remove macOS quarantine attributes from downloaded binary.
+        
+        On macOS, downloaded files get quarantine attributes that can cause:
+        - Gatekeeper warnings requiring user approval
+        - Significant delays on first execution
+        - Potential execution blocking
+        
+        This is safe to do for binaries downloaded from trusted sources
+        (official llama.cpp releases) and verified with checksums.
+        
+        Args:
+            binary_path: Path to binary to de-quarantine
+        """
+        if platform.system() != "Darwin":
+            # Only relevant on macOS
+            return
+            
+        try:
+            # Remove com.apple.quarantine extended attribute
+            # This is equivalent to: xattr -d com.apple.quarantine <file>
+            subprocess.run(
+                ["xattr", "-d", "com.apple.quarantine", str(binary_path)],
+                capture_output=True,
+                check=False,  # Don't fail if attribute doesn't exist
+                timeout=5,
+            )
+            logger.debug(f"Removed quarantine attributes from {binary_path}")
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError) as e:
+            # Not critical if this fails - log but continue
+            logger.debug(f"Could not remove quarantine attributes: {e}")
 
     def _validate_extract_path(self, member_path: str) -> None:
         """
@@ -455,6 +495,8 @@ class BinaryManager:
                     # Preserve executable permissions for llama binaries
                     if final_path.name.startswith("llama-"):
                         final_path.chmod(final_path.stat().st_mode | stat.S_IEXEC)
+                        # Remove quarantine attributes from extracted binaries
+                        self._remove_quarantine_attributes(final_path)
 
                     extracted_count += 1
 
@@ -550,6 +592,9 @@ class BinaryManager:
 
         # Make executable
         self.binary_path.chmod(self.binary_path.stat().st_mode | stat.S_IEXEC)
+        
+        # Remove macOS quarantine attributes to prevent delays/blocking
+        self._remove_quarantine_attributes(self.binary_path)
 
         # Verify it works
         info = self._get_binary_info(self.binary_path, BinarySource.DOWNLOADED)

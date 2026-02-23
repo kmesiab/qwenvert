@@ -1,6 +1,7 @@
 """Unit tests for enhanced BinaryManager functionality (Phase 1 & 2)."""
 
 import json
+import subprocess
 import time
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -930,3 +931,90 @@ class TestArchitectureDetection:
                 assert (
                     "macos-x86_64" not in url
                 ), f"M5 chip should NOT select x86_64, got: {url}"
+
+
+class TestQuarantineRemoval:
+    """Test macOS quarantine attribute removal."""
+
+    @patch("subprocess.run")
+    @patch("platform.system", return_value="Darwin")
+    def test_remove_quarantine_attributes_macos(self, mock_system, mock_run, binary_manager):
+        """Test that quarantine attributes are removed on macOS."""
+        binary_path = binary_manager.bin_dir / "llama-server"
+        binary_path.touch()
+
+        # Call the method
+        binary_manager._remove_quarantine_attributes(binary_path)
+
+        # Verify xattr command was called
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert call_args[0][0] == ["xattr", "-d", "com.apple.quarantine", str(binary_path)]
+        assert call_args[1]["check"] is False
+        assert call_args[1]["timeout"] == 5
+
+    @patch("subprocess.run")
+    @patch("platform.system", return_value="Linux")
+    def test_remove_quarantine_attributes_non_macos(self, mock_system, mock_run, binary_manager):
+        """Test that quarantine removal is skipped on non-macOS systems."""
+        binary_path = binary_manager.bin_dir / "llama-server"
+        binary_path.touch()
+
+        # Call the method
+        binary_manager._remove_quarantine_attributes(binary_path)
+
+        # Verify xattr command was NOT called
+        mock_run.assert_not_called()
+
+    @patch("subprocess.run", side_effect=FileNotFoundError("xattr not found"))
+    @patch("platform.system", return_value="Darwin")
+    def test_remove_quarantine_attributes_graceful_failure(self, mock_system, mock_run, binary_manager):
+        """Test that quarantine removal failure doesn't crash."""
+        binary_path = binary_manager.bin_dir / "llama-server"
+        binary_path.touch()
+
+        # Should not raise an exception
+        binary_manager._remove_quarantine_attributes(binary_path)
+
+
+class TestTimeoutHandling:
+    """Test timeout handling for binary validation."""
+
+    @patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 30))
+    def test_timeout_error_message(self, mock_run, binary_manager):
+        """Test that timeout errors provide helpful messages."""
+        binary_path = binary_manager.bin_dir / "llama-server"
+        binary_path.touch()
+
+        # Call should return None and log helpful message
+        result = binary_manager._get_binary_info(binary_path, BinarySource.DOWNLOADED)
+        
+        assert result is None
+        # Verify timeout is 30 seconds (not 15)
+        call_args = mock_run.call_args
+        assert call_args[1]["timeout"] == 30
+
+    @patch("subprocess.run")
+    def test_timeout_value_increased(self, mock_run, binary_manager):
+        """Test that timeout has been increased to 30 seconds."""
+        # Configure mock to return successful version check
+        mock_run.return_value = Mock(
+            returncode=0,
+            stdout="llama-server version: b1234 (1234)",
+            stderr=""
+        )
+        
+        binary_path = binary_manager.bin_dir / "llama-server"
+        binary_path.touch()
+
+        binary_manager._get_binary_info(binary_path, BinarySource.DOWNLOADED)
+
+        # Verify timeout is 30 seconds
+        version_call = None
+        for call in mock_run.call_args_list:
+            if "--version" in call[0][0]:
+                version_call = call
+                break
+        
+        assert version_call is not None, "Expected --version call not found"
+        assert version_call[1]["timeout"] == 30, "Timeout should be 30 seconds"
