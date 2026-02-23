@@ -146,7 +146,7 @@ class BinaryManager:
                 [str(binary_path), "--version"],
                 capture_output=True,
                 text=True,
-                timeout=30,  # Metal library initialization can take 8-10 seconds, increased for M3/M4
+                timeout=30,  # Metal init: 8-10s baseline + buffer for M3/M4 variations and system load
                 check=False,
             )
 
