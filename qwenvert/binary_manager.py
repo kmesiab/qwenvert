@@ -26,7 +26,6 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-
 if TYPE_CHECKING:
     from .hardware import HardwareProfile
 
@@ -234,22 +233,22 @@ class BinaryManager:
     def _remove_quarantine_attributes(self, binary_path: Path) -> None:
         """
         Remove macOS quarantine attributes from downloaded binary.
-        
+
         On macOS, downloaded files get quarantine attributes that can cause:
         - Gatekeeper warnings requiring user approval
         - Significant delays on first execution
         - Potential execution blocking
-        
+
         This is safe to do for binaries downloaded from trusted sources
         (official llama.cpp releases) and verified with checksums.
-        
+
         Args:
             binary_path: Path to binary to de-quarantine
         """
         if platform.system() != "Darwin":
             # Only relevant on macOS
             return
-            
+
         try:
             # Remove com.apple.quarantine extended attribute
             # This is equivalent to: xattr -d com.apple.quarantine <file>
@@ -260,7 +259,11 @@ class BinaryManager:
                 timeout=5,
             )
             logger.debug(f"Removed quarantine attributes from {binary_path}")
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError) as e:
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.SubprocessError,
+            FileNotFoundError,
+        ) as e:
             # Not critical if this fails - log but continue
             logger.debug(f"Could not remove quarantine attributes: {e}")
 
@@ -592,7 +595,7 @@ class BinaryManager:
 
         # Make executable
         self.binary_path.chmod(self.binary_path.stat().st_mode | stat.S_IEXEC)
-        
+
         # Remove macOS quarantine attributes to prevent delays/blocking
         self._remove_quarantine_attributes(self.binary_path)
 

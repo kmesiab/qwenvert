@@ -938,7 +938,9 @@ class TestQuarantineRemoval:
 
     @patch("subprocess.run")
     @patch("platform.system", return_value="Darwin")
-    def test_remove_quarantine_attributes_macos(self, mock_system, mock_run, binary_manager):
+    def test_remove_quarantine_attributes_macos(
+        self, mock_system, mock_run, binary_manager
+    ):
         """Test that quarantine attributes are removed on macOS."""
         binary_path = binary_manager.bin_dir / "llama-server"
         binary_path.touch()
@@ -949,13 +951,20 @@ class TestQuarantineRemoval:
         # Verify xattr command was called
         mock_run.assert_called_once()
         call_args = mock_run.call_args
-        assert call_args[0][0] == ["xattr", "-d", "com.apple.quarantine", str(binary_path)]
+        assert call_args[0][0] == [
+            "xattr",
+            "-d",
+            "com.apple.quarantine",
+            str(binary_path),
+        ]
         assert call_args[1]["check"] is False
         assert call_args[1]["timeout"] == 5
 
     @patch("subprocess.run")
     @patch("platform.system", return_value="Linux")
-    def test_remove_quarantine_attributes_non_macos(self, mock_system, mock_run, binary_manager):
+    def test_remove_quarantine_attributes_non_macos(
+        self, mock_system, mock_run, binary_manager
+    ):
         """Test that quarantine removal is skipped on non-macOS systems."""
         binary_path = binary_manager.bin_dir / "llama-server"
         binary_path.touch()
@@ -968,7 +977,9 @@ class TestQuarantineRemoval:
 
     @patch("subprocess.run", side_effect=FileNotFoundError("xattr not found"))
     @patch("platform.system", return_value="Darwin")
-    def test_remove_quarantine_attributes_graceful_failure(self, mock_system, mock_run, binary_manager):
+    def test_remove_quarantine_attributes_graceful_failure(
+        self, mock_system, mock_run, binary_manager
+    ):
         """Test that quarantine removal failure doesn't crash."""
         binary_path = binary_manager.bin_dir / "llama-server"
         binary_path.touch()
@@ -988,7 +999,7 @@ class TestTimeoutHandling:
 
         # Call should return None and log helpful message
         result = binary_manager._get_binary_info(binary_path, BinarySource.DOWNLOADED)
-        
+
         assert result is None
         # Verify timeout is 30 seconds (not 15)
         call_args = mock_run.call_args
@@ -999,11 +1010,9 @@ class TestTimeoutHandling:
         """Test that timeout has been increased to 30 seconds."""
         # Configure mock to return successful version check
         mock_run.return_value = Mock(
-            returncode=0,
-            stdout="llama-server version: b1234 (1234)",
-            stderr=""
+            returncode=0, stdout="llama-server version: b1234 (1234)", stderr=""
         )
-        
+
         binary_path = binary_manager.bin_dir / "llama-server"
         binary_path.touch()
 
@@ -1015,6 +1024,6 @@ class TestTimeoutHandling:
             if "--version" in call[0][0]:
                 version_call = call
                 break
-        
+
         assert version_call is not None, "Expected --version call not found"
         assert version_call[1]["timeout"] == 30, "Timeout should be 30 seconds"
