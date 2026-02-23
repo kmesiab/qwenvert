@@ -342,6 +342,7 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
             "--model",
             model_path_str,
             # GPU offloading - Metal optimization for Apple Silicon
+            # Use F16 for weights but Q4_0 for prompt cache (8GB optimization)
             "-ngl",
             "99",  # Offload all layers to Metal GPU
             # CPU threads - use performance cores only
@@ -360,6 +361,17 @@ SYSTEM You are a helpful AI coding assistant powered by Qwen2.5-Coder running lo
             # API compatibility
             "--log-disable",  # Reduce log noise
         ]
+
+        # KV Cache Quantization: Enable 4-bit KV cache to save ~1GB RAM during long sessions
+        if self.hardware.is_memory_constrained():
+            flags.extend(
+                [
+                    "--cache-type-k",
+                    "q4_0",  # 4-bit quantization for K cache
+                    "--cache-type-v",
+                    "q4_0",  # 4-bit quantization for V cache
+                ]
+            )
 
         # NOTE: Removed flags based on research:
         # - "--mlock": Crashes on macOS (see: https://github.com/ggml-org/llama.cpp/issues/18152)

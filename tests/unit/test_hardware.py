@@ -29,7 +29,9 @@ class TestHardwareProfile:
     ):
         """Test context length recommendations based on RAM."""
         assert mock_hardware_m1_air_8gb.recommended_context_length() == 8192
-        assert mock_hardware_m1_16gb.recommended_context_length() == 16384
+        assert (
+            mock_hardware_m1_16gb.recommended_context_length() == 32768
+        )  # ≥16GB gets 32k
         assert mock_hardware_m1_max_32gb.recommended_context_length() == 32768
 
 

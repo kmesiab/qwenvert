@@ -2,8 +2,81 @@
 #
 # Catalog of supported Qwen models with hardware requirements
 # and backend configurations.
+#
+# Updated February 2026: "Agentic Era" models optimized for 8GB unified memory
 
 models:
+  # === 2026 Next-Gen Models (Prioritized for 8GB M-Series) ===
+  
+  # Qwen3-Coder-Next-8B - Default Coder (NEW)
+  - id: qwen3-coder-next-8b-q4-llamacpp
+    display_name: "Qwen3 Coder Next 8B Q4"
+    family: qwen3-coder-next
+    size_b: 8.0
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "qwen3-coder-next-8b-instruct-q4_K_M.gguf"
+    context_length: 32768
+    max_output_tokens: 16384
+    min_ram_gb: 6
+    recommended_ram_gb: 8
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen3-Coder-Next-8B-Instruct-GGUF"
+    notes: "Native hybrid attention. Specifically trained for terminal-agentic workflows. ~5.2GB RAM in 4-bit."
+  
+  # Gemma3-4B-IT - Turbo/Drafting (NEW)
+  - id: gemma3-4b-it-q4-llamacpp
+    display_name: "Gemma3 4B IT Q4"
+    family: gemma3-it
+    size_b: 4.0
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "gemma3-4b-it-q4_K_M.gguf"
+    context_length: 8192
+    max_output_tokens: 4096
+    min_ram_gb: 3
+    recommended_ram_gb: 6
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "google/gemma-3-4b-it-GGUF"
+    notes: "Best-in-class performance/size ratio. Near-zero latency on M1. ~2.8GB RAM."
+  
+  # DeepSeek-V3.2-Exp-7B - Thinking/Reasoning (NEW)
+  - id: deepseek-v3.2-exp-7b-q4-llamacpp
+    display_name: "DeepSeek V3.2 Exp 7B Q4"
+    family: deepseek-v3
+    size_b: 7.0
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "deepseek-v3.2-exp-7b-q4_K_M.gguf"
+    context_length: 16384
+    max_output_tokens: 8192
+    min_ram_gb: 5
+    recommended_ram_gb: 10
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "deepseek-ai/DeepSeek-V3.2-Exp-7B-GGUF"
+    notes: "Distilled reasoning for complex debugging without the 397B overhead. ~4.9GB RAM."
+  
+  # Qwen3.5-VL-2B - Vision/UI (NEW)
+  - id: qwen3.5-vl-2b-q4-llamacpp
+    display_name: "Qwen3.5 VL 2B Q4"
+    family: qwen3.5-vl
+    size_b: 2.0
+    quantization: Q4_K_M
+    backend: llamacpp
+    backend_model_id: "qwen3.5-vl-2b-instruct-q4_K_M.gguf"
+    context_length: 8192
+    max_output_tokens: 4096
+    min_ram_gb: 2
+    recommended_ram_gb: 4
+    is_coder_model: false
+    is_default_candidate: true
+    huggingface_repo: "Qwen/Qwen3.5-VL-2B-Instruct-GGUF"
+    notes: "Tiny multimodal model capable of 'seeing' terminal errors or UI screenshots. ~1.6GB RAM."
+  
+  # === Legacy 2025 Models (Qwen 2.5 Coder Series) ===
   # Qwen 2.5 Coder 7B - Ollama variants
   - id: qwen2.5-coder-7b-q4-ollama
     display_name: "Qwen2.5 Coder 7B Q4"
