@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+
 if TYPE_CHECKING:
     from .hardware import HardwareProfile
 
@@ -168,7 +169,7 @@ class BinaryManager:
                 is_valid=True,
             )
 
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             logger.warning(
                 f"Binary validation timed out for {binary_path}. "
                 "This may indicate Metal library initialization issues or macOS security restrictions. "
