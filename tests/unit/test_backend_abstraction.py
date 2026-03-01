@@ -280,10 +280,17 @@ class TestBackendManager:
         backend = BackendManager.get_backend(Backend.OLLAMA)
         assert isinstance(backend, OllamaBackend)
 
+    def test_get_backend_mlx(self):
+        """Test getting MLX backend."""
+        from qwenvert.backends.mlx_backend import MLXBackend
+
+        backend = BackendManager.get_backend(Backend.MLX)
+        assert isinstance(backend, MLXBackend)
+
     def test_get_backend_invalid(self):
         """Test getting invalid backend."""
         with pytest.raises(ValueError, match="Unknown backend"):
-            BackendManager.get_backend(Backend.MLX)
+            BackendManager.get_backend(Backend.VLLM)
 
     def test_detect_all(self):
         """Test detecting all backends."""
@@ -382,11 +389,106 @@ class TestBackendManager:
             installation_method="none",
         )
 
+        mock_mlx = BackendInfo(
+            name="MLX",
+            version=None,
+            path=None,
+            status=BackendStatus.MISSING,
+            installation_method="none",
+        )
+
         with patch.object(
             BackendManager,
             "detect_all",
-            return_value={Backend.LLAMACPP: mock_llamacpp, Backend.OLLAMA: mock_ollama},
+            return_value={
+                Backend.LLAMACPP: mock_llamacpp,
+                Backend.OLLAMA: mock_ollama,
+                Backend.MLX: mock_mlx,
+            },
         ):
-            recommended = BackendManager.recommend_backend()
-            # Defaults to llama.cpp (will trigger auto-install)
-            assert recommended == Backend.LLAMACPP
+            with patch("platform.system", return_value="Darwin"):
+                with patch("platform.machine", return_value="arm64"):
+                    recommended = BackendManager.recommend_backend()
+                    # Defaults to MLX on Apple Silicon (will trigger auto-install)
+                    assert recommended == Backend.MLX
+
+    def test_recommend_backend_mlx_available_apple_silicon(self):
+        """Test recommendation when MLX is available on Apple Silicon."""
+        mock_mlx = BackendInfo(
+            name="MLX",
+            version="0.10.0",
+            path=Path("/opt/homebrew/lib/python3.11/site-packages/mlx_lm"),
+            status=BackendStatus.AVAILABLE,
+            installation_method="pip",
+        )
+
+        mock_llamacpp = BackendInfo(
+            name="llama.cpp",
+            version="b3600",
+            path=Path("/usr/local/bin/llama-server"),
+            status=BackendStatus.AVAILABLE,
+            installation_method="system",
+        )
+
+        mock_ollama = BackendInfo(
+            name="ollama",
+            version=None,
+            path=None,
+            status=BackendStatus.MISSING,
+            installation_method="none",
+        )
+
+        with patch.object(
+            BackendManager,
+            "detect_all",
+            return_value={
+                Backend.MLX: mock_mlx,
+                Backend.LLAMACPP: mock_llamacpp,
+                Backend.OLLAMA: mock_ollama,
+            },
+        ):
+            with patch("platform.system", return_value="Darwin"):
+                with patch("platform.machine", return_value="arm64"):
+                    recommended = BackendManager.recommend_backend()
+                    assert recommended == Backend.MLX
+
+    def test_recommend_backend_mlx_not_on_linux(self):
+        """Test that MLX is not recommended on Linux even if available."""
+        mock_mlx = BackendInfo(
+            name="MLX",
+            version="0.10.0",
+            path=Path("/usr/lib/python3.11/site-packages/mlx_lm"),
+            status=BackendStatus.AVAILABLE,
+            installation_method="pip",
+        )
+
+        mock_llamacpp = BackendInfo(
+            name="llama.cpp",
+            version="b3600",
+            path=Path("/usr/local/bin/llama-server"),
+            status=BackendStatus.AVAILABLE,
+            installation_method="system",
+        )
+
+        mock_ollama = BackendInfo(
+            name="ollama",
+            version=None,
+            path=None,
+            status=BackendStatus.MISSING,
+            installation_method="none",
+        )
+
+        with patch.object(
+            BackendManager,
+            "detect_all",
+            return_value={
+                Backend.MLX: mock_mlx,
+                Backend.LLAMACPP: mock_llamacpp,
+                Backend.OLLAMA: mock_ollama,
+            },
+        ):
+            with patch("platform.system", return_value="Linux"):
+                with patch("platform.machine", return_value="x86_64"):
+                    recommended = BackendManager.recommend_backend()
+                    # Should recommend llama.cpp on Linux, not MLX
+                    assert recommended == Backend.LLAMACPP

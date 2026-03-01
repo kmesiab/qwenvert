@@ -25,6 +25,94 @@ models:
     huggingface_repo: "Qwen/Qwen3-Coder-Next-8B-Instruct-GGUF"
     notes: "Native hybrid attention. Specifically trained for terminal-agentic workflows. ~5.2GB RAM in 4-bit."
   
+  # === MLX Models (Apple Silicon Only - 1.5-2x faster than llama.cpp) ===
+  
+  # Qwen 2.5 Coder 7B - MLX 4-bit (fastest on M-series)
+  - id: qwen2.5-coder-7b-q4-mlx
+    display_name: "Qwen2.5 Coder 7B Q4 (MLX)"
+    family: qwen2.5-coder
+    size_b: 7.0
+    quantization: q4
+    backend: mlx
+    backend_model_id: "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+    context_length: 32768
+    max_output_tokens: 12288
+    min_ram_gb: 8
+    recommended_ram_gb: 12
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+    notes: "MLX optimized for Apple Silicon. 1.5-2x faster than llama.cpp. Metal GPU acceleration."
+
+  # Qwen 2.5 Coder 14B - MLX 4-bit
+  - id: qwen2.5-coder-14b-q4-mlx
+    display_name: "Qwen2.5 Coder 14B Q4 (MLX)"
+    family: qwen2.5-coder
+    size_b: 14.0
+    quantization: q4
+    backend: mlx
+    backend_model_id: "mlx-community/Qwen2.5-Coder-14B-Instruct-4bit"
+    context_length: 32768
+    max_output_tokens: 16384
+    min_ram_gb: 12
+    recommended_ram_gb: 16
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "mlx-community/Qwen2.5-Coder-14B-Instruct-4bit"
+    notes: "MLX optimized for Apple Silicon. Better quality than 7B. 1.5-2x faster than llama.cpp."
+
+  # Qwen 2.5 Coder 3B - MLX 4-bit (for 8GB systems)
+  - id: qwen2.5-coder-3b-q4-mlx
+    display_name: "Qwen2.5 Coder 3B Q4 (MLX)"
+    family: qwen2.5-coder
+    size_b: 3.0
+    quantization: q4
+    backend: mlx
+    backend_model_id: "mlx-community/Qwen2.5-Coder-3B-Instruct-4bit"
+    context_length: 32768
+    max_output_tokens: 8192
+    min_ram_gb: 4
+    recommended_ram_gb: 6
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "mlx-community/Qwen2.5-Coder-3B-Instruct-4bit"
+    notes: "MLX optimized. Fastest option for 8GB systems. Ultra-low latency on M-series."
+
+  # Qwen 2.5 Coder 1.5B - MLX 4-bit (ultra-light)
+  - id: qwen2.5-coder-1.5b-q4-mlx
+    display_name: "Qwen2.5 Coder 1.5B Q4 (MLX)"
+    family: qwen2.5-coder
+    size_b: 1.5
+    quantization: q4
+    backend: mlx
+    backend_model_id: "mlx-community/Qwen2.5-Coder-1.5B-Instruct-4bit"
+    context_length: 32768
+    max_output_tokens: 8192
+    min_ram_gb: 2
+    recommended_ram_gb: 4
+    is_coder_model: true
+    is_default_candidate: true
+    huggingface_repo: "mlx-community/Qwen2.5-Coder-1.5B-Instruct-4bit"
+    notes: "MLX optimized. Fastest lightweight model. Ideal for quick tasks on any M-series Mac."
+
+  # Qwen 2.5 VL 7B - MLX 4-bit (multimodal)
+  - id: qwen2.5-vl-7b-q4-mlx
+    display_name: "Qwen2.5 VL 7B Q4 (MLX)"
+    family: qwen2.5-vl
+    size_b: 7.0
+    quantization: q4
+    backend: mlx
+    backend_model_id: "mlx-community/Qwen2.5-VL-7B-Instruct-4bit"
+    context_length: 32768
+    max_output_tokens: 12288
+    min_ram_gb: 10
+    recommended_ram_gb: 14
+    is_coder_model: false
+    is_default_candidate: true
+    huggingface_repo: "mlx-community/Qwen2.5-VL-7B-Instruct-4bit"
+    notes: "MLX multimodal. Can process images. 28x speedup with prefix caching on repeated image queries."
+
+  
   # Gemma3-4B-IT - Turbo/Drafting (NEW)
   - id: gemma3-4b-it-q4-llamacpp
     display_name: "Gemma3 4B IT Q4"

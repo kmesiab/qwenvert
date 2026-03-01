@@ -10,7 +10,7 @@ import logging
 from typing import ClassVar
 
 from .backend_interface import BackendInfo, BackendLifecycle, BackendStatus
-from .backends import LlamaCppBackend, OllamaBackend
+from .backends import LlamaCppBackend, MLXBackend, OllamaBackend
 from .models import Backend
 
 
@@ -25,6 +25,7 @@ class BackendManager:
     _backends: ClassVar[dict[Backend, type[BackendLifecycle]]] = {
         Backend.LLAMACPP: LlamaCppBackend,
         Backend.OLLAMA: OllamaBackend,
+        Backend.MLX: MLXBackend,
     }
 
     @classmethod
@@ -75,7 +76,8 @@ class BackendManager:
         """
         Recommend optimal backend based on availability.
 
-        Priority: llama.cpp (faster) > Ollama (easier)
+        Priority (Apple Silicon): MLX (fastest) > llama.cpp > Ollama
+        Priority (Other): llama.cpp > Ollama
 
         Returns:
             Recommended backend type
@@ -83,16 +85,31 @@ class BackendManager:
         # Detect all backends
         available = cls.detect_all()
 
-        # Priority 1: llama.cpp (3-7x faster based on research)
+        # Check if running on Apple Silicon
+        import platform
+
+        is_apple_silicon = (
+            platform.system() == "Darwin" and platform.machine() == "arm64"
+        )
+
+        # Priority 1: MLX (fastest on Apple Silicon, 1.5-2x faster than llama.cpp)
+        if is_apple_silicon and available[Backend.MLX].status == BackendStatus.AVAILABLE:
+            logger.info("Recommending MLX (available and fastest on Apple Silicon)")
+            return Backend.MLX
+
+        # Priority 2: llama.cpp (3-7x faster than Ollama)
         if available[Backend.LLAMACPP].status == BackendStatus.AVAILABLE:
             logger.info("Recommending llama.cpp (available and faster)")
             return Backend.LLAMACPP
 
-        # Priority 2: Ollama (easier to install, more forgiving)
+        # Priority 3: Ollama (easier to install, more forgiving)
         if available[Backend.OLLAMA].status == BackendStatus.AVAILABLE:
             logger.info("Recommending Ollama (llama.cpp not available)")
             return Backend.OLLAMA
 
-        # Default to llama.cpp (will trigger auto-install)
+        # Default to MLX on Apple Silicon, llama.cpp otherwise (will trigger auto-install)
+        if is_apple_silicon:
+            logger.info("Recommending MLX (default for Apple Silicon, will auto-install)")
+            return Backend.MLX
         logger.info("Recommending llama.cpp (default, will auto-install)")
         return Backend.LLAMACPP
