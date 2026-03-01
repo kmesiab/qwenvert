@@ -42,9 +42,9 @@ def cli() -> None:
 )
 @click.option(
     "--backend",
-    type=click.Choice(["ollama", "llamacpp"]),
-    default="llamacpp",  # Default to llamacpp (3-7x faster than Ollama)
-    help="Backend to use (default: llamacpp)",
+    type=click.Choice(["ollama", "llamacpp", "mlx", "auto"]),
+    default="auto",  # Auto-detect best backend (MLX on Apple Silicon, llama.cpp otherwise)
+    help="Backend to use (default: auto)",
 )
 @click.option(
     "--adapter-port",
@@ -68,11 +68,25 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
 
     Detects hardware, selects optimal model, and generates configuration.
     """
+    from .backend_manager import BackendManager
     from .config import ConfigGenerator, ConfigManager
     from .hardware import HardwareDetector
     from .models import Backend, ModelRegistry, ModelSelector
 
     console.print("\n[bold blue]Qwenvert Initialization[/bold blue]\n")
+
+    # Step 1: Detect hardware (needed for binary selection and auto backend)
+    with console.status("[cyan]Detecting hardware...", spinner="dots"):
+        detector = HardwareDetector()
+        hardware = detector.detect()
+
+    console.print(f"✓ Detected: [green]{hardware}[/green]")
+
+    # Auto-detect backend if "auto" is specified
+    if backend == "auto":
+        recommended = BackendManager.recommend_backend()
+        backend = recommended.value
+        console.print(f"✓ Auto-selected backend: [green]{backend}[/green] (recommended)")
 
     # Step 0: Check dependencies early (before expensive operations)
     if backend is not None:
@@ -91,13 +105,6 @@ def init(model, backend, adapter_port, context_length, no_auto_install) -> None:
             console.print(
                 f"[dim]Tip: Install {dep_check.name} before running 'qwenvert start'.[/dim]\n"
             )
-
-    # Step 1: Detect hardware (needed for binary selection)
-    with console.status("[cyan]Detecting hardware...", spinner="dots"):
-        detector = HardwareDetector()
-        hardware = detector.detect()
-
-    console.print(f"✓ Detected: [green]{hardware}[/green]")
 
     # Step 0.5: Setup llama.cpp binary (if using llamacpp backend)
     if backend == "llamacpp":
