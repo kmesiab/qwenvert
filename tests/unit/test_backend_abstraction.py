@@ -406,11 +406,9 @@ class TestBackendManager:
                 Backend.MLX: mock_mlx,
             },
         ):
-            with patch("platform.system", return_value="Darwin"):
-                with patch("platform.machine", return_value="arm64"):
-                    recommended = BackendManager.recommend_backend()
-                    # Defaults to MLX on Apple Silicon (will trigger auto-install)
-                    assert recommended == Backend.MLX
+            recommended = BackendManager.recommend_backend()
+            # Defaults to llama.cpp (will trigger auto-install)
+            assert recommended == Backend.LLAMACPP
 
     def test_recommend_backend_mlx_available_apple_silicon(self):
         """Test recommendation when MLX is available on Apple Silicon."""

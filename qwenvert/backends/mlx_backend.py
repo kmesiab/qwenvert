@@ -59,9 +59,21 @@ class MLXBackend(BackendLifecycle):
                 "Install manually: pip install mlx mlx-lm"
             )
 
-        # Check if running on Apple Silicon
+        # Check if running on Apple Silicon (not just macOS)
+        import platform
+
         if sys.platform != "darwin":
             logger.warning("MLX is only supported on macOS")
+            return BackendInfo(
+                name="MLX",
+                version=None,
+                path=None,
+                status=BackendStatus.FAILED,
+                installation_method="none",
+            )
+
+        if platform.machine() != "arm64":
+            logger.warning("MLX requires Apple Silicon (M1/M2/M3/M4/M5)")
             return BackendInfo(
                 name="MLX",
                 version=None,

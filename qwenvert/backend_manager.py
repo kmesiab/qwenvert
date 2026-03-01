@@ -76,7 +76,7 @@ class BackendManager:
         """
         Recommend optimal backend based on availability.
 
-        Priority (Apple Silicon): MLX (fastest) > llama.cpp > Ollama
+        Priority (Apple Silicon): MLX (if available) > llama.cpp > Ollama
         Priority (Other): llama.cpp > Ollama
 
         Returns:
@@ -92,7 +92,7 @@ class BackendManager:
             platform.system() == "Darwin" and platform.machine() == "arm64"
         )
 
-        # Priority 1: MLX (fastest on Apple Silicon, 1.5-2x faster than llama.cpp)
+        # Priority 1: MLX (fastest on Apple Silicon, but only if already available)
         if is_apple_silicon and available[Backend.MLX].status == BackendStatus.AVAILABLE:
             logger.info("Recommending MLX (available and fastest on Apple Silicon)")
             return Backend.MLX
@@ -107,9 +107,6 @@ class BackendManager:
             logger.info("Recommending Ollama (llama.cpp not available)")
             return Backend.OLLAMA
 
-        # Default to MLX on Apple Silicon, llama.cpp otherwise (will trigger auto-install)
-        if is_apple_silicon:
-            logger.info("Recommending MLX (default for Apple Silicon, will auto-install)")
-            return Backend.MLX
+        # Default to llama.cpp (will trigger auto-install)
         logger.info("Recommending llama.cpp (default, will auto-install)")
         return Backend.LLAMACPP

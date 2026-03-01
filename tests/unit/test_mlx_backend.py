@@ -95,27 +95,28 @@ class TestMLXBackend:
                 assert info.path is None
 
     def test_install_success_darwin(self):
-        """Test successful installation on macOS."""
+        """Test successful installation on macOS with Apple Silicon."""
         backend = MLXBackend()
 
         with patch("sys.platform", "darwin"):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
+            with patch("platform.machine", return_value="arm64"):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
 
-                # Mock detect after install
-                mock_info = BackendInfo(
-                    name="MLX",
-                    version="0.10.0",
-                    path=Path("/opt/homebrew/lib/python3.11/site-packages/mlx_lm"),
-                    status=BackendStatus.AVAILABLE,
-                    installation_method="pip",
-                )
+                    # Mock detect after install
+                    mock_info = BackendInfo(
+                        name="MLX",
+                        version="0.10.0",
+                        path=Path("/opt/homebrew/lib/python3.11/site-packages/mlx_lm"),
+                        status=BackendStatus.AVAILABLE,
+                        installation_method="pip",
+                    )
 
-                with patch.object(backend, "detect", return_value=mock_info):
-                    info = backend.install(auto=True)
+                    with patch.object(backend, "detect", return_value=mock_info):
+                        info = backend.install(auto=True)
 
-                    assert info.status == BackendStatus.AVAILABLE
-                    assert info.version == "0.10.0"
+                        assert info.status == BackendStatus.AVAILABLE
+                        assert info.version == "0.10.0"
 
     def test_install_failure_non_macos(self):
         """Test installation failure on non-macOS platform."""
