@@ -59,10 +59,15 @@ class TestMLXBackend:
         mock_mlx_core = Mock()
         mock_mlx_lm = Mock()
         mock_mlx_lm.__version__ = "0.10.0"
-        mock_mlx_lm.__file__ = "/opt/homebrew/lib/python3.11/site-packages/mlx_lm/__init__.py"
+        mock_mlx_lm.__file__ = (
+            "/opt/homebrew/lib/python3.11/site-packages/mlx_lm/__init__.py"
+        )
 
         # Patch sys.modules to provide the MLX modules
-        with patch.dict("sys.modules", {"mlx": mock_mlx, "mlx.core": mock_mlx_core, "mlx_lm": mock_mlx_lm}):
+        with patch.dict(
+            "sys.modules",
+            {"mlx": mock_mlx, "mlx.core": mock_mlx_core, "mlx_lm": mock_mlx_lm},
+        ):
             info = backend.detect()
 
             assert info.name == "MLX"
@@ -138,7 +143,9 @@ class TestMLXBackend:
         """Test installation with auto=False raises error."""
         backend = MLXBackend()
 
-        with pytest.raises(RuntimeError, match="MLX not found and auto-install disabled"):
+        with pytest.raises(
+            RuntimeError, match="MLX not found and auto-install disabled"
+        ):
             backend.install(auto=False)
 
     def test_configure(self, mock_mlx_model, mock_hardware):

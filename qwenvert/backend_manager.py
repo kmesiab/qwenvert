@@ -13,7 +13,6 @@ from .backend_interface import BackendInfo, BackendLifecycle, BackendStatus
 from .backends import LlamaCppBackend, MLXBackend, OllamaBackend
 from .models import Backend
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -93,17 +92,20 @@ class BackendManager:
         )
 
         # Priority 1: MLX (fastest on Apple Silicon, but only if already available)
-        if is_apple_silicon and available[Backend.MLX].status == BackendStatus.AVAILABLE:
+        mlx_info = available.get(Backend.MLX)
+        if is_apple_silicon and mlx_info and mlx_info.status == BackendStatus.AVAILABLE:
             logger.info("Recommending MLX (available and fastest on Apple Silicon)")
             return Backend.MLX
 
         # Priority 2: llama.cpp (3-7x faster than Ollama)
-        if available[Backend.LLAMACPP].status == BackendStatus.AVAILABLE:
+        llamacpp_info = available.get(Backend.LLAMACPP)
+        if llamacpp_info and llamacpp_info.status == BackendStatus.AVAILABLE:
             logger.info("Recommending llama.cpp (available and faster)")
             return Backend.LLAMACPP
 
         # Priority 3: Ollama (easier to install, more forgiving)
-        if available[Backend.OLLAMA].status == BackendStatus.AVAILABLE:
+        ollama_info = available.get(Backend.OLLAMA)
+        if ollama_info and ollama_info.status == BackendStatus.AVAILABLE:
             logger.info("Recommending Ollama (llama.cpp not available)")
             return Backend.OLLAMA
 

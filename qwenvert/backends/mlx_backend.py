@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from qwenvert.backend_interface import BackendInfo, BackendLifecycle, BackendStatus
 
-
 if TYPE_CHECKING:
     from qwenvert.hardware import HardwareProfile
     from qwenvert.models import Model
@@ -33,7 +32,9 @@ class MLXBackend(BackendLifecycle):
             import mlx_lm
 
             version = getattr(mlx_lm, "__version__", "unknown")
-            mlx_path = Path(mlx_lm.__file__).parent if hasattr(mlx_lm, "__file__") else None
+            mlx_path = (
+                Path(mlx_lm.__file__).parent if hasattr(mlx_lm, "__file__") else None
+            )
 
             return BackendInfo(
                 name="MLX",
