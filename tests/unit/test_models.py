@@ -351,9 +351,9 @@ class TestModelSelection:
         # Get all models
         all_models = list(model_registry.models.values())
 
-        # Filter by MLX (no models have this backend)
+        # Filter by vLLM (no models have this backend)
         filtered = selector._filter_by_backend(
-            all_models, Backend.MLX, log_if_empty=True
+            all_models, Backend.VLLM, log_if_empty=True
         )
 
         assert filtered == []
