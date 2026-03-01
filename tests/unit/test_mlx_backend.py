@@ -55,24 +55,14 @@ class TestMLXBackend:
         backend = MLXBackend()
 
         # Create mock modules
+        mock_mlx = Mock()
         mock_mlx_core = Mock()
         mock_mlx_lm = Mock()
         mock_mlx_lm.__version__ = "0.10.0"
         mock_mlx_lm.__file__ = "/opt/homebrew/lib/python3.11/site-packages/mlx_lm/__init__.py"
 
-        # Mock the import by patching builtins.__import__
-        import builtins
-
-        original_import = builtins.__import__
-
-        def custom_import(name, *args, **kwargs):
-            if name == "mlx.core":
-                return mock_mlx_core
-            if name == "mlx_lm":
-                return mock_mlx_lm
-            return original_import(name, *args, **kwargs)
-
-        with patch("builtins.__import__", side_effect=custom_import):
+        # Patch sys.modules to provide the MLX modules
+        with patch.dict("sys.modules", {"mlx": mock_mlx, "mlx.core": mock_mlx_core, "mlx_lm": mock_mlx_lm}):
             info = backend.detect()
 
             assert info.name == "MLX"
@@ -133,14 +123,16 @@ class TestMLXBackend:
         backend = MLXBackend()
 
         with patch("sys.platform", "darwin"):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = Mock(
-                    returncode=1, stdout="", stderr="pip install failed"
-                )
+            with patch("platform.machine", return_value="arm64"):
+                with patch("subprocess.run") as mock_run:
+                    mock_run.return_value = Mock(
+                        returncode=1, stdout="", stderr="pip install failed"
+                    )
 
-                info = backend.install(auto=True)
+                    info = backend.install(auto=True)
 
-                assert info.status == BackendStatus.FAILED
+                    assert info.status == BackendStatus.FAILED
+                    mock_run.assert_called()
 
     def test_install_auto_false(self):
         """Test installation with auto=False raises error."""

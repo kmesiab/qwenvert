@@ -237,13 +237,14 @@ def check_mlx() -> DependencyCheckResult:
 
     instructions = """MLX is not installed. MLX provides 1.5-2x faster inference on Apple Silicon.
 
-To install MLX:
+To install MLX Python packages:
   1. Run: pip install mlx mlx-lm
   2. Wait for installation to complete
-  3. Run: qwenvert init --backend mlx
 
-Note: MLX is currently in preview and requires additional integration work.
-For production use, stick with llama.cpp or Ollama backends.
+qwenvert MLX backend status:
+  - The MLX backend is experimental and not yet selectable via CLI.
+  - You can install MLX now; future qwenvert releases may add first-class MLX support.
+  - For production use today, stick with llama.cpp or Ollama backends.
 
 Learn more: https://github.com/ml-explore/mlx"""
 

@@ -139,7 +139,7 @@ class MLXBackend(BackendLifecycle):
         return {
             "model_path": model_path,
             "quantization": quantization,
-            "max_tokens": model.context_length,
+            "max_tokens": model.max_output_tokens,
             "server_url": self.server_url,
         }
 

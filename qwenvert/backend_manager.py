@@ -107,6 +107,6 @@ class BackendManager:
             logger.info("Recommending Ollama (llama.cpp not available)")
             return Backend.OLLAMA
 
-        # Default to llama.cpp (will trigger auto-install)
-        logger.info("Recommending llama.cpp (default, will auto-install)")
+        # Default to llama.cpp (production-ready default)
+        logger.info("Recommending llama.cpp (default, production-ready)")
         return Backend.LLAMACPP

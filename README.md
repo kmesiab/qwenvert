@@ -874,12 +874,21 @@ llama.cpp provides **direct Metal GPU acceleration** for Apple Silicon, while Ol
 
 To switch backends:
 ```bash
-qwenvert init --backend mlx       # Use MLX (Apple Silicon only, experimental)
 qwenvert init --backend llamacpp  # Use llama.cpp (default, fastest production backend)
 qwenvert init --backend ollama    # Use Ollama
 ```
 
-Note: MLX backend is currently experimental and requires additional integration work before it can be used in production. For now, use llama.cpp or Ollama.
+**MLX Backend (Experimental - Not Yet User-Selectable)**
+
+The MLX backend infrastructure is implemented but not yet available via CLI. MLX requires router/launcher integration for in-process execution. Once complete, it will provide 1.5-2x faster inference on Apple Silicon (M1-M5) compared to llama.cpp.
+
+Current status:
+- ✅ Backend detection and installation
+- ✅ Model registry (5 MLX models)
+- ❌ Router integration (blocked by in-process execution model)
+- ❌ CLI selection (disabled until router complete)
+
+For production use, stick with llama.cpp or Ollama backends.
 
 ### Architecture
 
