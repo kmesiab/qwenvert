@@ -13,6 +13,7 @@ from .backend_interface import BackendInfo, BackendLifecycle, BackendStatus
 from .backends import LlamaCppBackend, MLXBackend, OllamaBackend
 from .models import Backend
 
+
 logger = logging.getLogger(__name__)
 
 
