@@ -197,12 +197,71 @@ Learn more: https://github.com/ggerganov/llama.cpp"""
     )
 
 
+def check_mlx() -> DependencyCheckResult:
+    """
+    Check if MLX is installed.
+
+    Returns:
+        DependencyCheckResult with status and installation instructions
+    """
+    try:
+        import mlx.core  # noqa: F401
+        import mlx_lm
+
+        mlx_path = mlx_lm.__file__ if hasattr(mlx_lm, "__file__") else None
+
+        return DependencyCheckResult(
+            name="MLX",
+            status=DependencyStatus.INSTALLED,
+            path=mlx_path,
+        )
+    except ImportError:
+        pass
+
+    # Check platform - MLX only works on Apple Silicon
+    import platform
+
+    if platform.system() != "Darwin":
+        return DependencyCheckResult(
+            name="MLX",
+            status=DependencyStatus.UNKNOWN,
+            error_message="MLX is only available on macOS",
+        )
+
+    if platform.machine() != "arm64":
+        return DependencyCheckResult(
+            name="MLX",
+            status=DependencyStatus.UNKNOWN,
+            error_message="MLX requires Apple Silicon (M1/M2/M3/M4/M5)",
+        )
+
+    instructions = """MLX is not installed. MLX provides 1.5-2x faster inference on Apple Silicon.
+
+To install MLX Python packages:
+  1. Run: pip install mlx mlx-lm
+  2. Wait for installation to complete
+
+qwenvert MLX backend status:
+  - The MLX backend is experimental and not yet selectable via CLI.
+  - You can install MLX now; future qwenvert releases may add first-class MLX support.
+  - For production use today, stick with llama.cpp or Ollama backends.
+
+Learn more: https://github.com/ml-explore/mlx"""
+
+    return DependencyCheckResult(
+        name="MLX",
+        status=DependencyStatus.MISSING,
+        install_instructions=instructions,
+        error_message="MLX is not installed (optional for Apple Silicon)",
+    )
+
+
 def check_backend_dependencies(backend: str | None) -> DependencyCheckResult:
     """
     Check dependencies for a specific backend.
 
     Args:
-        backend: Backend name ('ollama' or 'llamacpp') or None
+        backend: Backend name ('ollama', 'llamacpp', or 'mlx') or None
 
     Returns:
         DependencyCheckResult for the backend
@@ -218,6 +277,8 @@ def check_backend_dependencies(backend: str | None) -> DependencyCheckResult:
         return check_ollama()
     if backend == "llamacpp":
         return check_llamacpp()
+    if backend == "mlx":
+        return check_mlx()
 
     return DependencyCheckResult(
         name=backend,

@@ -65,9 +65,18 @@ class ModelDownloader:
             Path to downloaded model file
 
         Raises:
-            ValueError: If model doesn't have HuggingFace repo info
+            ValueError: If model doesn't have HuggingFace repo info or is MLX model
             RuntimeError: If download fails
         """
+        from .models import Backend
+
+        # MLX models are downloaded on-demand by mlx_lm, not by us
+        if model.backend == Backend.MLX:
+            raise ValueError(
+                f"MLX model {model.id} cannot be downloaded via ModelDownloader. "
+                "MLX models are downloaded automatically by mlx_lm from HuggingFace."
+            )
+
         if not model.huggingface_repo:
             raise ValueError(f"Model {model.id} has no HuggingFace repo specified")
 
@@ -203,12 +212,20 @@ class ModelDownloader:
             model: Model configuration
 
         Returns:
-            Path to model file, or None if not downloaded
+            Path if model is downloaded, None otherwise
         """
-        filename = self.get_model_filename(model)
-        model_path = self.models_dir / filename
+        from .models import Backend
 
-        return model_path if model_path.exists() else None
+        # MLX models don't use local GGUF files
+        if model.backend == Backend.MLX:
+            return None
+
+        try:
+            filename = self.get_model_filename(model)
+            path = self.models_dir / filename
+            return path if path.exists() else None
+        except ValueError:
+            return None
 
     def delete_model(self, model: Model) -> bool:
         """

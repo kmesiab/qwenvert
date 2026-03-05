@@ -348,7 +348,15 @@ qwenvert binary rollback
 qwenvert backends
 ```
 
-Shows which backends (llama.cpp, Ollama) are available on your system and recommends the fastest option.
+Shows which backends (MLX, llama.cpp, Ollama) are available on your system and recommends the fastest option.
+
+**Example output on Apple Silicon:**
+```
+Available Backends:
+✓ MLX v0.10.0 (recommended - fastest on Apple Silicon)
+✓ llama.cpp b3600 (available)
+✗ Ollama (not installed)
+```
 
 ### List Available Models
 
@@ -799,21 +807,31 @@ Qwenvert provides:
 
 ### Performance & Backend Comparison
 
-Qwenvert supports two backends for running local LLMs: **llama.cpp** (default, faster) and **Ollama** (easier setup). Based on extensive research and benchmarking, **llama.cpp is 3-7x faster** than Ollama for local inference on Apple Silicon.
+Qwenvert supports three backends for running local LLMs: **MLX** (fastest on Apple Silicon), **llama.cpp** (fast and cross-platform), and **Ollama** (easiest setup).
 
 #### Benchmark Results
 
 | Backend | Throughput | Performance vs Ollama | Best For |
 |---------|-----------|----------------------|----------|
-| **llama.cpp** | ~150 tok/s | **Baseline (fastest)** | Production, performance-critical |
-| Ollama | 20-40 tok/s | 3-7x slower | Quick testing, simple setup |
-| MLX¹ | ~230 tok/s | 1.5x faster than llama.cpp | Advanced users, Python integration |
+| **MLX** | ~230 tok/s | **1.5-2x faster than llama.cpp** | Apple Silicon (M1-M5), Python integration |
+| **llama.cpp** | ~150 tok/s | **3-7x faster than Ollama** | Production, cross-platform |
+| Ollama | 20-40 tok/s | Baseline | Quick testing, simple setup |
 
-*Benchmarks from [Comparative Study (2025)](https://arxiv.org/pdf/2511.05502)*
+*Benchmarks from [vLLM-MLX (2026)](https://arxiv.org/abs/2601.19139) and [Comparative Study (2025)](https://arxiv.org/pdf/2511.05502)*
 
-¹ MLX (Apple's ML framework) is fastest but not yet integrated into qwenvert.
+#### Why MLX is Fastest on Apple Silicon
 
-#### Why llama.cpp is Faster
+MLX (Apple's ML framework) is purpose-built for Apple Silicon and provides:
+
+- **Native Metal GPU Acceleration**: Direct access to M-series GPU/Neural Engine
+- **Unified Memory Optimization**: Efficient use of Apple's unified memory architecture
+- **M5 Neural Accelerators**: Only framework that leverages M5's new GPU Neural Accelerators (3.5-4x faster prefill)
+- **Content-Based Prefix Caching**: 28x speedup on repeated image queries (multimodal models)
+- **Lower Latency**: ~1.5-2x faster than llama.cpp on same hardware
+
+MLX is automatically recommended on Apple Silicon if available.
+
+#### Why llama.cpp is Faster than Ollama
 
 llama.cpp provides **direct Metal GPU acceleration** for Apple Silicon, while Ollama adds a Go wrapper layer that introduces overhead:
 
@@ -824,45 +842,53 @@ llama.cpp provides **direct Metal GPU acceleration** for Apple Silicon, while Ol
 
 #### Apple Silicon Performance by Model
 
-| Mac Model | RAM | Model Size | llama.cpp Throughput | Expected Response Time |
-|-----------|-----|------------|---------------------|----------------------|
-| M1 Air | 8GB | 1.5B Q4 | 30-40 tok/s | 1-2 seconds |
-| M1 Pro | 16GB | 7B Q4 | 28-35 tok/s | 2-4 seconds |
-| M2 Max | 32GB | 14B Q4 | 22-30 tok/s | 3-5 seconds |
-| M3 Pro/Max | 18GB+ | 7B Q4 | 28-35 tok/s | 2-3 seconds |
+| Mac Model | RAM | Model Size | MLX Throughput | llama.cpp Throughput | Expected Response Time |
+|-----------|-----|------------|----------------|---------------------|----------------------|
+| M1 Air | 8GB | 1.5B Q4 | 45-60 tok/s | 30-40 tok/s | <1 second |
+| M1 Pro | 16GB | 7B Q4 | 63-70 tok/s | 28-35 tok/s | 1-2 seconds |
+| M2 Max | 32GB | 14B Q4 | 48-55 tok/s | 22-30 tok/s | 2-3 seconds |
+| M3 Pro/Max | 18GB+ | 7B Q4 | 65-75 tok/s | 28-35 tok/s | 1-2 seconds |
+| M4 Max | 48GB+ | 7B Q4 | 525 tok/s | 150 tok/s | <1 second |
+| M5 Pro/Max | 24GB+ | 7B Q4 | 800+ tok/s* | 150 tok/s | <1 second |
 
-*Performance data from [llama.cpp Apple Silicon benchmarks](https://github.com/ggml-org/llama.cpp/discussions/4167)*
-
-#### Research-Backed Optimizations
-
-Qwenvert's llama.cpp configuration includes several **research-backed optimizations** for Apple Silicon:
-
-- **Full GPU Offload** (`-ngl 99`): Offloads all model layers to Metal GPU
-- **Performance Core Threading**: Uses only P-cores (E-cores reduce performance)
-- **Continuous Batching** (`--cont-batching`): Improves throughput for concurrent requests
-- **Metal Split Mode**: Optimizes VRAM usage for 7B+ models on limited memory
-
-**Removed flags** (based on community research):
-- ❌ `--mlock`: Causes crashes on macOS ([issue #18152](https://github.com/ggml-org/llama.cpp/issues/18152))
-- ❌ `-fa` (flash attention): Can slow generation unless KV cache fits in VRAM ([discussion](https://github.com/ggml-org/llama.cpp/discussions/15650))
+*M5 performance based on Apple's official benchmarks with MLX as canonical runtime
+*Performance data from [vLLM-MLX research](https://arxiv.org/abs/2601.19139), [llama.cpp benchmarks](https://github.com/ggml-org/llama.cpp/discussions/4167), and [Apple ML Research](https://machinelearning.apple.com/research/exploring-llms-mlx-m5)*
 
 #### Choosing a Backend
 
-**Use llama.cpp (default)** if:
-- ✅ You want maximum performance (3-7x faster)
-- ✅ You're comfortable with command-line tools
-- ✅ You need the best inference speed
+**Use MLX (fastest)** if:
+- ✅ You're on Apple Silicon (M1-M5)
+- ✅ You want maximum performance (1.5-2x faster than llama.cpp)
+- ✅ You want native Metal GPU acceleration
+- ✅ You need multimodal support (vision models)
 
-**Use Ollama** if:
+**Use llama.cpp (cross-platform)** if:
+- ✅ You want great performance (3-7x faster than Ollama)
+- ✅ You need cross-platform support
+- ✅ You're comfortable with command-line tools
+
+**Use Ollama (easiest)** if:
 - ✅ You prefer simpler setup (one-line install)
 - ✅ You already have Ollama installed
 - ✅ Performance is not critical
 
 To switch backends:
 ```bash
+qwenvert init --backend llamacpp  # Use llama.cpp (default, fastest production backend)
 qwenvert init --backend ollama    # Use Ollama
-qwenvert init --backend llamacpp  # Use llama.cpp (default)
 ```
+
+**MLX Backend (Experimental - Not Yet User-Selectable)**
+
+The MLX backend infrastructure is implemented but not yet available via CLI. MLX requires router/launcher integration for in-process execution. Once complete, it will provide 1.5-2x faster inference on Apple Silicon (M1-M5) compared to llama.cpp.
+
+Current status:
+- ✅ Backend detection and installation
+- ✅ Model registry (5 MLX models)
+- ❌ Router integration (blocked by in-process execution model)
+- ❌ CLI selection (disabled until router complete)
+
+For production use, stick with llama.cpp or Ollama backends.
 
 ### Architecture
 
@@ -999,7 +1025,8 @@ See [benchmarks/README.md](./benchmarks/README.md) for details.
 We welcome contributions! Areas where help is needed:
 
 - **Model support** - Add Qwen3-Coder, other model families
-- **Backend support** - MLX, vLLM, TensorRT-LLM
+- **Backend support** - vLLM, TensorRT-LLM integration
+- **MLX enhancements** - Continuous batching, multimodal support
 - **Performance** - Optimization for specific Mac models
 - **Testing** - More edge cases, hardware configurations
 - **Documentation** - Tutorials, examples, translations
