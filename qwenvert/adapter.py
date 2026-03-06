@@ -113,6 +113,12 @@ class Usage(BaseModel):
     output_tokens: int
 
 
+class TokenCountResponse(BaseModel):
+    """Response from /v1/messages/count_tokens endpoint."""
+
+    input_tokens: int
+
+
 class MessagesResponse(BaseModel):
     """Anthropic Messages API response format."""
 
@@ -152,6 +158,76 @@ class ErrorResponse(BaseModel):
     error: Dict[str, Any]
 
 
+# Token Counting Utilities
+
+
+def estimate_token_count(text: str) -> int:
+    """
+    Estimate token count for text.
+
+    Uses a simple heuristic: ~4 characters per token for English text.
+    This matches common LLM tokenization patterns.
+
+    Args:
+        text: Text to count tokens for
+
+    Returns:
+        Estimated token count
+    """
+    if not text:
+        return 0
+    # Rough estimate: 1 token per 4 characters
+    # Add 1 to avoid zero for very short strings
+    return max(1, len(text) // 4)
+
+
+def count_request_tokens(request: MessagesRequest) -> int:
+    """
+    Count tokens in a Messages API request.
+
+    Estimates tokens for:
+    - System prompt
+    - All messages (user and assistant)
+    - Tool definitions (if present)
+
+    Args:
+        request: Messages API request
+
+    Returns:
+        Estimated input token count
+    """
+    total_tokens = 0
+
+    # Count system prompt tokens
+    if request.system:
+        total_tokens += estimate_token_count(request.system)
+
+    # Count message tokens
+    for message in request.messages:
+        # Role label adds ~2 tokens
+        total_tokens += 2
+
+        # Count content tokens
+        if isinstance(message.content, str):
+            total_tokens += estimate_token_count(message.content)
+        elif isinstance(message.content, list):
+            # Content blocks (text, images, etc.)
+            for block in message.content:
+                if isinstance(block, dict) and "text" in block:
+                    total_tokens += estimate_token_count(block["text"])
+                elif isinstance(block, dict) and block.get("type") == "image":
+                    # Images are expensive, estimate ~1000 tokens per image
+                    total_tokens += 1000
+
+    # Tool definitions add overhead (if present in actual implementation)
+    # For now, we don't support tools in qwenvert, so skip
+
+    # Add overhead for message structure (~10 tokens per request)
+    total_tokens += 10
+
+    return total_tokens
+
+
 # FastAPI Application
 
 
@@ -184,6 +260,42 @@ def create_app() -> FastAPI:
             "adapter": "running",
             "backend": "unknown" if not app.state.backend_router else "connected",
         }
+
+    @app.post("/v1/messages/count_tokens", response_model=TokenCountResponse)
+    async def count_tokens(request: MessagesRequest) -> TokenCountResponse:
+        """
+        Count tokens in a message request.
+
+        This endpoint matches the Anthropic API's token counting endpoint,
+        allowing Claude Code to estimate token usage before sending requests.
+
+        Args:
+            request: Messages API request (same format as /v1/messages)
+
+        Returns:
+            Token count response with estimated input_tokens
+
+        Example:
+            POST /v1/messages/count_tokens
+            {
+                "model": "qwenvert-default",
+                "messages": [{"role": "user", "content": "Hello!"}]
+            }
+
+            Response:
+            {
+                "input_tokens": 15
+            }
+        """
+        token_count = count_request_tokens(request)
+
+        logger.info(
+            f"Token count request: model={request.model}, "
+            f"messages={len(request.messages)}, "
+            f"estimated_tokens={token_count}"
+        )
+
+        return TokenCountResponse(input_tokens=token_count)
 
     @app.post("/v1/messages", response_model=MessagesResponse)
     async def create_message(
