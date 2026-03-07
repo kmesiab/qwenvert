@@ -157,3 +157,13 @@ models/
 logs/
 *.pid
 benchmarks/results/*.json
+
+# Claude Code / Agent work files (NEVER commit these)
+.claude/
+*_FINDINGS.md
+PHASE*.md
+test_results*.txt
+*_memory.md
+MEMORY.md
+*_MEMORY.md
+COUNCIL_*.md
