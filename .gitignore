@@ -164,4 +164,6 @@ benchmarks/results/*.json
 PHASE*.md
 test_results*.txt
 *_memory.md
+MEMORY.md
+*_MEMORY.md
 COUNCIL_*.md
